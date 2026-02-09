@@ -1,0 +1,28 @@
+.gradle
+.kotlin
+/build/
+**/build
+!gradle/wrapper/gradle-wrapper.jar
+/logs/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+*.log
+*.class
+*.bak
+/out/
+/temp/
+
+### macOS ###
+.DS_Store
+
+### Excel temp files ###
+~$*.xlsx
+
+### Claude Code ###
+.claude/
+**/docs/
+CLAUDE.md
