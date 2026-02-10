@@ -48,6 +48,7 @@ class TemplateProcessingException(
         /**
          * repeat 마커 문법 오류
          */
+        @Suppress("unused")
         fun invalidRepeatSyntax(marker: String, reason: String) = TemplateProcessingException(
             errorType = ErrorType.INVALID_REPEAT_SYNTAX,
             details = "마커 '$marker' - $reason"
@@ -56,6 +57,7 @@ class TemplateProcessingException(
         /**
          * 필수 파라미터 누락
          */
+        @Suppress("unused")
         fun missingParameter(marker: String, parameterName: String) = TemplateProcessingException(
             errorType = ErrorType.MISSING_REQUIRED_PARAMETER,
             details = "마커 '$marker'에서 필수 파라미터 '$parameterName'이(가) 누락되었습니다."
@@ -64,6 +66,7 @@ class TemplateProcessingException(
         /**
          * 잘못된 셀 범위 형식
          */
+        @Suppress("unused")
         fun invalidRange(marker: String, rangeStr: String) = TemplateProcessingException(
             errorType = ErrorType.INVALID_RANGE_FORMAT,
             details = "마커 '$marker'의 범위 '$rangeStr'이(가) 올바른 Excel 셀 범위 형식이 아닙니다. (예: A1:C10, 'Sheet1'!A1:C10)"
@@ -72,6 +75,7 @@ class TemplateProcessingException(
         /**
          * 존재하지 않는 시트 참조
          */
+        @Suppress("unused")
         fun sheetNotFound(sheetName: String, availableSheets: List<String>) = TemplateProcessingException(
             errorType = ErrorType.SHEET_NOT_FOUND,
             details = "시트 '$sheetName'을(를) 찾을 수 없습니다. 사용 가능한 시트: ${availableSheets.joinToString(", ")}"
@@ -80,6 +84,7 @@ class TemplateProcessingException(
         /**
          * 잘못된 파라미터 값
          */
+        @Suppress("unused")
         fun invalidParameterValue(
             marker: String,
             parameterName: String,

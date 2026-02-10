@@ -4,8 +4,6 @@ import io.github.jogakdal.tbeg.internal.detectImageType
 import org.apache.poi.poifs.crypt.EncryptionInfo
 import org.apache.poi.poifs.crypt.EncryptionMode
 import org.apache.poi.poifs.filesystem.POIFSFileSystem
-import org.apache.poi.ss.usermodel.Cell
-import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.ss.usermodel.Sheet
 import org.apache.poi.ss.usermodel.Workbook
 import org.apache.poi.ss.util.CellAddress
@@ -151,39 +149,6 @@ internal fun ByteArray.removeAbsPath(): ByteArray {
         ByteArrayOutputStream().also { pkg.save(it) }.toByteArray()
     }
 }
-
-/**
- * XSSFWorkbook의 모든 시트를 Sequence로 반환한다.
- */
-internal val XSSFWorkbook.sheets: Sequence<Sheet>
-    get() = (0 until numberOfSheets).asSequence().map { getSheetAt(it) }
-
-/**
- * 시트의 모든 셀을 Sequence로 반환한다.
- */
-internal fun Sheet.cellSequence() = asSequence().flatMap { it.asSequence() }
-
-/**
- * 시트에서 데이터가 있는 마지막 행 인덱스를 반환한다.
- */
-internal val Sheet.lastRowWithData
-    get() = cellSequence().filterNot { it.isEmpty }.maxOfOrNull { it.rowIndex } ?: -1
-
-/**
- * 시트에서 데이터가 있는 마지막 열 인덱스를 반환한다.
- */
-internal val Sheet.lastColumnWithData
-    get() = cellSequence().filterNot { it.isEmpty }.maxOfOrNull { it.columnIndex } ?: -1
-
-/**
- * 셀이 비어있는지 확인한다 (코멘트도 없고 내용도 없는 경우).
- */
-internal val Cell.isEmpty: Boolean
-    get() = cellComment == null && when (cellType) {
-        CellType.BLANK -> true
-        CellType.STRING -> stringCellValue.isNullOrBlank()
-        else -> false
-    }
 
 /**
  * 지정된 위치를 포함하는 병합 영역을 찾습니다.
