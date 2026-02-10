@@ -58,6 +58,8 @@ dependencies {
 tasks.withType<Test> { useJUnitPlatform() }
 
 mavenPublishing {
+    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
+    signAllPublications()
     coordinates(
         groupId = property("GROUP") as String,
         artifactId = "tbeg",
