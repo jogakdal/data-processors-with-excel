@@ -341,7 +341,7 @@ class StreamingDataSource(
 
 ## 7. 테스트 작성 가이드
 
-테스트 코드는 `src/test/kotlin/io/github/jogakdal/tbeg/`에 위치합니다.
+테스트 코드는 `src/test/kotlin/com/hunet/common/tbeg/`에 위치합니다.
 테스트용 템플릿은 `src/test/resources/templates/`에 위치합니다.
 
 ### 7.1 테스트 예시
@@ -407,7 +407,7 @@ class ExcelGeneratorIntegrationTest {
 
 ```
 src/test/
-├── kotlin/io/github/jogakdal/tbeg/
+├── kotlin/com/hunet/common/tbeg/
 │   ├── samples/                            # 샘플 코드 (Kotlin)
 │   │   ├── TbegSample.kt
 │   │   ├── EmptyCollectionSample.kt
@@ -417,7 +417,7 @@ src/test/
 │   │   ├── PerformanceBenchmark.kt         # 대용량 벤치마크
 │   │   └── PerformanceBenchmarkTest.kt     # XSSF vs SXSSF 비교
 │   └── ...                                 # 테스트 코드
-├── java/io/github/jogakdal/tbeg/samples/     # 샘플 코드 (Java)
+├── java/com/hunet/common/tbeg/samples/     # 샘플 코드 (Java)
 │   ├── TbegJavaSample.java
 │   └── TbegSpringBootJavaSample.java
 ```

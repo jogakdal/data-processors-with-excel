@@ -43,7 +43,7 @@ import java.util.concurrent.TimeUnit;
  * <h2>Spring Boot 환경에서 사용</h2>
  * <pre>{@code
  * // build.gradle
- * implementation("io.github.jogakdal:tbeg:1.0.0-SNAPSHOT")
+ * implementation("com.hunet.common:excel-generator:1.0.0-SNAPSHOT")
  * }</pre>
  *
  * <pre>{@code

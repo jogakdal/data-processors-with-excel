@@ -650,11 +650,10 @@ fun generateReport(departmentId: Long): ByteArray {
 
 #### PageableList 기반 Iterator
 
-페이징 응답 타입(`PageableList`)을 활용합니다.
+휴넷의 `standard-api-response` 라이브러리에서 제공하는 `PageableList` 타입을 활용합니다.
 
 ```kotlin
-// PageableList는 페이징 응답을 표현하는 사용자 정의 타입입니다.
-// import your.project.PageableList
+import com.hunet.common.stdapi.response.PageableList
 
 class PageableListIterator<T>(
     private val pageSize: Int = 100,
@@ -686,8 +685,7 @@ class PageableListIterator<T>(
 ```kotlin
 import io.github.jogakdal.tbeg.ExcelGenerator
 import io.github.jogakdal.tbeg.simpleDataProvider
-// PageableList는 페이징 응답을 표현하는 사용자 정의 타입입니다.
-// import your.project.PageableList
+import com.hunet.common.stdapi.response.PageableList
 import java.io.File
 
 data class EmployeeDto(val name: String, val salary: Int)

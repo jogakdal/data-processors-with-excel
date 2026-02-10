@@ -20,10 +20,11 @@
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://nexus.hunet.tech/repository/maven-public/") }
 }
 
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.0.0")
+    implementation("io.github.jogakdal:tbeg:1.1.0-SNAPSHOT")
 }
 ```
 
@@ -32,13 +33,14 @@ dependencies {
 ### application.yml
 
 ```yaml
-tbeg:
-  streaming-mode: enabled           # enabled, disabled
-  file-naming-mode: timestamp       # none, timestamp
-  timestamp-format: yyyyMMdd_HHmmss
-  file-conflict-policy: sequence    # error, sequence
-  preserve-template-layout: true
-  missing-data-behavior: warn       # warn, throw
+hunet:
+  tbeg:
+    streaming-mode: enabled           # enabled, disabled
+    file-naming-mode: timestamp       # none, timestamp
+    timestamp-format: yyyyMMdd_HHmmss
+    file-conflict-policy: sequence    # error, sequence
+    preserve-template-layout: true
+    missing-data-behavior: warn       # warn, throw
 ```
 
 ### 자동 설정

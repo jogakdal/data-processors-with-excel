@@ -36,11 +36,12 @@ import java.util.concurrent.TimeUnit
  * ## Spring Boot 설정
  * `application.yml`에서 ExcelGenerator 설정을 커스터마이징할 수 있습니다:
  * ```yaml
- * tbeg:
- *   streaming-mode: auto
- *   streaming-row-threshold: 1000
- *   formula-processing: true
- *   timestamp-format: yyyyMMdd_HHmmss
+ * hunet:
+ *   excel:
+ *     streaming-mode: auto
+ *     streaming-row-threshold: 1000
+ *     formula-processing: true
+ *     timestamp-format: yyyyMMdd_HHmmss
  * ```
  */
 @SpringBootTest(classes = [TbegSpringBootSample.TestApplication::class])

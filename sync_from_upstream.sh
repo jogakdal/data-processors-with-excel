@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # sync_from_upstream.sh
-# kotlin-common-library에서 TBEG 소스를 당겨와 패키지명을 변환합니다.
+# kotlin-common-library의 master 브랜치에서 TBEG 소스를 추출하여 패키지명을 변환합니다.
+# upstream이 어떤 브랜치에 체크아웃되어 있든 master 브랜치의 파일만 가져옵니다.
 #
 # 사용법:
 #   ./sync_from_upstream.sh [upstream_path]
@@ -13,10 +14,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UPSTREAM="${1:-$SCRIPT_DIR/../kotlin/kotlin-common-library}"
+BRANCH="origin/master"
+LAST_SYNC_FILE="$SCRIPT_DIR/.last_sync_commit"
 
-# 원본 경로
-TBEG_SRC="$UPSTREAM/modules/report/template-based-excel-generator"
-CORE_SRC="$UPSTREAM/modules/core/common-core"
+# upstream 내 상대 경로
+TBEG_REL="modules/report/template-based-excel-generator"
+CORE_VP_REL="modules/core/common-core/src/main/kotlin/com/hunet/common/lib/VariableProcessor.kt"
 
 # 대상 경로
 TARGET="$SCRIPT_DIR/modules/tbeg"
@@ -24,17 +27,47 @@ TARGET="$SCRIPT_DIR/modules/tbeg"
 # -------------------------------------------------------------------
 # 검증
 # -------------------------------------------------------------------
-if [[ ! -d "$TBEG_SRC" ]]; then
-    echo "오류: 원본 TBEG 경로를 찾을 수 없습니다: $TBEG_SRC"
-    exit 1
-fi
-if [[ ! -f "$CORE_SRC/src/main/kotlin/com/hunet/common/lib/VariableProcessor.kt" ]]; then
-    echo "오류: VariableProcessor.kt를 찾을 수 없습니다: $CORE_SRC"
+if [[ ! -d "$UPSTREAM/.git" ]]; then
+    echo "오류: upstream이 git 저장소가 아닙니다: $UPSTREAM"
     exit 1
 fi
 
-echo "=== TBEG 소스 동기화 시작 ==="
-echo "  원본: $TBEG_SRC"
+# remote master 최신 정보 가져오기
+echo "upstream remote에서 최신 master 정보를 가져오는 중..."
+if ! git -C "$UPSTREAM" fetch origin master --quiet 2>/dev/null; then
+    echo "경고: remote fetch 실패 — 로컬 origin/master 캐시를 사용합니다"
+fi
+
+# origin/master 브랜치 존재 확인
+if ! git -C "$UPSTREAM" rev-parse --verify "$BRANCH" &>/dev/null; then
+    echo "오류: upstream에 $BRANCH 브랜치가 없습니다"
+    exit 1
+fi
+
+# -------------------------------------------------------------------
+# 변경 감지 (커밋 해시 비교)
+# -------------------------------------------------------------------
+CURRENT_HASH=$(git -C "$UPSTREAM" log "$BRANCH" -1 --format=%H -- "$TBEG_REL" "$CORE_VP_REL")
+
+if [[ -f "$LAST_SYNC_FILE" ]]; then
+    LAST_HASH=$(cat "$LAST_SYNC_FILE")
+    if [[ "$CURRENT_HASH" == "$LAST_HASH" ]]; then
+        echo "=== upstream master에 변경 사항 없음 (해시: ${CURRENT_HASH:0:8}) ==="
+        exit 0
+    fi
+    echo "변경 감지: ${LAST_HASH:0:8} → ${CURRENT_HASH:0:8}"
+    echo ""
+    echo "변경된 파일 목록:"
+    git -C "$UPSTREAM" diff --name-only "$LAST_HASH".."$CURRENT_HASH" -- "$TBEG_REL" "$CORE_VP_REL" | while read -r f; do
+        echo "  $f"
+    done
+    echo ""
+else
+    echo "첫 동기화 (해시: ${CURRENT_HASH:0:8})"
+fi
+
+echo "=== TBEG 소스 동기화 시작 (upstream $BRANCH 브랜치) ==="
+echo "  upstream: $UPSTREAM"
 echo "  대상: $TARGET"
 
 # -------------------------------------------------------------------
@@ -43,16 +76,29 @@ echo "  대상: $TARGET"
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
 
-# -------------------------------------------------------------------
-# 1) TBEG src/ 복사
-# -------------------------------------------------------------------
-echo "[1/7] TBEG src/ 복사..."
-cp -R "$TBEG_SRC/src" "$TMPDIR/src"
+UPSTREAM_DIR="$TMPDIR/upstream"
+mkdir -p "$UPSTREAM_DIR"
 
 # -------------------------------------------------------------------
-# 2) manual/, README.md, DEVELOPMENT.md 복사
+# 1) master 브랜치에서 TBEG 파일 추출
 # -------------------------------------------------------------------
-echo "[2/7] 문서 복사..."
+echo "[1/8] master 브랜치에서 TBEG 파일 추출..."
+git -C "$UPSTREAM" archive "$BRANCH" -- "$TBEG_REL" | tar -x -C "$UPSTREAM_DIR"
+TBEG_SRC="$UPSTREAM_DIR/$TBEG_REL"
+
+# -------------------------------------------------------------------
+# 2) master 브랜치에서 VariableProcessor 추출
+# -------------------------------------------------------------------
+echo "[2/8] master 브랜치에서 VariableProcessor 추출..."
+git -C "$UPSTREAM" archive "$BRANCH" -- "$CORE_VP_REL" | tar -x -C "$UPSTREAM_DIR"
+CORE_SRC="$UPSTREAM_DIR/modules/core/common-core"
+
+# -------------------------------------------------------------------
+# 3) TBEG src/ 및 문서 복사
+# -------------------------------------------------------------------
+echo "[3/8] TBEG src/ 및 문서 복사..."
+cp -R "$TBEG_SRC/src" "$TMPDIR/src"
+
 if [[ -d "$TBEG_SRC/manual" ]]; then
     cp -R "$TBEG_SRC/manual" "$TMPDIR/manual"
 fi
@@ -64,17 +110,17 @@ if [[ -f "$TBEG_SRC/DEVELOPMENT.md" ]]; then
 fi
 
 # -------------------------------------------------------------------
-# 3) common-core 유틸리티를 internal 패키지로 복사
+# 4) common-core 유틸리티를 internal 패키지로 복사
 # -------------------------------------------------------------------
-echo "[3/8] common-core 유틸리티 → internal 패키지로 복사..."
+echo "[4/8] common-core 유틸리티 → internal 패키지로 복사..."
 INTERNAL_DEST="$TMPDIR/src/main/kotlin/com/hunet/common/tbeg/internal"
 mkdir -p "$INTERNAL_DEST"
 cp "$CORE_SRC/src/main/kotlin/com/hunet/common/lib/VariableProcessor.kt" "$INTERNAL_DEST/"
 
 # -------------------------------------------------------------------
-# 4) CommonLogger, ImageUtils를 internal 패키지에 생성
+# 5) CommonLogger, ImageUtils를 internal 패키지에 생성
 # -------------------------------------------------------------------
-echo "[4/8] CommonLogger, ImageUtils → internal 패키지에 생성..."
+echo "[5/8] CommonLogger, ImageUtils → internal 패키지에 생성..."
 
 cat > "$INTERNAL_DEST/CommonLogger.kt" << 'COMMONLOGGER_EOF'
 package io.github.jogakdal.tbeg.internal
@@ -124,9 +170,9 @@ private fun ByteArray.isBmp(): Boolean =
 IMAGEUTILS_EOF
 
 # -------------------------------------------------------------------
-# 5) .kt, .java 파일 패키지명 치환
+# 6) .kt, .java 파일 패키지명 치환
 # -------------------------------------------------------------------
-echo "[5/8] Kotlin/Java 파일 패키지명 치환..."
+echo "[6/8] Kotlin/Java 파일 패키지명 치환..."
 
 find "$TMPDIR/src" -type f \( -name "*.kt" -o -name "*.java" \) | while read -r f; do
     # 패키지명 치환 (순서 중요: 더 구체적인 것부터)
@@ -151,9 +197,9 @@ if [[ -f "$VP_FILE" ]]; then
 fi
 
 # -------------------------------------------------------------------
-# 5) .md 파일 치환 (패키지명 + Maven 좌표 + Spring prefix)
+# 7) .md 파일 치환 (패키지명 + Maven 좌표 + Spring prefix)
 # -------------------------------------------------------------------
-echo "[6/8] 문서 파일 치환..."
+echo "[7/8] 문서 파일 치환..."
 
 find "$TMPDIR" -maxdepth 1 -name "*.md" -type f | while read -r f; do
     sed -i '' \
@@ -176,9 +222,9 @@ if [[ -d "$TMPDIR/manual" ]]; then
 fi
 
 # -------------------------------------------------------------------
-# 6) META-INF AutoConfiguration.imports 치환
+# 8) META-INF AutoConfiguration.imports 치환
 # -------------------------------------------------------------------
-echo "[7/8] META-INF 파일 치환..."
+echo "[8/8] META-INF 파일 치환..."
 
 IMPORTS_FILE="$TMPDIR/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports"
 if [[ -f "$IMPORTS_FILE" ]]; then
@@ -188,11 +234,11 @@ if [[ -f "$IMPORTS_FILE" ]]; then
 fi
 
 # -------------------------------------------------------------------
-# 7) 디렉토리 구조 변환
+# 디렉토리 구조 변환
 #    com/hunet/common/tbeg → io/github/jogakdal/tbeg
 #    com/hunet/common/lib  → io/github/jogakdal/tbeg/internal (이미 위에서 복사)
 # -------------------------------------------------------------------
-echo "[8/8] 디렉토리 구조 변환..."
+echo "디렉토리 구조 변환..."
 
 for base in \
     "$TMPDIR/src/main/kotlin" \
@@ -223,23 +269,47 @@ echo "=== 결과를 $TARGET 에 반영 ==="
 rm -rf "$TARGET/src"
 cp -R "$TMPDIR/src" "$TARGET/src"
 
-# manual/ 동기화
+# manual/ → manual/ko/ 동기화 (다국어 구조: 한국어 원본은 ko/ 하위에 배치)
 if [[ -d "$TMPDIR/manual" ]]; then
-    rm -rf "$TARGET/manual"
-    cp -R "$TMPDIR/manual" "$TARGET/manual"
+    rm -rf "$TARGET/manual/ko"
+    mkdir -p "$TARGET/manual/ko"
+    cp -R "$TMPDIR/manual"/* "$TARGET/manual/ko"/
 fi
 
-# README.md, DEVELOPMENT.md
+# README.md → README.ko.md, DEVELOPMENT.md → DEVELOPMENT.ko.md
+# (기본 언어가 English이므로 한국어 원본은 .ko.md 접미사)
 if [[ -f "$TMPDIR/README.md" ]]; then
-    cp "$TMPDIR/README.md" "$TARGET/README.md"
+    cp "$TMPDIR/README.md" "$TARGET/README.ko.md"
 fi
 if [[ -f "$TMPDIR/DEVELOPMENT.md" ]]; then
-    cp "$TMPDIR/DEVELOPMENT.md" "$TARGET/DEVELOPMENT.md"
+    cp "$TMPDIR/DEVELOPMENT.md" "$TARGET/DEVELOPMENT.ko.md"
 fi
 
-echo "=== 동기화 완료 ==="
+# -------------------------------------------------------------------
+# 버전 동기화
+# upstream의 moduleVersion.tbeg 값을 이 프로젝트의 VERSION_NAME에 반영한다.
+# -------------------------------------------------------------------
+UPSTREAM_VERSION=$(git -C "$UPSTREAM" show "$BRANCH":gradle.properties | grep '^moduleVersion\.tbeg=' | cut -d'=' -f2)
+if [[ -n "$UPSTREAM_VERSION" ]]; then
+    LOCAL_PROPS="$SCRIPT_DIR/gradle.properties"
+    CURRENT_VERSION=$(grep '^VERSION_NAME=' "$LOCAL_PROPS" | cut -d'=' -f2)
+    if [[ "$CURRENT_VERSION" != "$UPSTREAM_VERSION" ]]; then
+        sed -i '' "s/^VERSION_NAME=.*/VERSION_NAME=$UPSTREAM_VERSION/" "$LOCAL_PROPS"
+        echo "버전 동기화: $CURRENT_VERSION → $UPSTREAM_VERSION"
+    fi
+fi
+
+# -------------------------------------------------------------------
+# 커밋 해시 저장
+# -------------------------------------------------------------------
+echo "$CURRENT_HASH" > "$LAST_SYNC_FILE"
+
+echo "=== 동기화 완료 (해시: ${CURRENT_HASH:0:8}) ==="
 echo ""
 echo "확인 사항:"
 echo "  - $TARGET/src/main/kotlin/io/github/jogakdal/tbeg/"
 echo "  - $TARGET/src/main/kotlin/io/github/jogakdal/tbeg/internal/VariableProcessor.kt"
 echo "  - $TARGET/src/main/resources/META-INF/spring/"
+echo "  - $TARGET/manual/ko/ (한국어 원본)"
+echo "  - $TARGET/README.ko.md (한국어 README)"
+echo "  - $TARGET/DEVELOPMENT.ko.md (한국어 개발자 가이드)"

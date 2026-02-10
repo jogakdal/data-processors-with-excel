@@ -22,6 +22,9 @@
 ### Excel temp files ###
 ~$*.xlsx
 
+### Sync ###
+.last_sync_commit
+
 ### Claude Code ###
 .claude/
 **/docs/

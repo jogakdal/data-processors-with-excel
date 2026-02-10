@@ -25,10 +25,11 @@ TBEG은 Excel 템플릿에 데이터를 바인딩하여 보고서, 명세서 등
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://nexus.hunet.tech/repository/maven-public/") }
 }
 
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.0.0")
+    implementation("io.github.jogakdal:tbeg:1.1.0-SNAPSHOT")
 }
 ```
 
@@ -95,7 +96,7 @@ fun main() {
 
 | 항목 | 값 |
 |------|-----|
-| Group ID | `io.github.jogakdal` |
+| Group ID | `com.hunet.common` |
 | Artifact ID | `tbeg` |
 | 패키지 | `io.github.jogakdal.tbeg` |
 | 최소 Java 버전 | 21 |

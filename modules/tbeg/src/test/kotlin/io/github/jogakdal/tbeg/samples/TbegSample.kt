@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit
  *
  * ```kotlin
  * // build.gradle.kts
- * implementation("io.github.jogakdal:tbeg:1.0.0-SNAPSHOT")
+ * implementation("com.hunet.common:excel-generator:1.0.0-SNAPSHOT")
  * ```
  *
  * ```kotlin
@@ -54,11 +54,12 @@ import java.util.concurrent.TimeUnit
  *
  * ### application.yml 설정 예시
  * ```yaml
- * tbeg:
- *   streaming-mode: auto
- *   streaming-row-threshold: 1000
- *   formula-processing: true
- *   timestamp-format: yyyyMMdd_HHmmss
+ * hunet:
+ *   excel:
+ *     streaming-mode: auto
+ *     streaming-row-threshold: 1000
+ *     formula-processing: true
+ *     timestamp-format: yyyyMMdd_HHmmss
  * ```
  */
 object TbegSample {

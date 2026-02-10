@@ -1,27 +1,29 @@
-# TBEG 개발 가이드
+> **[한국어](./DEVELOPMENT.ko.md)** | English
 
-이 문서는 Template-Based Excel Generator(TBEG) 모듈의 아키텍처, 구현 원칙, 개발 가이드라인을 정의합니다.
-**코드 수정 시 이 문서도 함께 갱신해야 합니다.**
+# TBEG Development Guide
 
-## 목차
+This document defines the architecture, implementation principles, and development guidelines for the Template-Based Excel Generator (TBEG) module.
+**This document must be updated whenever the code is modified.**
 
-1. [아키텍처 개요](#아키텍처-개요)
-2. [프로젝트 구조](#프로젝트-구조)
-3. [핵심 컴포넌트](#핵심-컴포넌트)
-4. [템플릿 문법](#템플릿-문법)
-5. [구현된 기능](#구현된-기능)
-6. [구현 원칙](#구현-원칙)
-7. [설정 옵션](#설정-옵션)
-8. [제한사항](#제한사항)
-9. [내부 최적화](#내부-최적화)
-10. [확장 포인트](#확장-포인트)
-11. [테스트 가이드](#테스트-가이드)
+## Table of Contents
+
+1. [Architecture Overview](#architecture-overview)
+2. [Project Structure](#project-structure)
+3. [Core Components](#core-components)
+4. [Template Syntax](#template-syntax)
+5. [Implemented Features](#implemented-features)
+6. [Implementation Principles](#implementation-principles)
+7. [Configuration Options](#configuration-options)
+8. [Limitations](#limitations)
+9. [Internal Optimizations](#internal-optimizations)
+10. [Extension Points](#extension-points)
+11. [Testing Guide](#testing-guide)
 
 ---
 
-## 아키텍처 개요
+## Architecture Overview
 
-### 전체 구조
+### Overall Structure
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -51,57 +53,57 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 파이프라인 처리 순서
+### Pipeline Processing Order
 
-| 순서 | 프로세서               | 클래스                           | 역할                      | 실행 조건    |
-|----|--------------------|-------------------------------|-------------------------|----------|
-| 1  | ChartExtract       | `ChartExtractProcessor`       | 차트 정보 추출 및 임시 제거        | SXSSF 모드 |
-| 2  | PivotExtract       | `PivotExtractProcessor`       | 피벗 테이블 정보 추출            | 항상       |
-| 3  | TemplateRender     | `TemplateRenderProcessor`     | 템플릿 렌더링 (XSSF/SXSSF 전략) | 항상       |
-| 4  | NumberFormat       | `NumberFormatProcessor`       | 숫자 서식 자동 적용             | 항상       |
-| 5  | XmlVariableReplace | `XmlVariableReplaceProcessor` | XML 내 변수 치환             | 항상       |
-| 6  | PivotRecreate      | `PivotRecreateProcessor`      | 피벗 테이블 재생성              | 피벗 존재 시  |
-| 7  | ChartRestore       | `ChartRestoreProcessor`       | 차트 복원 및 데이터 범위 조정       | 차트 존재 시  |
-| 8  | Metadata           | `MetadataProcessor`           | 문서 메타데이터 적용             | 항상       |
+| Order | Processor          | Class                         | Role                                      | Execution Condition |
+|-------|--------------------|-------------------------------|--------------------------------------------|---------------------|
+| 1     | ChartExtract       | `ChartExtractProcessor`       | Extract chart info and temporarily remove   | SXSSF mode          |
+| 2     | PivotExtract       | `PivotExtractProcessor`       | Extract pivot table info                    | Always              |
+| 3     | TemplateRender     | `TemplateRenderProcessor`     | Template rendering (XSSF/SXSSF strategy)   | Always              |
+| 4     | NumberFormat       | `NumberFormatProcessor`       | Auto-apply number formats                   | Always              |
+| 5     | XmlVariableReplace | `XmlVariableReplaceProcessor` | Variable substitution within XML            | Always              |
+| 6     | PivotRecreate      | `PivotRecreateProcessor`      | Recreate pivot tables                       | When pivots exist   |
+| 7     | ChartRestore       | `ChartRestoreProcessor`       | Restore charts and adjust data ranges       | When charts exist   |
+| 8     | Metadata           | `MetadataProcessor`           | Apply document metadata                     | Always              |
 
-### 렌더링 전략 (Strategy Pattern)
+### Rendering Strategy (Strategy Pattern)
 
-| 전략    | 클래스                      | 사용 조건         | 특징                  |
-|-------|--------------------------|---------------|---------------------|
-| SXSSF | `SxssfRenderingStrategy` | 스트리밍 모드 (기본값) | 100행 버퍼, 메모리 효율적    |
-| XSSF  | `XssfRenderingStrategy`  | 비스트리밍 모드      | 전체 메모리 로드, 모든 기능 지원 |
+| Strategy | Class                      | Condition                | Characteristics                    |
+|----------|----------------------------|--------------------------|------------------------------------|
+| SXSSF    | `SxssfRenderingStrategy`   | Streaming mode (default) | 100-row buffer, memory efficient   |
+| XSSF     | `XssfRenderingStrategy`    | Non-streaming mode       | Full in-memory load, all features  |
 
 ---
 
-## 프로젝트 구조
+## Project Structure
 
 ```
 src/main/kotlin/io/github/jogakdal/tbeg/
-├── ExcelGenerator.kt                       # 메인 진입점 (Public API)
-├── ExcelDataProvider.kt                    # 데이터 제공 인터페이스
-├── SimpleDataProvider.kt                   # Map 기반 간단한 DataProvider 구현
-├── TbegConfig.kt                           # 설정 클래스 (Builder 패턴)
-├── DocumentMetadata.kt                     # 문서 메타데이터
-├── Enums.kt                                # StreamingMode, FileNamingMode 등 열거형
+├── ExcelGenerator.kt                       # Main entry point (Public API)
+├── ExcelDataProvider.kt                    # Data provider interface
+├── SimpleDataProvider.kt                   # Simple Map-based DataProvider implementation
+├── TbegConfig.kt                           # Configuration class (Builder pattern)
+├── DocumentMetadata.kt                     # Document metadata
+├── Enums.kt                                # Enums: StreamingMode, FileNamingMode, etc.
 │
-├── async/                                  # 비동기 처리
-│   ├── ExcelGenerationListener.kt          # 콜백 인터페이스
-│   ├── GenerationJob.kt                    # 비동기 작업 핸들
-│   ├── GenerationResult.kt                 # 생성 결과 DTO
-│   └── ProgressInfo.kt                     # 진행률 정보
+├── async/                                  # Async processing
+│   ├── ExcelGenerationListener.kt          # Callback interface
+│   ├── GenerationJob.kt                    # Async job handle
+│   ├── GenerationResult.kt                 # Generation result DTO
+│   └── ProgressInfo.kt                     # Progress info
 │
-├── engine/                                 # 내부 엔진 (internal)
-│   ├── core/                               # 핵심 유틸리티
-│   │   ├── ChartProcessor.kt               # 차트 추출/복원
-│   │   ├── PivotTableProcessor.kt          # 피벗 테이블 처리
-│   │   ├── XmlVariableProcessor.kt         # XML 내 변수 치환
-│   │   └── ExcelUtils.kt                   # 유틸리티 함수
+├── engine/                                 # Internal engine (internal)
+│   ├── core/                               # Core utilities
+│   │   ├── ChartProcessor.kt               # Chart extraction/restoration
+│   │   ├── PivotTableProcessor.kt          # Pivot table processing
+│   │   ├── XmlVariableProcessor.kt         # Variable substitution in XML
+│   │   └── ExcelUtils.kt                   # Utility functions
 │   │
-│   ├── pipeline/                           # 처리 파이프라인
-│   │   ├── TbegPipeline.kt                 # 파이프라인 정의
-│   │   ├── ExcelProcessor.kt               # 프로세서 인터페이스
-│   │   ├── ProcessingContext.kt            # 처리 컨텍스트
-│   │   └── processors/                     # 개별 프로세서 (8개)
+│   ├── pipeline/                           # Processing pipeline
+│   │   ├── TbegPipeline.kt                 # Pipeline definition
+│   │   ├── ExcelProcessor.kt               # Processor interface
+│   │   ├── ProcessingContext.kt            # Processing context
+│   │   └── processors/                     # Individual processors (8)
 │   │       ├── ChartExtractProcessor.kt
 │   │       ├── ChartRestoreProcessor.kt
 │   │       ├── MetadataProcessor.kt
@@ -111,139 +113,139 @@ src/main/kotlin/io/github/jogakdal/tbeg/
 │   │       ├── TemplateRenderProcessor.kt
 │   │       └── XmlVariableReplaceProcessor.kt
 │   │
-│   └── rendering/                          # 렌더링 전략
-│       ├── RenderingStrategy.kt            # 렌더링 전략 인터페이스
-│       ├── AbstractRenderingStrategy.kt    # 공통 로직
-│       ├── XssfRenderingStrategy.kt        # XSSF (비스트리밍)
-│       ├── SxssfRenderingStrategy.kt       # SXSSF (스트리밍)
-│       ├── TemplateRenderingEngine.kt      # 렌더링 엔진
-│       ├── TemplateAnalyzer.kt             # 템플릿 분석기
-│       ├── parser/                         # 마커 파서 (통합)
-│       │   ├── MarkerDefinition.kt         #   마커 정의
-│       │   ├── ParameterParser.kt          #   파라미터 파싱
-│       │   ├── ParsedMarker.kt             #   파싱 결과
-│       │   └── UnifiedMarkerParser.kt      #   통합 파서
-│       ├── WorkbookSpec.kt                 # 워크북/시트/셀 명세
-│       ├── PositionCalculator.kt           # 반복 확장 위치 계산
-│       ├── StreamingDataSource.kt          # 스트리밍 데이터 소스
-│       ├── ImageInserter.kt                # 이미지 삽입
-│       ├── FormulaAdjuster.kt              # 수식 조정
-│       ├── RepeatExpansionProcessor.kt     # 반복 영역 확장
-│       └── SheetLayoutApplier.kt           # 레이아웃 적용
+│   └── rendering/                          # Rendering strategies
+│       ├── RenderingStrategy.kt            # Rendering strategy interface
+│       ├── AbstractRenderingStrategy.kt    # Common logic
+│       ├── XssfRenderingStrategy.kt        # XSSF (non-streaming)
+│       ├── SxssfRenderingStrategy.kt       # SXSSF (streaming)
+│       ├── TemplateRenderingEngine.kt      # Rendering engine
+│       ├── TemplateAnalyzer.kt             # Template analyzer
+│       ├── parser/                         # Marker parser (unified)
+│       │   ├── MarkerDefinition.kt         #   Marker definitions
+│       │   ├── ParameterParser.kt          #   Parameter parsing
+│       │   ├── ParsedMarker.kt             #   Parse results
+│       │   └── UnifiedMarkerParser.kt      #   Unified parser
+│       ├── WorkbookSpec.kt                 # Workbook/sheet/cell specification
+│       ├── PositionCalculator.kt           # Position calculation for repeat expansion
+│       ├── StreamingDataSource.kt          # Streaming data source
+│       ├── ImageInserter.kt                # Image insertion
+│       ├── FormulaAdjuster.kt              # Formula adjustment
+│       ├── RepeatExpansionProcessor.kt     # Repeat region expansion
+│       └── SheetLayoutApplier.kt           # Layout application
 │
-├── exception/                              # 예외 클래스
+├── exception/                              # Exception classes
 │   ├── TemplateProcessingException.kt
 │   ├── MissingTemplateDataException.kt
 │   └── FormulaExpansionException.kt
 │
-└── spring/                                 # Spring Boot 통합
-    ├── TbegAutoConfiguration.kt            # 자동 설정
-    └── TbegProperties.kt                   # 설정 속성
+└── spring/                                 # Spring Boot integration
+    ├── TbegAutoConfiguration.kt            # Auto-configuration
+    └── TbegProperties.kt                   # Configuration properties
 ```
 
 ---
 
-## 핵심 컴포넌트
+## Core Components
 
 ### Public API
 
-| 클래스                  | 역할                                                         |
-|----------------------|------------------------------------------------------------|
-| `ExcelGenerator`     | 메인 진입점. `generate()`, `generateAsync()`, `submit()` 메서드 제공 |
-| `ExcelDataProvider`  | 데이터 제공 인터페이스. 컬렉션/이미지 지연 로딩 지원                             |
-| `SimpleDataProvider` | Map 기반 간단한 DataProvider 구현. 컬렉션/이미지 지연 로딩 지원               |
-| `TbegConfig`         | 설정 옵션 (Builder 패턴)                                         |
-| `DocumentMetadata`   | 문서 메타데이터 (제목, 작성자 등)                                       |
+| Class                | Role                                                                      |
+|----------------------|---------------------------------------------------------------------------|
+| `ExcelGenerator`     | Main entry point. Provides `generate()`, `generateAsync()`, `submit()`    |
+| `ExcelDataProvider`  | Data provider interface. Supports lazy loading of collections and images   |
+| `SimpleDataProvider` | Simple Map-based DataProvider implementation. Supports lazy loading        |
+| `TbegConfig`         | Configuration options (Builder pattern)                                   |
+| `DocumentMetadata`   | Document metadata (title, author, etc.)                                   |
 
-### 파이프라인
+### Pipeline
 
-| 클래스                 | 역할                              |
-|---------------------|---------------------------------|
-| `TbegPipeline`      | 프로세서 체인 관리 및 실행                 |
-| `ExcelProcessor`    | 프로세서 인터페이스 (`process(context)`) |
-| `ProcessingContext` | 프로세서 간 공유 데이터 (워크북, 확장 정보 등)    |
+| Class               | Role                                                       |
+|---------------------|------------------------------------------------------------|
+| `TbegPipeline`      | Manages and executes the processor chain                   |
+| `ExcelProcessor`    | Processor interface (`process(context)`)                   |
+| `ProcessingContext`  | Shared data between processors (workbook, expansion info)  |
 
-### 렌더링 엔진
+### Rendering Engine
 
-| 클래스                       | 역할                               |
-|---------------------------|----------------------------------|
-| `TemplateRenderingEngine` | 렌더링 전략 선택 및 실행                   |
-| `TemplateAnalyzer`        | 템플릿 분석 (마커 파싱, 정규식 정의)           |
-| `WorkbookSpec`            | 분석된 템플릿 명세 (SheetSpec, CellSpec) |
-| `PositionCalculator`      | repeat 확장 시 셀 위치 계산              |
-| `FormulaAdjuster`         | 수식 참조 자동 확장                      |
+| Class                       | Role                                                  |
+|-----------------------------|-------------------------------------------------------|
+| `TemplateRenderingEngine`   | Selects and executes rendering strategy                |
+| `TemplateAnalyzer`          | Template analysis (marker parsing, regex definitions)  |
+| `WorkbookSpec`              | Analyzed template specification (SheetSpec, CellSpec)  |
+| `PositionCalculator`        | Cell position calculation during repeat expansion      |
+| `FormulaAdjuster`           | Automatic formula reference expansion                  |
 
-### 스트리밍 지원
+### Streaming Support
 
-| 클래스                      | 역할                    |
-|--------------------------|-----------------------|
-| `SxssfRenderingStrategy` | SXSSF 기반 스트리밍 렌더링     |
-| `StreamingDataSource`    | Iterator 기반 데이터 순차 소비 |
+| Class                      | Role                                        |
+|----------------------------|---------------------------------------------|
+| `SxssfRenderingStrategy`   | SXSSF-based streaming rendering             |
+| `StreamingDataSource`      | Sequential data consumption via Iterator    |
 
-### 비동기 처리
+### Async Processing
 
-| 클래스                       | 역할                                          |
-|---------------------------|---------------------------------------------|
-| `GenerationJob`           | 비동기 작업 핸들 (취소, 대기 지원)                       |
-| `ExcelGenerationListener` | 콜백 인터페이스 (onStarted, onCompleted, onFailed) |
-| `GenerationResult`        | 생성 결과 DTO                                   |
+| Class                       | Role                                                  |
+|-----------------------------|-------------------------------------------------------|
+| `GenerationJob`             | Async job handle (supports cancellation and waiting)  |
+| `ExcelGenerationListener`   | Callback interface (onStarted, onCompleted, onFailed) |
+| `GenerationResult`          | Generation result DTO                                 |
 
 ---
 
-## 템플릿 문법
+## Template Syntax
 
-### 문법 형태 개요
+### Syntax Overview
 
-TBEG는 두 가지 형태의 마커를 지원합니다:
+TBEG supports two forms of markers:
 
-| 형태         | 문법             | 위치   | 용도                 |
-|------------|----------------|------|--------------------|
-| **텍스트 마커** | `${...}`       | 셀 값  | 일반적인 사용            |
-| **수식 마커**  | `=TBEG_*(...)` | 셀 수식 | Excel에서 마커가 보이지 않게 |
+| Form              | Syntax           | Location     | Purpose                          |
+|-------------------|------------------|--------------|----------------------------------|
+| **Text marker**   | `${...}`         | Cell value   | General usage                    |
+| **Formula marker**| `=TBEG_*(...)`   | Cell formula | Markers invisible in Excel       |
 
-수식 마커는 Excel에서 `#NAME?` 오류로 표시되지만, 생성 시 올바르게 처리됩니다.
+Formula markers display as `#NAME?` errors in Excel but are processed correctly during generation.
 
-### 변수 치환
+### Variable Substitution
 
-**텍스트 마커:**
+**Text markers:**
 ```
 ${변수명}
 ${객체.속성}
 ${객체.속성.서브속성}
 ```
 
-**지원 타입:**
-- data class, POJO 프로퍼티/필드
-- Map의 키 접근
-- getter 메서드 (`getFieldName()`)
+**Supported types:**
+- data class, POJO properties/fields
+- Map key access
+- Getter methods (`getFieldName()`)
 
-### 반복 처리 (repeat)
+### Repeat Processing
 
-**텍스트 마커:**
+**Text markers:**
 ```
 ${repeat(컬렉션, 범위, 변수)}
 ${repeat(컬렉션, 범위, 변수, DOWN)}
 ${repeat(컬렉션, 범위, 변수, RIGHT)}
 ```
 
-**수식 마커:**
+**Formula markers:**
 ```
 =TBEG_REPEAT(컬렉션, 범위, 변수)
 =TBEG_REPEAT(컬렉션, 범위, 변수, DOWN)
 =TBEG_REPEAT(컬렉션, 범위, 변수, RIGHT)
 ```
 
-**파라미터:**
+**Parameters:**
 
-| 파라미터  | 설명                 | 예시          |
-|-------|--------------------|-------------|
-| 컬렉션   | 데이터의 키 이름          | `employees` |
-| 범위    | 반복할 셀 범위           | `A2:C2`     |
-| 변수    | 각 아이템을 참조할 변수명     | `emp`       |
-| 방향    | DOWN (기본) 또는 RIGHT | `DOWN`      |
-| empty | 빈 컬렉션 시 대체 범위 (선택) | `A10:C10`   |
+| Parameter   | Description                                          | Example       |
+|-------------|------------------------------------------------------|---------------|
+| collection  | Key name of the data                                 | `employees`   |
+| range       | Cell range to repeat                                 | `A2:C2`       |
+| var         | Variable name to reference each item                 | `emp`         |
+| direction   | DOWN (default) or RIGHT                              | `DOWN`        |
+| empty       | Replacement range for empty collections (optional)   | `A10:C10`     |
 
-**예시:**
+**Examples:**
 ```
 ${repeat(employees, A2:C2, emp)}
 ${repeat(employees, A2:C2, emp, DOWN, A10:C10)}
@@ -252,42 +254,42 @@ ${repeat(employees, A2:C2, emp, DOWN, A10:C10)}
 =TBEG_REPEAT(months, B1:B2, m, RIGHT)
 ```
 
-**empty 범위 지원 형식:**
-- 일반 범위: `A10:C10`
-- 절대 좌표: `$A$10:$C$10` ($ 기호는 파싱 시 무시)
-- 시트 참조: `'Sheet2'!A1:C1`
+**Supported empty range formats:**
+- Normal range: `A10:C10`
+- Absolute coordinates: `$A$10:$C$10` ($ signs are ignored during parsing)
+- Sheet reference: `'Sheet2'!A1:C1`
 
-**마커 위치:** 반복 범위 밖 어디든지 가능 (다른 시트도 가능)
+**Marker placement:** Anywhere outside the repeat range (even on a different sheet)
 
-### 이미지 삽입
+### Image Insertion
 
-**텍스트 마커:**
+**Text markers:**
 ```
 ${image(이름)}
 ${image(이름, 위치)}
 ${image(이름, 위치, 크기)}
 ```
 
-**수식 마커:**
+**Formula markers:**
 ```
 =TBEG_IMAGE(이름)
 =TBEG_IMAGE(이름, 위치)
 =TBEG_IMAGE(이름, 위치, 크기)
 ```
 
-**크기 옵션:**
+**Size options:**
 
-| 옵션                    | 설명                 |
-|-----------------------|--------------------|
-| `fit` 또는 `0:0`        | 셀/범위 크기에 맞춤 (기본값)  |
-| `original` 또는 `-1:-1` | 원본 크기 유지           |
-| `200:150`             | 너비 200px, 높이 150px |
-| `200:-1`              | 너비 200px, 높이 비율 유지 |
-| `-1:150`              | 높이 150px, 너비 비율 유지 |
-| `0:-1`                | 셀 너비에 맞춤, 높이 비율 유지 |
-| `-1:0`                | 셀 높이에 맞춤, 너비 비율 유지 |
+| Option                  | Description                              |
+|-------------------------|------------------------------------------|
+| `fit` or `0:0`          | Fit to cell/range size (default)         |
+| `original` or `-1:-1`   | Keep original size                       |
+| `200:150`               | Width 200px, height 150px                |
+| `200:-1`                | Width 200px, maintain height ratio       |
+| `-1:150`                | Height 150px, maintain width ratio       |
+| `0:-1`                  | Fit to cell width, maintain height ratio |
+| `-1:0`                  | Fit to cell height, maintain width ratio |
 
-**예시:**
+**Examples:**
 ```
 ${image(logo)}
 ${image(logo, B2)}
@@ -297,27 +299,27 @@ ${image(logo, B2, original)}
 =TBEG_IMAGE(logo, B2, 200:150)
 ```
 
-### 컬렉션 크기
+### Collection Size
 
-**텍스트 마커:**
+**Text markers:**
 ```
 ${size(컬렉션)}
 ```
 
-**수식 마커:**
+**Formula markers:**
 ```
 =TBEG_SIZE(컬렉션)
 ```
 
-**예시:**
+**Examples:**
 ```
 총 직원 수: ${size(employees)}명
 =TBEG_SIZE(employees)
 ```
 
-### 수식 내 변수
+### Variables in Formulas
 
-수식에서도 변수를 사용할 수 있습니다:
+Variables can also be used within formulas:
 
 ```
 =HYPERLINK("${url}", "${text}")
@@ -325,270 +327,270 @@ ${size(컬렉션)}
 =IF(${condition}, "yes", "no")
 ```
 
-### 복합 텍스트
+### Composite Text
 
-여러 변수와 텍스트를 함께 사용:
+Multiple variables and text can be used together:
 
 ```
 작성자: ${author} (${department})
 ```
 
-### 마커 파서 구조
+### Marker Parser Structure
 
-마커 파싱은 `engine/rendering/parser/` 패키지의 **통합 마커 파서**에서 처리합니다:
+Marker parsing is handled by the **unified marker parser** in the `engine/rendering/parser/` package:
 
 ```
 parser/
-├── MarkerDefinition.kt       # 마커별 파라미터 스키마 정의
-├── ParameterParser.kt        # 공통 파라미터 파싱 로직
-├── ParsedMarker.kt           # 파싱 결과 데이터
-└── UnifiedMarkerParser.kt    # 통합 파서 (진입점)
+├── MarkerDefinition.kt       # Parameter schema per marker
+├── ParameterParser.kt        # Common parameter parsing logic
+├── ParsedMarker.kt           # Parse result data
+└── UnifiedMarkerParser.kt    # Unified parser (entry point)
 ```
 
-| 클래스                   | 역할                               |
-|-----------------------|----------------------------------|
-| `MarkerDefinition`    | 마커별 파라미터 정의 (이름, 필수 여부, 기본값, 별칭) |
-| `ParameterParser`     | 위치 기반 + 명시적 파라미터 파싱              |
-| `ParsedMarker`        | 파싱 결과 (파라미터 Map)                 |
-| `UnifiedMarkerParser` | 텍스트/수식 마커 감지 및 `CellContent` 변환  |
+| Class                 | Role                                                              |
+|-----------------------|-------------------------------------------------------------------|
+| `MarkerDefinition`    | Parameter definitions per marker (name, required, default, aliases) |
+| `ParameterParser`     | Positional + explicit parameter parsing                            |
+| `ParsedMarker`        | Parse result (parameter Map)                                       |
+| `UnifiedMarkerParser` | Detects text/formula markers and converts to `CellContent`         |
 
-**지원 마커:**
+**Supported markers:**
 
-| 마커       | 파라미터                                               |
-|----------|----------------------------------------------------|
-| `repeat` | `collection`, `range`, `var`, `direction`, `empty` |
-| `image`  | `name`, `position`, `size`                         |
-| `size`   | `collection`                                       |
+| Marker   | Parameters                                                 |
+|----------|------------------------------------------------------------|
+| `repeat` | `collection`, `range`, `var`, `direction`, `empty`         |
+| `image`  | `name`, `position`, `size`                                 |
+| `size`   | `collection`                                               |
 
-**파라미터 형식:**
-- 위치 기반: `${repeat(employees, A2:C2, emp)}`
-- 위치 기반 (중간 생략): `${repeat(employees, A2:C2, , , A10:C10)}`
-- 명시적: `${repeat(collection=employees, range=A2:C2, var=emp)}`
+**Parameter formats:**
+- Positional: `${repeat(employees, A2:C2, emp)}`
+- Positional (with gaps): `${repeat(employees, A2:C2, , , A10:C10)}`
+- Explicit: `${repeat(collection=employees, range=A2:C2, var=emp)}`
 
-> **주의**: 위치 기반과 명시적 파라미터는 혼합할 수 없습니다.
+> **Note**: Positional and explicit parameters cannot be mixed.
 
-**새 마커 추가 시:**
-1. `MarkerDefinition.kt`에 마커 정의 추가
-2. `CellContent` sealed class에 새 타입 추가
-3. `UnifiedMarkerParser.convertToContent()`에 변환 로직 추가
+**Adding a new marker:**
+1. Add marker definition in `MarkerDefinition.kt`
+2. Add new type to the `CellContent` sealed class
+3. Add conversion logic in `UnifiedMarkerParser.convertToContent()`
 
 ---
 
-## 구현된 기능
+## Implemented Features
 
-### 지원 기능 목록
+### Feature List
 
-| 기능         | 설명                   | 처리 위치                     |
-|------------|----------------------|---------------------------|
-| 변수 치환      | 단순 값 바인딩             | `TemplateRenderingEngine` |
-| 중첩 변수      | 객체 속성 접근             | `TemplateRenderingEngine` |
-| 반복 (DOWN)  | 행 방향 확장              | `RenderingStrategy`       |
-| 반복 (RIGHT) | 열 방향 확장              | `RenderingStrategy`       |
-| 빈 컬렉션 처리   | empty 파라미터로 대체 내용 지정 | `RenderingStrategy`       |
-| 이미지 삽입     | 동적 이미지               | `ImageInserter`           |
-| 차트         | 데이터 범위 자동 확장         | `ChartProcessor`          |
-| 피벗 테이블     | 소스 범위 자동 확장          | `PivotTableProcessor`     |
-| 수식 확장      | repeat 영역 참조 자동 확장   | `FormulaAdjuster`         |
-| 셀 병합       | 위치 자동 조정             | `PositionCalculator`      |
-| 조건부 서식     | 범위 자동 조정             | `FormulaAdjuster`         |
-| 머리글/바닥글    | 변수 치환 지원             | `XmlVariableProcessor`    |
-| 파일 암호화     | 열기 암호 설정             | `ExcelGenerator`          |
-| 비동기 처리     | 백그라운드 생성 + 진행률       | `GenerationJob`           |
+| Feature                | Description                                  | Handled By                |
+|------------------------|----------------------------------------------|---------------------------|
+| Variable substitution  | Simple value binding                         | `TemplateRenderingEngine` |
+| Nested variables       | Object property access                       | `TemplateRenderingEngine` |
+| Repeat (DOWN)          | Row-direction expansion                      | `RenderingStrategy`       |
+| Repeat (RIGHT)         | Column-direction expansion                   | `RenderingStrategy`       |
+| Empty collection       | Replacement content via empty parameter      | `RenderingStrategy`       |
+| Image insertion        | Dynamic images                               | `ImageInserter`           |
+| Charts                 | Automatic data range expansion               | `ChartProcessor`          |
+| Pivot tables           | Automatic source range expansion             | `PivotTableProcessor`     |
+| Formula expansion      | Auto-expansion of repeat region references   | `FormulaAdjuster`         |
+| Merged cells           | Automatic position adjustment                | `PositionCalculator`      |
+| Conditional formatting | Automatic range adjustment                   | `FormulaAdjuster`         |
+| Header/Footer          | Variable substitution support                | `XmlVariableProcessor`    |
+| File encryption        | Open password setting                        | `ExcelGenerator`          |
+| Async processing       | Background generation + progress tracking    | `GenerationJob`           |
 
 ---
 
-## 구현 원칙
+## Implementation Principles
 
-### 1. 렌더링 원칙
+### 1. Rendering Principles
 
-#### 1.1 템플릿 서식 완전 보존
-템플릿에 작성된 모든 서식(정렬, 글꼴, 색상, 테두리, 채우기, 행 높이 등)은 생성된 Excel에 동일하게 적용되어야 합니다.
+#### 1.1 Full Preservation of Template Formatting
+All formatting defined in the template (alignment, font, color, borders, fill, row height, etc.) must be identically applied in the generated Excel file.
 
-#### 1.2 Repeat 행 스타일 원칙
-repeat에서 확장된 모든 행은 **repeat 기준 템플릿 행**의 스타일(높이, 서식)을 따릅니다.
+#### 1.2 Repeat Row Style Principle
+All rows expanded by repeat follow the style (height, formatting) of the **repeat template row**.
 
-- 단일 행 repeat: 모든 확장 행이 동일한 템플릿 행의 스타일 적용
-- 다중 행 repeat: 템플릿 행 패턴이 순환하며 적용
-
-```
-예시: 단일 행 repeat (templateRow 6)
-- actualRow 6 -> templateRow 6 스타일
-- actualRow 7 -> templateRow 6 스타일
-- actualRow 8 -> templateRow 6 스타일
-```
-
-#### 1.3 행 높이 충돌 해결
-같은 actualRow에 여러 템플릿 행이 매핑되는 경우 (서로 다른 열 그룹), `maxOf`로 가장 높은 높이를 적용합니다.
-
-- 이유: Excel에서 행 높이는 행 전체에 적용되므로, 모든 셀이 잘 표시되도록 함
-- 처리 순서와 무관하게 일관된 결과 보장
-
-#### 1.4 열 그룹 독립성
-서로 다른 열 범위의 repeat은 독립적으로 위치가 계산됩니다.
+- Single-row repeat: All expanded rows inherit the same template row style
+- Multi-row repeat: Template row patterns cycle through repeatedly
 
 ```
-예시:
-- A-C 열: employees repeat (확장 +2행)
-- F-H 열: department repeat (확장 +3행)
-
-actualRow 10에서:
-- A-C 열 관점: templateRow = actualRow - employees확장량
-- F-H 열 관점: templateRow = actualRow - department확장량 (해당 열 범위에서만)
+Example: Single-row repeat (templateRow 6)
+- actualRow 6 -> templateRow 6 style
+- actualRow 7 -> templateRow 6 style
+- actualRow 8 -> templateRow 6 style
 ```
 
-### 1.5 빈 컬렉션 처리 (emptyRange)
+#### 1.3 Row Height Conflict Resolution
+When multiple template rows map to the same actualRow (from different column groups), `maxOf` is used to apply the tallest height.
 
-컬렉션이 비어있을 때의 동작을 제어합니다.
+- Reason: In Excel, row height applies to the entire row, so all cells must be displayed properly
+- Ensures consistent results regardless of processing order
 
-#### 기본 동작 (empty 미지정)
-빈 컬렉션이면 반복 영역에 빈 행(또는 열)이 1개 출력됩니다.
+#### 1.4 Column Group Independence
+Repeats in different column ranges have their positions calculated independently.
 
-#### empty 파라미터 지정 시
-- **emptyRangeContent 미리 읽기**: 템플릿 분석 단계에서 empty 범위의 셀 내용/스타일을 `CellSnapshot`으로 저장
-- **빈 컬렉션 렌더링**: 반복 영역 위치에 저장해둔 emptyRangeContent 출력
-- **empty 원본 셀 처리**: 결과 파일에서 빈 셀 + 기본 스타일로 클리어
+```
+Example:
+- Columns A-C: employees repeat (expanded by +2 rows)
+- Columns F-H: department repeat (expanded by +3 rows)
 
-#### emptyRange 크기 처리
+At actualRow 10:
+- Columns A-C perspective: templateRow = actualRow - employees expansion
+- Columns F-H perspective: templateRow = actualRow - department expansion (within that column range only)
+```
 
-| emptyRange 크기 | 처리 방식                      |
-|---------------|----------------------------|
-| 단일 셀 (더 작음)   | 반복 영역 전체를 셀 병합 후 내용 삽입     |
-| 다중 셀 (더 작음)   | emptyRange만큼만 출력, 나머지는 빈 셀 |
-| 더 큼           | 반복 영역 크기만큼만 출력, 나머지는 버림    |
+### 1.5 Empty Collection Handling (emptyRange)
 
-#### 처리 위치
+Controls behavior when a collection is empty.
 
-| 모드                  | 처리 함수                                                    |
-|---------------------|----------------------------------------------------------|
-| XSSF                | `XssfRenderingStrategy.writeEmptyRangeContent()`         |
-| SXSSF (streaming)   | `SxssfRenderingStrategy.writeRepeatCellsForRow()`        |
-| SXSSF (pendingRows) | `SxssfRenderingStrategy.collectEmptyRangeContentCells()` |
+#### Default Behavior (no empty parameter)
+If the collection is empty, one blank row (or column) is output in the repeat region.
 
-### 2. 메모리 관리 원칙 (SXSSF 모드)
+#### When empty Parameter Is Specified
+- **Pre-read emptyRangeContent**: During template analysis, cell contents and styles from the empty range are saved as `CellSnapshot`
+- **Empty collection rendering**: The saved emptyRangeContent is output at the repeat region position
+- **Empty source cell handling**: In the result file, cells are cleared to blank cells with default styles
 
-#### 2.1 컬렉션 전체 메모리 로드 금지
-SXSSF 모드에서는 대용량 데이터 처리를 위해 컬렉션 전체를 메모리에 올리지 않습니다.
+#### emptyRange Size Handling
 
-| 모드    | 메모리 정책              | 이유            |
-|-------|---------------------|---------------|
-| SXSSF | 컬렉션 전체를 메모리에 올리지 않음 | 대용량 데이터 처리 목적 |
-| XSSF  | 전체 메모리 로드 허용        | 소량 데이터 전용 모드  |
+| emptyRange Size       | Handling                                                    |
+|-----------------------|-------------------------------------------------------------|
+| Single cell (smaller) | Merge the entire repeat region and insert the content       |
+| Multiple cells (smaller) | Output only the emptyRange portion; rest as blank cells  |
+| Larger                | Output only up to the repeat region size; truncate the rest |
 
-#### 2.2 DataProvider 재호출 방식
-같은 컬렉션이 여러 repeat 영역에서 사용되면 DataProvider를 재호출합니다.
+#### Processing Location
 
-- 임시 파일(DiskCachedCollection) 사용하지 않음
-- DataProvider.getItems()가 같은 데이터를 다시 제공할 수 있어야 함 (사용자 조건)
+| Mode                  | Handler Function                                          |
+|-----------------------|-----------------------------------------------------------|
+| XSSF                  | `XssfRenderingStrategy.writeEmptyRangeContent()`          |
+| SXSSF (streaming)     | `SxssfRenderingStrategy.writeRepeatCellsForRow()`         |
+| SXSSF (pendingRows)   | `SxssfRenderingStrategy.collectEmptyRangeContentCells()`  |
 
-#### 2.3 Iterator 순차 소비
-현재 처리 중인 아이템 1개만 메모리에 유지합니다.
+### 2. Memory Management Principles (SXSSF Mode)
+
+#### 2.1 No Full Collection Memory Loading
+In SXSSF mode, entire collections are not loaded into memory to support large data processing.
+
+| Mode  | Memory Policy                                  | Reason                      |
+|-------|------------------------------------------------|-----------------------------|
+| SXSSF | Does not load entire collection into memory    | For large data processing   |
+| XSSF  | Full memory loading allowed                    | For small data only         |
+
+#### 2.2 DataProvider Re-invocation
+When the same collection is used across multiple repeat regions, the DataProvider is called again.
+
+- No temporary file (DiskCachedCollection) usage
+- DataProvider.getItems() must be able to return the same data again (user responsibility)
+
+#### 2.3 Sequential Iterator Consumption
+Only one item currently being processed is kept in memory.
 
 ```kotlin
-// StreamingDataSource 사용
+// StreamingDataSource usage
 fun advanceToNextItem(repeatKey: RepeatKey): Any?
 fun getCurrentItem(repeatKey: RepeatKey): Any?
 ```
 
-### 3. 위치 계산 원칙
+### 3. Position Calculation Principles
 
-#### 3.1 수식/범위 자동 확장
-repeat 영역에 포함된 수식과 범위 참조는 확장량만큼 자동 조정됩니다.
+#### 3.1 Automatic Formula/Range Expansion
+Formulas and range references within repeat regions are automatically adjusted by the expansion amount.
 
 ```
-예시: =SUM(C6) -> =SUM(C6:C105) (100개 아이템 확장 시)
+Example: =SUM(C6) -> =SUM(C6:C105) (when expanded by 100 items)
 ```
 
-**참조 유형별 처리:**
+**Handling by reference type:**
 
-| 참조 유형               | 처리 방식                   |
-|---------------------|-------------------------|
-| 상대 참조 (`B3`)        | repeat 확장에 따라 범위로 확장    |
-| 절대 참조 (`$B$3`)      | 확장하지 않음 (고정 위치)         |
-| 행 절대 (`B$3`)        | DOWN 방향 확장 안 함          |
-| 열 절대 (`$B3`)        | RIGHT 방향 확장 안 함         |
-| 다른 시트 (`Sheet2!B3`) | 해당 시트의 repeat 확장 정보로 처리 |
+| Reference Type              | Handling                                           |
+|-----------------------------|----------------------------------------------------|
+| Relative reference (`B3`)         | Expanded to a range based on repeat expansion |
+| Absolute reference (`$B$3`)       | Not expanded (fixed position)                 |
+| Row absolute (`B$3`)             | Not expanded in DOWN direction                 |
+| Column absolute (`$B3`)          | Not expanded in RIGHT direction                |
+| Other sheet (`Sheet2!B3`)        | Processed using that sheet's repeat expansion info |
 
-**다른 시트 참조 처리:**
-- `expandToRangeWithCalculator()`에 `otherSheetExpansions` 파라미터로 다른 시트의 확장 정보 전달
-- `SheetExpansionInfo`에 시트별 `expansions`와 `collectionSizes` 포함
-- 시트 이름 추출: `Sheet1!` → `"Sheet1"`, `'Sheet Name'!` → `"Sheet Name"`
+**Cross-sheet reference handling:**
+- `expandToRangeWithCalculator()` receives other sheet's expansion info via the `otherSheetExpansions` parameter
+- `SheetExpansionInfo` includes per-sheet `expansions` and `collectionSizes`
+- Sheet name extraction: `Sheet1!` -> `"Sheet1"`, `'Sheet Name'!` -> `"Sheet Name"`
 
-#### 3.2 정적 요소 위치 이동
-repeat 확장에 영향받는 정적 요소(수식, 병합 셀, 조건부 서식 등)는 확장량만큼 밀립니다.
+#### 3.2 Static Element Position Shifting
+Static elements (formulas, merged cells, conditional formatting, etc.) affected by repeat expansion are shifted by the expansion amount.
 
-#### 3.3 PositionCalculator 위치 결정 규칙
+#### 3.3 PositionCalculator Position Determination Rules
 
-1. 어느 repeat에도 영향받지 않는 요소: 템플릿 위치 그대로 고정
-2. 하나의 repeat에만 영향받는 요소: 그 repeat 확장만큼 밀림
-3. 두 개 이상의 repeat에 영향받는 요소: 가장 많이 밀리는 위치로 이동
+1. Elements not affected by any repeat: Stay at the template position
+2. Elements affected by only one repeat: Shifted by that repeat's expansion
+3. Elements affected by two or more repeats: Moved to the most shifted position
 
-### 4. 숫자 서식 원칙
+### 4. Number Format Principles
 
-#### 4.1 자동 숫자 서식 지정 조건
-라이브러리에 의해 자동 생성된 값이 숫자 타입이고, 해당 셀의 "표시 형식"이 없거나 "일반"인 경우 자동으로 숫자 서식을 적용합니다.
+#### 4.1 Automatic Number Format Conditions
+When a value auto-generated by the library is numeric and the cell's display format is unset or "General", a number format is automatically applied.
 
-- 정수: `pivotIntegerFormatIndex` (기본값 3, `#,##0`)
-- 소수: `pivotDecimalFormatIndex` (기본값 4, `#,##0.00`)
+- Integer: `pivotIntegerFormatIndex` (default 3, `#,##0`)
+- Decimal: `pivotDecimalFormatIndex` (default 4, `#,##0.00`)
 
-#### 4.2 자동 정렬 지정 조건
-라이브러리에 의해 자동 생성된 값이 숫자 타입이고, 해당 셀의 정렬이 "일반"인 경우 자동으로 오른쪽 정렬을 적용합니다.
+#### 4.2 Automatic Alignment Conditions
+When a value auto-generated by the library is numeric and the cell's alignment is "General", right alignment is automatically applied.
 
-#### 4.3 기존 서식 보존
-위 4.1, 4.2 조건에 해당하더라도 해당 셀의 나머지 모든 서식(글꼴, 색상, 테두리 등)은 템플릿 서식을 유지합니다.
+#### 4.3 Existing Format Preservation
+Even when conditions 4.1 and 4.2 apply, all other formatting (font, color, borders, etc.) retains the template formatting.
 
 ---
 
-## StyleInfo 필수 속성
+## StyleInfo Required Properties
 
-스타일 복사 시 유지해야 하는 속성 목록:
+List of properties that must be preserved during style copying:
 
-| 속성                            | 설명     |
-|-------------------------------|--------|
-| `horizontalAlignment`         | 가로 정렬  |
-| `verticalAlignment`           | 세로 정렬  |
-| `fontBold`                    | 굵게     |
-| `fontItalic`                  | 기울임꼴   |
-| `fontUnderline`               | 밑줄     |
-| `fontStrikeout`               | 취소선    |
-| `fontName`                    | 글꼴 이름  |
-| `fontSize`                    | 글꼴 크기  |
-| `fontColorRgb`                | 글꼴 색상  |
-| `fillForegroundColorRgb`      | 채우기 색상 |
-| `fillPatternType`             | 채우기 패턴 |
-| `borderTop/Bottom/Left/Right` | 테두리    |
-| `dataFormat`                  | 표시 형식  |
+| Property                        | Description          |
+|---------------------------------|----------------------|
+| `horizontalAlignment`           | Horizontal alignment |
+| `verticalAlignment`             | Vertical alignment   |
+| `fontBold`                      | Bold                 |
+| `fontItalic`                    | Italic               |
+| `fontUnderline`                 | Underline            |
+| `fontStrikeout`                 | Strikethrough        |
+| `fontName`                      | Font name            |
+| `fontSize`                      | Font size            |
+| `fontColorRgb`                  | Font color           |
+| `fillForegroundColorRgb`        | Fill color           |
+| `fillPatternType`               | Fill pattern         |
+| `borderTop/Bottom/Left/Right`   | Borders              |
+| `dataFormat`                    | Display format       |
 
 ---
 
-## 설정 옵션
+## Configuration Options
 
-### TbegConfig 기본값
+### TbegConfig Defaults
 
-| 옵션                        | 기본값                 | 설명                                |
-|---------------------------|---------------------|-----------------------------------|
-| `streamingMode`           | `ENABLED`           | ENABLED (SXSSF) / DISABLED (XSSF) |
-| `fileNamingMode`          | `TIMESTAMP`         | TIMESTAMP / NONE                  |
-| `timestampFormat`         | `"yyyyMMdd_HHmmss"` | DateTimeFormatter 패턴              |
-| `fileConflictPolicy`      | `SEQUENCE`          | SEQUENCE / ERROR                  |
-| `progressReportInterval`  | `100`               | 진행률 보고 간격 (행 수)                   |
-| `preserveTemplateLayout`  | `true`              | 템플릿 레이아웃 보존                       |
-| `pivotIntegerFormatIndex` | `3`                 | 정수 포맷 인덱스 (`#,##0`)               |
-| `pivotDecimalFormatIndex` | `4`                 | 소수 포맷 인덱스 (`#,##0.00`)            |
-| `missingDataBehavior`     | `WARN`              | WARN / THROW                      |
+| Option                      | Default               | Description                        |
+|-----------------------------|-----------------------|------------------------------------|
+| `streamingMode`             | `ENABLED`             | ENABLED (SXSSF) / DISABLED (XSSF) |
+| `fileNamingMode`            | `TIMESTAMP`           | TIMESTAMP / NONE                   |
+| `timestampFormat`           | `"yyyyMMdd_HHmmss"`  | DateTimeFormatter pattern          |
+| `fileConflictPolicy`        | `SEQUENCE`            | SEQUENCE / ERROR                   |
+| `progressReportInterval`    | `100`                 | Progress report interval (rows)    |
+| `preserveTemplateLayout`    | `true`                | Preserve template layout           |
+| `pivotIntegerFormatIndex`   | `3`                   | Integer format index (`#,##0`)     |
+| `pivotDecimalFormatIndex`   | `4`                   | Decimal format index (`#,##0.00`)  |
+| `missingDataBehavior`       | `WARN`                | WARN / THROW                       |
 
-### 프리셋 설정
+### Preset Configurations
 
 ```kotlin
-// 대용량 처리 최적화
+// Optimized for large data processing
 TbegConfig.forLargeData()
 // streamingMode = ENABLED, progressReportInterval = 500
 
-// 소량 처리
+// For small data
 TbegConfig.forSmallData()
 // streamingMode = DISABLED
 ```
 
-### Spring Boot 설정 (application.yml)
+### Spring Boot Configuration (application.yml)
 
 ```yaml
 tbeg:
@@ -603,69 +605,69 @@ tbeg:
 
 ---
 
-## 제한사항
+## Limitations
 
-### SXSSF (스트리밍) 모드
+### SXSSF (Streaming) Mode
 
-| 항목               | 지원 여부 | 비고                        |
-|------------------|-------|---------------------------|
-| 아래 행 참조 수식       | ✅     | repeat 영역 참조 시 자동 확장      |
-| 위쪽 행 참조 수식       | ✅     | 자동 조정됨                    |
-| 자동 확장 수식 (SUM 등) | ✅     | 범위 자동 확장                  |
-| 차트               | ✅     | Extract/Restore 프로세서로 처리  |
-| 피벗 테이블           | ✅     | Extract/Recreate 프로세서로 처리 |
+| Item                                 | Supported | Notes                                         |
+|--------------------------------------|-----------|-----------------------------------------------|
+| Formulas referencing rows below      | Yes       | Auto-expanded when referencing repeat regions  |
+| Formulas referencing rows above      | Yes       | Automatically adjusted                         |
+| Auto-expanding formulas (SUM, etc.)  | Yes       | Range auto-expansion                           |
+| Charts                               | Yes       | Handled via Extract/Restore processors         |
+| Pivot tables                         | Yes       | Handled via Extract/Recreate processors        |
 
-### 일반 제한사항
+### General Limitations
 
-- repeat 영역은 2D 공간에서 겹쳐야 함
-- 같은 열 범위 내 여러 repeat은 세로로 배치 가능
-- 시퀀스 번호는 최대 10,000까지 시도
+- Repeat regions must occupy the same 2D space
+- Multiple repeats within the same column range can be stacked vertically
+- Sequence numbers are attempted up to a maximum of 10,000
 
-### 내부 상수
+### Internal Constants
 
-| 상수          | 값           | 위치                             |
-|-------------|-------------|--------------------------------|
-| SXSSF 버퍼 크기 | 100행        | `SxssfRenderingStrategy.kt:49` |
-| 이미지 마진      | 1px         | `ImageInserter.kt`             |
-| EMU 변환율     | 9525 EMU/px | `ImageInserter.kt`             |
-
----
-
-## 내부 최적화
-
-### 스타일 캐싱
-
-동일 스타일 중복 생성을 방지합니다.
-
-| 클래스                     | 캐시                         | 용도        |
-|-------------------------|----------------------------|-----------|
-| `PivotTableProcessor`   | `styleCache` (WeakHashMap) | 피벗 셀 스타일  |
-| `NumberFormatProcessor` | `styleCache`               | 숫자 서식 스타일 |
-
-### 필드 캐싱
-
-리플렉션 성능을 최적화합니다.
-
-| 클래스                       | 캐시            | 용도         |
-|---------------------------|---------------|------------|
-| `TemplateRenderingEngine` | `fieldCache`  | 필드 정보      |
-| `TemplateRenderingEngine` | `getterCache` | getter 메서드 |
-
-### calcChain 정리
-
-수식 재계산 오류를 방지합니다.
-
-- XSSF/SXSSF 모두 `clearCalcChain()` 호출
-- Excel에서 파일 열 때 수식 재계산 트리거
+| Constant          | Value       | Location                         |
+|-------------------|-------------|----------------------------------|
+| SXSSF buffer size | 100 rows    | `SxssfRenderingStrategy.kt:49`  |
+| Image margin      | 1px         | `ImageInserter.kt`              |
+| EMU conversion    | 9525 EMU/px | `ImageInserter.kt`              |
 
 ---
 
-## 확장 포인트
+## Internal Optimizations
 
-### 새 프로세서 추가
+### Style Caching
 
-1. `ExcelProcessor` 인터페이스 구현
-2. `TbegPipeline`에 프로세서 등록 (순서 중요)
+Prevents duplicate creation of identical styles.
+
+| Class                   | Cache                        | Purpose              |
+|-------------------------|------------------------------|----------------------|
+| `PivotTableProcessor`   | `styleCache` (WeakHashMap)   | Pivot cell styles    |
+| `NumberFormatProcessor`  | `styleCache`                | Number format styles |
+
+### Field Caching
+
+Optimizes reflection performance.
+
+| Class                       | Cache           | Purpose         |
+|-----------------------------|-----------------|-----------------|
+| `TemplateRenderingEngine`   | `fieldCache`    | Field info      |
+| `TemplateRenderingEngine`   | `getterCache`   | Getter methods  |
+
+### calcChain Cleanup
+
+Prevents formula recalculation errors.
+
+- Both XSSF/SXSSF call `clearCalcChain()`
+- Triggers formula recalculation when the file is opened in Excel
+
+---
+
+## Extension Points
+
+### Adding a New Processor
+
+1. Implement the `ExcelProcessor` interface
+2. Register the processor in `TbegPipeline` (order matters)
 
 ```kotlin
 class MyProcessor : ExcelProcessor {
@@ -674,32 +676,32 @@ class MyProcessor : ExcelProcessor {
     override fun shouldProcess(context: ProcessingContext): Boolean = true
 
     override fun process(context: ProcessingContext): ProcessingContext {
-        // 처리 로직
+        // Processing logic
         return context
     }
 }
 ```
 
-**등록 위치:** `ExcelGenerator.kt` 라인 71-80
+**Registration location:** `ExcelGenerator.kt` line 71-80
 
-### 새 렌더링 전략 추가
+### Adding a New Rendering Strategy
 
-1. `RenderingStrategy` 인터페이스 구현 (또는 `AbstractRenderingStrategy` 상속)
-2. `TemplateRenderingEngine`에서 전략 선택 로직 수정
+1. Implement the `RenderingStrategy` interface (or extend `AbstractRenderingStrategy`)
+2. Modify the strategy selection logic in `TemplateRenderingEngine`
 
-**전략 선택 위치:** `TemplateRenderingEngine.kt` 라인 48-51
+**Strategy selection location:** `TemplateRenderingEngine.kt` line 48-51
 
-### 새 템플릿 문법 추가
+### Adding New Template Syntax
 
-1. `MarkerDefinition.kt`에 마커 정의 추가 (파라미터 스키마)
-2. `CellContent` sealed class에 새 타입 추가
-3. `UnifiedMarkerParser.convertToContent()`에 변환 로직 추가
-4. 렌더링 전략에서 새 명세 처리
+1. Add marker definition in `MarkerDefinition.kt` (parameter schema)
+2. Add new type to the `CellContent` sealed class
+3. Add conversion logic in `UnifiedMarkerParser.convertToContent()`
+4. Handle the new specification in the rendering strategy
 
-**마커 정의 위치:** `parser/MarkerDefinition.kt`
+**Marker definition location:** `parser/MarkerDefinition.kt`
 
 ```kotlin
-// 새 마커 추가 예시
+// Example of adding a new marker
 val NEW_MARKER = MarkerDefinition("newmarker", listOf(
     ParameterDef("param1", required = true),
     ParameterDef("param2", aliases = setOf("p2", "alt")),
@@ -709,15 +711,15 @@ val NEW_MARKER = MarkerDefinition("newmarker", listOf(
 
 ---
 
-## 테스트 가이드
+## Testing Guide
 
-### 테스트 구조
+### Test Structure
 
 ```
 src/test/
 ├── kotlin/io/github/jogakdal/tbeg/
-│   ├── TbegTest.kt                     # 통합 테스트
-│   ├── PerformanceBenchmark.kt         # 성능 벤치마크
+│   ├── TbegTest.kt                     # Integration tests
+│   ├── PerformanceBenchmark.kt         # Performance benchmark
 │   ├── engine/
 │   │   ├── rendering/
 │   │   │   ├── PositionCalculatorTest.kt
@@ -726,63 +728,63 @@ src/test/
 │   │   └── ...
 │   └── ...
 └── resources/
-    └── templates/                      # 테스트용 템플릿
+    └── templates/                      # Test templates
         ├── template.xlsx
         ├── simple_template.xlsx
         └── ...
 ```
 
-### 테스트 실행
+### Running Tests
 
 ```bash
-# 전체 테스트
+# All tests
 ./gradlew :tbeg:test
 
-# 특정 테스트
+# Specific test
 ./gradlew :tbeg:test --tests "*PositionCalculatorTest*"
 ```
 
-### 샘플 실행
+### Running Samples
 
 ```bash
-# Kotlin 샘플
-./gradlew :tbeg:runSample          # 결과: build/samples/
+# Kotlin sample
+./gradlew :tbeg:runSample          # Output: build/samples/
 
-# Java 샘플
-./gradlew :tbeg:runJavaSample      # 결과: build/samples-java/
+# Java sample
+./gradlew :tbeg:runJavaSample      # Output: build/samples-java/
 
-# Spring Boot 샘플
-./gradlew :tbeg:runSpringBootSample  # 결과: build/samples-spring/
+# Spring Boot sample
+./gradlew :tbeg:runSpringBootSample  # Output: build/samples-spring/
 
-# 성능 벤치마크
+# Performance benchmark
 ./gradlew :tbeg:runBenchmark
 ```
 
-### 테스트 작성 원칙
+### Testing Principles
 
-1. **템플릿 파일 사용**: 실제 Excel 템플릿으로 통합 테스트
-2. **출력 파일 검증**: 생성된 Excel 파일을 열어 결과 확인
-3. **엣지 케이스**: 빈 데이터, 대용량 데이터, 특수 문자 등 테스트
+1. **Use template files**: Integration tests with real Excel templates
+2. **Verify output files**: Open the generated Excel files to check results
+3. **Edge cases**: Test with empty data, large data, special characters, etc.
 
 ---
 
-## 성능 벤치마크
+## Performance Benchmark
 
-### TBEG 성능
+### TBEG Performance
 
-**테스트 환경**: Java 21, macOS, 3개 컬럼 repeat + SUM 수식
+**Test environment**: Java 21, macOS, 3-column repeat + SUM formula
 
-| 데이터 크기   | DISABLED (XSSF) | ENABLED (SXSSF) | 속도 향상    |
-|----------|-----------------|-----------------|----------|
-| 1,000행   | 172ms           | 147ms           | 1.2배     |
-| 10,000행  | 1,801ms         | 663ms           | **2.7배** |
-| 30,000행  | -               | 1,057ms         | -        |
-| 50,000행  | -               | 1,202ms         | -        |
-| 100,000행 | -               | 3,154ms         | -        |
+| Data Size     | DISABLED (XSSF) | ENABLED (SXSSF) | Speedup    |
+|---------------|-----------------|-----------------|------------|
+| 1,000 rows    | 172ms           | 147ms           | 1.2x       |
+| 10,000 rows   | 1,801ms         | 663ms           | **2.7x**   |
+| 30,000 rows   | -               | 1,057ms         | -          |
+| 50,000 rows   | -               | 1,202ms         | -          |
+| 100,000 rows  | -               | 3,154ms         | -          |
 
-### 타 라이브러리 비교 (30,000행)
+### Comparison with Other Libraries (30,000 rows)
 
-| 라이브러리    | 소요 시간    | 비고                                                          |
-|----------|----------|-------------------------------------------------------------|
-| **TBEG** | **1.1초** | 스트리밍 모드                                                     |
-| JXLS     | 5.2초     | [벤치마크 출처](https://github.com/jxlsteam/jxls/discussions/203) |
+| Library    | Time        | Notes                                                           |
+|------------|-------------|-----------------------------------------------------------------|
+| **TBEG**   | **1.1 sec** | Streaming mode                                                  |
+| JXLS       | 5.2 sec     | [Benchmark source](https://github.com/jxlsteam/jxls/discussions/203) |

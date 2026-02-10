@@ -42,9 +42,9 @@ class TbegAutoConfigurationTest {
     fun `properties should be applied to config`() {
         contextRunner
             .withPropertyValues(
-                "tbeg.streaming-mode=enabled",
-                "tbeg.timestamp-format=yyyy-MM-dd",
-                "tbeg.progress-report-interval=200"
+                "hunet.tbeg.streaming-mode=enabled",
+                "hunet.tbeg.timestamp-format=yyyy-MM-dd",
+                "hunet.tbeg.progress-report-interval=200"
             )
             .run { context ->
                 val config = context.getBean(TbegConfig::class.java)
