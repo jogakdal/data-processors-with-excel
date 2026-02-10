@@ -6,7 +6,7 @@
         </encoder>
     </appender>
 
-    <logger name="io.github.jogakdal.tbeg" level="DEBUG"/>
+    <logger name="com.hunet.common.tbeg" level="DEBUG"/>
 
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>

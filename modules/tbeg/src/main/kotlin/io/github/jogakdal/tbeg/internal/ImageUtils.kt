@@ -1,9 +1,5 @@
 package io.github.jogakdal.tbeg.internal
 
-/**
- * 바이트 배열에서 이미지 타입을 감지한다.
- * @return "PNG", "JPEG", "GIF", "BMP" 중 하나 (알 수 없는 경우 "PNG")
- */
 internal fun ByteArray.detectImageType(): String = when {
     size < 4 -> "PNG"
     isPng() -> "PNG"

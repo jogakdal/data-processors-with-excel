@@ -17,12 +17,24 @@
 
 ```kotlin
 // build.gradle.kts
+
+// 1. 리포지토리 설정
 repositories {
     mavenCentral()
+    // 사내 Nexus 리포지토리
+    maven {
+        url = uri("https://nexus.hunet.tech/repository/maven-public/")
+    }
 }
 
+// 2. 의존성 추가
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.0.0")
+    // BOM 사용 (권장) - 버전 자동 관리
+    implementation(platform("com.hunet.common:common-bom:2026.1.0-SNAPSHOT"))
+    implementation("io.github.jogakdal:tbeg")
+
+    // 또는 직접 버전 지정
+    // implementation("io.github.jogakdal:tbeg:1.1.0-SNAPSHOT")
 }
 ```
 
@@ -30,12 +42,24 @@ dependencies {
 
 ```groovy
 // build.gradle
+
+// 1. 리포지토리 설정
 repositories {
     mavenCentral()
+    // 사내 Nexus 리포지토리
+    maven {
+        url 'https://nexus.hunet.tech/repository/maven-public/'
+    }
 }
 
+// 2. 의존성 추가
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.0.0'
+    // BOM 사용 (권장) - 버전 자동 관리
+    implementation platform('com.hunet.common:common-bom:2026.1.0-SNAPSHOT')
+    implementation 'io.github.jogakdal:tbeg'
+
+    // 또는 직접 버전 지정
+    // implementation 'io.github.jogakdal:tbeg:1.1.0-SNAPSHOT'
 }
 ```
 
@@ -43,11 +67,34 @@ dependencies {
 
 ```xml
 <!-- pom.xml -->
+
+<!-- 1. 리포지토리 설정 -->
+<repositories>
+    <repository>
+        <id>hunet-nexus</id>
+        <name>Hunet Nexus Repository</name>
+        <url>https://nexus.hunet.tech/repository/maven-public/</url>
+    </repository>
+</repositories>
+
+<!-- 2. BOM 임포트 (권장) - 버전 자동 관리 -->
+<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>com.hunet.common</groupId>
+            <artifactId>common-bom</artifactId>
+            <version>2026.1.0-SNAPSHOT</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
+
+<!-- 3. 의존성 추가 (버전 생략 가능) -->
 <dependencies>
     <dependency>
-        <groupId>io.github.jogakdal</groupId>
+        <groupId>com.hunet.common</groupId>
         <artifactId>tbeg</artifactId>
-        <version>1.0.0</version>
     </dependency>
 </dependencies>
 ```

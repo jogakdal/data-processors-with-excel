@@ -12,7 +12,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  *
  * application.yml 예시:
  * ```yaml
- * tbeg:
+ * hunet:
+ *   tbeg:
  *     streaming-mode: enabled         # enabled, disabled
  *     file-naming-mode: timestamp     # none, timestamp
  *     timestamp-format: yyyyMMdd_HHmmss
@@ -24,7 +25,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  *     missing-data-behavior: warn     # warn, throw
  * ```
  */
-@ConfigurationProperties(prefix = "tbeg")
+@ConfigurationProperties(prefix = "hunet.tbeg")
 data class TbegProperties(
     /**
      * 스트리밍 모드 설정.
