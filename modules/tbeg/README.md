@@ -183,3 +183,7 @@ Samples use the `src/test/resources/templates/template.xlsx` template.
 ./gradlew :tbeg:runSpringBootSample
 # Output: build/samples-spring/
 ```
+
+## Author
+
+[Yongho Hwang](https://github.com/jogakdal) (jogakdal@gmail.com)

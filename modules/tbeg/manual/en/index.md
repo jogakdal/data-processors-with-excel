@@ -102,3 +102,4 @@ fun main() {
 | Package | `io.github.jogakdal.tbeg` |
 | Minimum Java Version | 21 |
 | Minimum Kotlin Version | 2.0 |
+| Author | [Yongho Hwang](https://github.com/jogakdal) (jogakdal@gmail.com) |
