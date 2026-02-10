@@ -90,7 +90,7 @@ class ExcelGenerator @JvmOverloads constructor(
      * @return 생성된 Excel 파일의 바이트 배열
      */
     @JvmOverloads
-    fun generate(template: InputStream, data: Map<String, Any>, password: String? = null): ByteArray =
+    fun generate(template: InputStream, data: Map<String, Any>, password: String? = null) =
         generate(template, SimpleDataProvider.of(data), password)
 
     /**

@@ -1,7 +1,7 @@
 # TBEG 설정 옵션 레퍼런스
 
 ## 목차
-1. [TbegConfig](#1-excelgeneratorconfig)
+1. [TbegConfig](#1-tbegconfig)
 2. [Spring Boot 프로퍼티](#2-spring-boot-프로퍼티)
 3. [Enum 타입](#3-enum-타입)
 4. [프리셋 설정](#4-프리셋-설정)

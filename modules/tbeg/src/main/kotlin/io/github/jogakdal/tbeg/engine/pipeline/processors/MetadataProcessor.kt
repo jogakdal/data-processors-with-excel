@@ -1,6 +1,7 @@
 package io.github.jogakdal.tbeg.engine.pipeline.processors
 
 import io.github.jogakdal.tbeg.DocumentMetadata
+import io.github.jogakdal.tbeg.isNullOrEmpty
 import io.github.jogakdal.tbeg.engine.pipeline.ExcelProcessor
 import io.github.jogakdal.tbeg.engine.pipeline.ProcessingContext
 import io.github.jogakdal.tbeg.engine.core.toByteArray
@@ -21,7 +22,7 @@ internal class MetadataProcessor : ExcelProcessor {
      * 메타데이터가 있을 때만 실행
      */
     override fun shouldProcess(context: ProcessingContext): Boolean =
-        context.metadata != null && !context.metadata.isEmpty()
+        !context.metadata.isNullOrEmpty()
 
     override fun process(context: ProcessingContext): ProcessingContext {
         context.resultBytes = applyMetadata(context.resultBytes, context.metadata)
@@ -29,7 +30,7 @@ internal class MetadataProcessor : ExcelProcessor {
     }
 
     private fun applyMetadata(bytes: ByteArray, metadata: DocumentMetadata?): ByteArray {
-        if (metadata == null || metadata.isEmpty()) return bytes
+        if (metadata.isNullOrEmpty()) return bytes
 
         return XSSFWorkbook(ByteArrayInputStream(bytes)).use { workbook ->
             val props = workbook.properties

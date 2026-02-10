@@ -145,11 +145,13 @@ tbeg:
   preserve-template-layout: true
 ```
 
+상세 프로젝트 구조는 [개발자 가이드](./DEVELOPMENT.ko.md)를 참고하세요.
+
 ## 아키텍처
 
 TBEG는 파이프라인 아키텍처로 차트 추출 → 피벗 추출 → 템플릿 렌더링 → 숫자 서식 → XML 변수 치환 → 피벗 재생성 → 차트 복원 → 메타데이터 순으로 처리합니다. 렌더링 시 XSSF/SXSSF 전략을 자동 선택합니다.
 
-상세 프로젝트 구조와 아키텍처는 [개발자 가이드](./DEVELOPMENT.ko.md)를 참고하세요.
+상세 아키텍처는 [개발자 가이드](./DEVELOPMENT.ko.md)를 참고하세요.
 
 ## 문서
 

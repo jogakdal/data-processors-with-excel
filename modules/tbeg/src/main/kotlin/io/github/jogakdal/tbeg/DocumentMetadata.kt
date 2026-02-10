@@ -1,6 +1,8 @@
 package io.github.jogakdal.tbeg
 
 import java.time.LocalDateTime
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.contract
 
 /**
  * Excel 문서 메타데이터.
@@ -111,6 +113,17 @@ data class DocumentMetadata(
             created = created
         )
     }
+}
+
+/**
+ * null이거나 모든 속성이 설정되지 않았는지 확인한다.
+ */
+@OptIn(ExperimentalContracts::class)
+fun DocumentMetadata?.isNullOrEmpty(): Boolean {
+    contract {
+        returns(false) implies (this@isNullOrEmpty != null)
+    }
+    return this == null || isEmpty()
 }
 
 /**
