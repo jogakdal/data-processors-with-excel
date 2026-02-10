@@ -183,3 +183,7 @@ TBEG는 파이프라인 아키텍처로 차트 추출 → 피벗 추출 → 템�
 ./gradlew :tbeg:runSpringBootSample
 # 결과: build/samples-spring/
 ```
+
+## 작성자
+
+[황용호 (Yongho Hwang)](https://github.com/jogakdal) (jogakdal@gmail.com)

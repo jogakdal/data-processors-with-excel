@@ -1,24 +1,24 @@
-> **[한국어](./README.ko.md)** | English
+> 한국어 | **[English](./README.md)**
 
 # TBEG - Template Based Excel Generator
 
 [![CI](https://github.com/jogakdal/data-processors-with-excel/actions/workflows/ci.yml/badge.svg)](https://github.com/jogakdal/data-processors-with-excel/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-A JVM library that generates reports by binding data to Excel templates. Works seamlessly with both Kotlin and Java.
+Excel 템플릿에 데이터를 바인딩하여 보고서를 생성하는 JVM 라이브러리입니다. Kotlin과 Java에서 동일하게 사용할 수 있습니다.
 
-## Key Features
+## 주요 기능
 
-- **Template-based generation** — Generate reports by binding data to Excel templates
-- **Repeat data processing** — Expand list data into rows/columns with `${repeat(...)}` syntax
-- **Variable substitution** — Bind values to cells, charts, shapes, headers/footers, formula arguments, etc. with `${variableName}` syntax
-- **Image insertion** — Insert dynamic images into template cells
-- **Streaming mode** — High-speed processing of large data with SXSSF
-- **File encryption** — Set open password for generated Excel files
-- **Asynchronous processing** — Process large data in the background
-- **Spring Boot support** — Zero-config usage via auto-configuration
+- **템플릿 기반 생성** — Excel 템플릿에 데이터를 바인딩하여 보고서 생성
+- **반복 데이터 처리** — `${repeat(...)}` 문법으로 리스트 데이터를 행/열로 확장
+- **변수 치환** — `${변수명}` 문법으로 셀, 차트, 도형, 머리글/바닥글, 수식 인자 등에 값 바인딩
+- **이미지 삽입** — 템플릿 셀에 동적 이미지 삽입
+- **스트리밍 모드** — SXSSF 기반 대용량 데이터 고속 처리
+- **파일 암호화** — 생성된 Excel 파일에 열기 암호 설정
+- **비동기 처리** — 대용량 데이터를 백그라운드에서 처리
+- **Spring Boot 지원** — Auto-configuration으로 별도 설정 없이 사용
 
-## Add Dependency
+## 의존성 추가
 
 ### Gradle (Kotlin DSL)
 
@@ -46,7 +46,7 @@ dependencies {
 </dependency>
 ```
 
-## Quick Start
+## 빠른 시작
 
 ### Kotlin
 
@@ -131,22 +131,22 @@ SimpleDataProvider provider = SimpleDataProvider.builder()
 
 </details>
 
-## Template Syntax
+## 템플릿 문법
 
-### Variable Substitution
+### 변수 치환
 
 ```
 ${title}
 ${employee.name}
 ```
 
-### Repeat Data
+### 반복 데이터
 
 ```
 ${repeat(employees, A3:C3, emp, DOWN)}
 ```
 
-### Image
+### 이미지
 
 ```
 ${image(logo)}
@@ -156,7 +156,7 @@ ${image(logo, B5, 100:50)}
 
 ## Spring Boot
 
-In a Spring Boot environment, `ExcelGenerator` is automatically registered as a Bean.
+Spring Boot 환경에서는 `ExcelGenerator`가 자동으로 Bean에 등록됩니다.
 
 <details open>
 <summary>Kotlin</summary>
@@ -201,7 +201,7 @@ public class ReportService {
 
 </details>
 
-### Configuration (application.yml)
+### 설정 (application.yml)
 
 ```yaml
 tbeg:
@@ -210,49 +210,49 @@ tbeg:
   preserve-template-layout: true
 ```
 
-## Performance
+## 성능
 
-**Test environment**: Java 21, macOS, 3 columns repeat + SUM formula
+**테스트 환경**: Java 21, macOS, 3개 컬럼 repeat + SUM 수식
 
-| Data Size    | disabled | enabled | Speed Improvement |
-|-------------|----------|---------|-------------------|
-| 1,000 rows   | 172ms    | 147ms   | 1.2x              |
-| 10,000 rows  | 1,801ms  | 663ms   | **2.7x**          |
-| 30,000 rows  | -        | 1,057ms | -                 |
-| 50,000 rows  | -        | 1,202ms | -                 |
-| 100,000 rows | -        | 3,154ms | -                 |
+| 데이터 크기   | disabled | enabled | 속도 향상    |
+|----------|----------|---------|----------|
+| 1,000행   | 172ms    | 147ms   | 1.2배     |
+| 10,000행  | 1,801ms  | 663ms   | **2.7배** |
+| 30,000행  | -        | 1,057ms | -        |
+| 50,000행  | -        | 1,202ms | -        |
+| 100,000행 | -        | 3,154ms | -        |
 
-### Comparison with Other Libraries (30,000 rows)
+### 타 라이브러리와 비교 (30,000행)
 
-| Library    | Time      | Notes                                                       |
-|------------|-----------|-------------------------------------------------------------|
-| **TBEG**   | **1.1s**  | Streaming mode                                              |
-| JXLS       | 5.2s      | [Benchmark source](https://github.com/jxlsteam/jxls/discussions/203) |
+| 라이브러리    | 소요 시간    | 비고                                                          |
+|----------|----------|-------------------------------------------------------------|
+| **TBEG** | **1.1초** | 스트리밍 모드                                                     |
+| JXLS     | 5.2초     | [벤치마크 출처](https://github.com/jxlsteam/jxls/discussions/203) |
 
-> Run benchmark: `./gradlew :tbeg:runBenchmark`
+> 벤치마크 실행: `./gradlew :tbeg:runBenchmark`
 
-## Documentation
+## 문서
 
-For detailed documentation, see the links below:
+상세 문서는 아래 링크를 참고하세요:
 
-- [TBEG Module README](modules/tbeg/README.md)
-- [User Guide](modules/tbeg/manual/en/user-guide.md)
-- [Template Syntax Reference](modules/tbeg/manual/en/reference/template-syntax.md)
-- [API Reference](modules/tbeg/manual/en/reference/api-reference.md)
-- [Configuration Options Reference](modules/tbeg/manual/en/reference/configuration.md)
-- [Basic Examples](modules/tbeg/manual/en/examples/basic-examples.md)
-- [Advanced Examples](modules/tbeg/manual/en/examples/advanced-examples.md)
-- [Spring Boot Examples](modules/tbeg/manual/en/examples/spring-boot-examples.md)
+- [TBEG 모듈 README](modules/tbeg/README.ko.md)
+- [사용자 가이드](modules/tbeg/manual/ko/user-guide.md)
+- [템플릿 문법 레퍼런스](modules/tbeg/manual/ko/reference/template-syntax.md)
+- [API 레퍼런스](modules/tbeg/manual/ko/reference/api-reference.md)
+- [설정 옵션 레퍼런스](modules/tbeg/manual/ko/reference/configuration.md)
+- [기본 예제](modules/tbeg/manual/ko/examples/basic-examples.md)
+- [고급 예제](modules/tbeg/manual/ko/examples/advanced-examples.md)
+- [Spring Boot 예제](modules/tbeg/manual/ko/examples/spring-boot-examples.md)
 
-## Requirements
+## 요구사항
 
 - Java 21+
-- Kotlin 2.1.20+ (when used in Kotlin projects)
+- Kotlin 2.1.20+ (Kotlin 프로젝트에서 사용 시)
 
-## Author
+## 작성자
 
-[Yongho Hwang](https://github.com/jogakdal) (jogakdal@gmail.com)
+[황용호 (Yongho Hwang)](https://github.com/jogakdal) (jogakdal@gmail.com)
 
-## License
+## 라이선스
 
 [Apache License 2.0](LICENSE)

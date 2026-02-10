@@ -96,8 +96,9 @@ fun main() {
 
 | 항목 | 값 |
 |------|-----|
-| Group ID | `com.hunet.common` |
+| Group ID | `io.github.jogakdal` |
 | Artifact ID | `tbeg` |
 | 패키지 | `io.github.jogakdal.tbeg` |
 | 최소 Java 버전 | 21 |
 | 최소 Kotlin 버전 | 2.0 |
+| 작성자 | [황용호 (Yongho Hwang)](https://github.com/jogakdal) (jogakdal@gmail.com) |
