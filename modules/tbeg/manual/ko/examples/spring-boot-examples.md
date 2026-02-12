@@ -20,27 +20,26 @@
 
 repositories {
     mavenCentral()
-    maven { url = uri("https://nexus.hunet.tech/repository/maven-public/") }
 }
 
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.1.0-SNAPSHOT")
+    implementation("io.github.jogakdal:tbeg:1.1.1")
 }
 ```
 
+> [!TIP]
 > 상세한 설정 방법(Groovy DSL, Maven)은 [사용자 가이드](../user-guide.md#11-의존성-추가)를 참조하세요.
 
 ### application.yml
 
 ```yaml
-hunet:
-  tbeg:
-    streaming-mode: enabled           # enabled, disabled
-    file-naming-mode: timestamp       # none, timestamp
-    timestamp-format: yyyyMMdd_HHmmss
-    file-conflict-policy: sequence    # error, sequence
-    preserve-template-layout: true
-    missing-data-behavior: warn       # warn, throw
+tbeg:
+  streaming-mode: enabled           # enabled, disabled
+  file-naming-mode: timestamp       # none, timestamp
+  timestamp-format: yyyyMMdd_HHmmss
+  file-conflict-policy: sequence    # error, sequence
+  preserve-template-layout: true
+  missing-data-behavior: warn       # warn, throw
 ```
 
 ### 자동 설정
@@ -529,7 +528,8 @@ class LargeReportService(
 }
 ```
 
-> **중요**: JPA Stream을 사용할 때는 반드시 `@Transactional` 어노테이션을 사용해야 합니다. Stream은 트랜잭션이 끝나면 닫히므로, Excel 생성이 완료될 때까지 트랜잭션이 유지되어야 합니다.
+> [!WARNING]
+> JPA Stream을 사용할 때는 반드시 `@Transactional` 어노테이션을 사용해야 합니다. Stream은 트랜잭션이 끝나면 닫히므로, Excel 생성이 완료될 때까지 트랜잭션이 유지되어야 합니다.
 
 Repository 인터페이스 정의, 페이징 기반 Iterator 구현, MyBatis 연동 등 상세한 내용은 [고급 예제 - JPA/Spring Data 연동](./advanced-examples.md#13-jpaspring-data-연동)을 참조하세요.
 

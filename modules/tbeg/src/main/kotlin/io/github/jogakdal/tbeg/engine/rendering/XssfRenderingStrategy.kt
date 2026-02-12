@@ -96,38 +96,26 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
         imageLocations: MutableList<ImageLocation>,
         context: RenderingContext
     ) {
-        // 반복 영역 추출
-        val repeatRows = blueprint.rows.filterIsInstance<RowSpec.RepeatRow>()
-        val repeatRegions = repeatRows.map { row ->
-            RepeatRegionSpec(
-                row.collectionName, row.itemVariable,
-                row.templateRowIndex, row.repeatEndRowIndex,
-                row.repeatStartCol, row.repeatEndCol, row.direction,
-                row.emptyRangeSpec
-            )
-        }
+        val repeatRegions = blueprint.repeatRegions
 
         // repeat 영역 겹침 검증
         PositionCalculator.validateNoOverlap(repeatRegions)
 
         // collection 크기 추출 및 PositionCalculator 생성
-        val collectionSizes = PositionCalculator.extractCollectionSizes(data, repeatRegions)
-        val calculator = PositionCalculator(repeatRegions, collectionSizes)
+        val calculator = PositionCalculator(
+            repeatRegions, PositionCalculator.extractCollectionSizes(data, repeatRegions)
+        )
 
-        // 기존 방식과의 호환성을 위해 열 그룹도 계산
+        // 열 그룹 계산
         val columnGroups = ColumnGroup.fromRepeatRegions(repeatRegions)
 
         // 각 repeat 영역이 속한 열 그룹 매핑 (region 시작 위치 기반)
         val repeatToColumnGroup = mutableMapOf<RepeatKey, ColumnGroup?>()
-        for (repeatRow in repeatRows) {
-            if (repeatRow.direction == RepeatDirection.DOWN) {
-                val key = RepeatKey(repeatRow.collectionName, repeatRow.templateRowIndex, repeatRow.repeatStartCol)
+        for (region in repeatRegions) {
+            if (region.direction == RepeatDirection.DOWN) {
+                val key = RepeatKey(region.collection, region.area.start.row, region.area.start.col)
                 repeatToColumnGroup[key] = columnGroups.find { group ->
-                    group.repeatRegions.any {
-                        it.collection == repeatRow.collectionName &&
-                            it.startRow == repeatRow.templateRowIndex &&
-                            it.startCol == repeatRow.repeatStartCol
-                    }
+                    group.repeatRegions.any { it === region }
                 }
             }
         }
@@ -135,39 +123,34 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
         // 반복 영역 확장 (뒤에서부터 처리하여 인덱스 꼬임 방지)
         val rowOffsets = mutableMapOf<Int, Int>()
 
-        for (repeatRow in repeatRows.reversed()) {
-            val rawItems = data[repeatRow.collectionName] as? Collection<*> ?: continue
-            // 빈 컬렉션이면 최소 1개 반복 단위(빈 행/열)를 위해 null 아이템 추가
+        for (region in repeatRegions.reversed()) {
+            val rawItems = data[region.collection] as? Collection<*> ?: continue
             val items: Collection<Any?> = rawItems.ifEmpty { listOf(null) }
             val expansion = calculator.getExpansionForRegion(
-                repeatRow.collectionName, repeatRow.templateRowIndex, repeatRow.repeatStartCol
+                region.collection, region.area.start.row, region.area.start.col
             ) ?: continue
 
-            when (repeatRow.direction) {
+            when (region.direction) {
                 RepeatDirection.DOWN -> {
-                    val key = RepeatKey(repeatRow.collectionName, repeatRow.templateRowIndex, repeatRow.repeatStartCol)
+                    val key = RepeatKey(region.collection, region.area.start.row, region.area.start.col)
                     val columnGroup = repeatToColumnGroup[key]
                     expandRowsDownWithCalculator(
-                        sheet, repeatRow, items, blueprint, context, columnGroup, expansion
+                        sheet, region, items, blueprint, context, columnGroup, expansion
                     )
-                    rowOffsets[repeatRow.templateRowIndex] = expansion.rowExpansion
+                    rowOffsets[region.area.start.row] = expansion.rowExpansion
                     context.repeatExpansionProcessor.expandFormulasAfterRepeat(
-                        sheet, repeatRow, items.size,
-                        repeatRow.repeatEndRowIndex - repeatRow.templateRowIndex + 1,
+                        sheet, region, items.size,
                         expansion.rowExpansion
                     )
                 }
 
                 RepeatDirection.RIGHT -> {
-                    val templateColCount = repeatRow.repeatEndCol - repeatRow.repeatStartCol + 1
-                    val colsToInsert = expansion.colExpansion
-
-                    if (colsToInsert > 0) {
-                        context.repeatExpansionProcessor.expandColumnsRight(sheet, repeatRow, items.size)
+                    if (expansion.colExpansion > 0) {
+                        context.repeatExpansionProcessor.expandColumnsRight(sheet, region, items.size)
                     }
 
                     context.repeatExpansionProcessor.expandFormulasAfterRightRepeat(
-                        sheet, repeatRow, items.size, templateColCount, colsToInsert
+                        sheet, region, items.size, expansion.colExpansion
                     )
                 }
             }
@@ -179,23 +162,23 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
         )
 
         // emptyRange 원본 셀 클리어 (같은 시트에 있는 경우만)
-        clearEmptyRangeCells(sheet, repeatRows)
+        clearEmptyRangeCells(sheet, repeatRegions)
     }
 
     /**
      * emptyRange 원본 셀들의 내용과 스타일을 클리어한다.
      * emptyRange가 같은 시트를 참조하는 경우에만 해당 범위의 셀들을 빈 셀로 만든다.
      */
-    private fun clearEmptyRangeCells(sheet: XSSFSheet, repeatRows: List<RowSpec.RepeatRow>) {
+    private fun clearEmptyRangeCells(sheet: XSSFSheet, repeatRegions: List<RepeatRegionSpec>) {
         val defaultStyle = sheet.workbook.getCellStyleAt(0)
-        for (row in repeatRows) {
-            val emptyRange = row.emptyRangeSpec ?: continue
+        for (region in repeatRegions) {
+            val emptyRange = region.emptyRange ?: continue
             // 같은 시트인 경우만 처리 (sheetName이 null이면 같은 시트)
             if (emptyRange.sheetName != null && emptyRange.sheetName != sheet.sheetName) continue
 
-            for (rowIdx in emptyRange.startRow..emptyRange.endRow) {
+            for (rowIdx in emptyRange.rowRange) {
                 val sheetRow = sheet.getRow(rowIdx) ?: continue
-                for (colIdx in emptyRange.startCol..emptyRange.endCol) {
+                for (colIdx in emptyRange.colRange) {
                     val cell = sheetRow.getCell(colIdx) ?: continue
                     cell.setBlank()
                     cell.cellStyle = defaultStyle
@@ -209,61 +192,57 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
      */
     private fun expandRowsDownWithCalculator(
         sheet: XSSFSheet,
-        repeatRow: RowSpec.RepeatRow,
+        region: RepeatRegionSpec,
         items: Collection<*>,
         blueprint: SheetSpec,
         context: RenderingContext,
         columnGroup: ColumnGroup?,
         expansion: PositionCalculator.RepeatExpansion
     ) {
-        val templateRowCount = repeatRow.repeatEndRowIndex - repeatRow.templateRowIndex + 1
-        val rowsToInsert = expansion.rowExpansion
-
-        if (rowsToInsert > 0) {
-            val insertPosition = repeatRow.repeatEndRowIndex + 1
+        if (expansion.rowExpansion > 0) {
+            val insertPosition = region.area.end.row + 1
 
             if (columnGroup != null && insertPosition <= sheet.lastRowNum) {
-                // 열 그룹이 있는 경우: 해당 열 범위만 선택적으로 이동
                 shiftRowsInColumnRange(
-                    sheet, insertPosition, sheet.lastRowNum, rowsToInsert,
-                    columnGroup.startCol, columnGroup.endCol
+                    sheet, insertPosition, sheet.lastRowNum, expansion.rowExpansion,
+                    columnGroup.colRange.start, columnGroup.colRange.end
                 )
             } else if (columnGroup == null && insertPosition <= sheet.lastRowNum) {
-                // 열 그룹이 없는 경우 (단일 repeat): 기존 방식 사용
-                sheet.shiftRows(insertPosition, sheet.lastRowNum, rowsToInsert)
+                sheet.shiftRows(insertPosition, sheet.lastRowNum, expansion.rowExpansion)
             }
 
             for (itemIdx in 1 until items.size) {
-                for (templateOffset in 0 until templateRowCount) {
-                    val templateRowIndex = repeatRow.templateRowIndex + templateOffset
-                    val templateRow = sheet.getRow(templateRowIndex)
-                    val newRowIndex = repeatRow.templateRowIndex + (itemIdx * templateRowCount) + templateOffset
+                for (templateOffset in 0 until region.area.rowRange.count) {
+                    val templateRowIndex = region.area.start.row + templateOffset
+                    val templateRow = sheet.getRow(templateRowIndex) ?: continue
+                    val newRowIndex = region.area.start.row + (itemIdx * region.area.rowRange.count) + templateOffset
                     val newRow = sheet.getRow(newRowIndex) ?: sheet.createRow(newRowIndex)
 
-                    if (templateRow != null) {
-                        // 열 그룹 범위 내의 셀만 복사
-                        val colStart = columnGroup?.startCol ?: repeatRow.repeatStartCol
-                        val colEnd = columnGroup?.endCol ?: repeatRow.repeatEndCol
+                    // 템플릿 행의 커스텀 높이를 복사
+                    if (templateRow.height != sheet.defaultRowHeight) {
+                        newRow.height = templateRow.height
+                    }
 
-                        for (colIdx in colStart..minOf(colEnd, templateRow.lastCellNum.toInt())) {
-                            val templateCell = templateRow.getCell(colIdx) ?: continue
-                            if (colIdx !in repeatRow.repeatStartCol..repeatRow.repeatEndCol) continue
-                            // 템플릿 셀이 BLANK면 새 셀을 생성하지 않음 (SXSSF와 동일하게)
-                            if (templateCell.cellType == CellType.BLANK) continue
+                    val colStart = columnGroup?.colRange?.start ?: region.area.start.col
+                    val colEnd = columnGroup?.colRange?.end ?: region.area.end.col
 
-                            val newCell = newRow.createCell(colIdx)
-                            newCell.cellStyle = templateCell.cellStyle
-                            copyCellValue(templateCell, newCell)
-                        }
+                    for (colIdx in colStart..minOf(colEnd, templateRow.lastCellNum.toInt())) {
+                        val templateCell = templateRow.getCell(colIdx) ?: continue
+                        if (colIdx !in region.area.colRange) continue
+                        if (templateCell.cellType == CellType.BLANK) continue
+
+                        val newCell = newRow.createCell(colIdx)
+                        newCell.cellStyle = templateCell.cellStyle
+                        copyCellValue(templateCell, newCell)
                     }
                 }
             }
 
             context.repeatExpansionProcessor.copyMergedRegionsForRepeat(
-                sheet, repeatRow, items.size, blueprint.mergedRegions
+                sheet, region, items.size, blueprint.mergedRegions
             )
             context.repeatExpansionProcessor.expandConditionalFormattingForRepeat(
-                sheet, repeatRow, items.size
+                sheet, region, items.size
             )
         }
     }
@@ -285,6 +264,11 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
             val sourceRow = sheet.getRow(rowIdx) ?: continue
             val targetRowIdx = rowIdx + shiftAmount
             val targetRow = sheet.getRow(targetRowIdx) ?: sheet.createRow(targetRowIdx)
+
+            // 원본 행의 커스텀 높이를 복사 (대상 행이 기본 높이인 경우만)
+            if (sourceRow.height != sheet.defaultRowHeight && targetRow.height == sheet.defaultRowHeight) {
+                targetRow.height = sourceRow.height
+            }
 
             // 지정된 열 범위의 셀만 이동
             for (colIdx in startCol..minOf(endCol, sourceRow.lastCellNum.toInt())) {
@@ -417,57 +401,79 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
         // 열 그룹에 속하지 않는 열을 위한 기본 오프셋 (열 그룹이 없는 경우)
         var defaultOffset = 0
 
+        // 같은 행의 RepeatRegion 열 범위를 미리 그룹화 (non-repeat 셀 판별용)
+        val regionsByStartRow = repeatRegions.groupBy { it.area.start.row }
+
+        // repeat 영역에 속한 행 인덱스 (건너뛰기용)
+        val repeatRowIndices = repeatRegions.flatMap { it.area.rowRange }.toSet()
+        // 이미 처리된 repeat 시작 행 추적
+        val processedRepeatStartRows = mutableSetOf<Int>()
+
         for (rowSpec in blueprint.rows) {
-            when (rowSpec) {
-                is RowSpec.StaticRow -> {
+            val templateRow = rowSpec.templateRowIndex
+            val regions = regionsByStartRow[templateRow]
+
+            when {
+                // repeat 영역 시작 행 → 각 region 처리
+                regions != null && processedRepeatStartRows.add(templateRow) -> {
+                    var isFirstRepeatInRow = true
+
+                    for (region in regions) {
+                        val rawItems = data[region.collection] as? Collection<*> ?: emptyList<Any>()
+                        val isEmpty = rawItems.isEmpty()
+                        val items: Collection<Any?> = rawItems.ifEmpty { listOf(null) }
+                        val repeatKey = RepeatKey(region.collection, region.area.start.row, region.area.start.col)
+
+                        when (region.direction) {
+                            RepeatDirection.DOWN -> {
+                                val columnGroup = repeatToColumnGroup[repeatKey]
+                                val currentOffset = if (columnGroup != null) {
+                                    columnGroupCurrentOffsets[columnGroup.groupId] ?: 0
+                                } else {
+                                    defaultOffset
+                                }
+
+                                val allRepeatColRanges = regionsByStartRow[templateRow]
+                                    ?.map { it.area.colRange }
+                                    ?: listOf(region.area.colRange)
+
+                                processDownRepeatWithCalculator(
+                                    sheet, region, items, isEmpty, blueprint, data, sheetIndex,
+                                    imageLocations, context, currentOffset, rowOffsets, columnGroup, calculator,
+                                    allRepeatColRanges, isFirstRepeatInRow
+                                )
+
+                                val addedOffset = rowOffsets[region.area.start.row] ?: 0
+                                if (columnGroup != null) {
+                                    columnGroupCurrentOffsets[columnGroup.groupId] =
+                                        (columnGroupCurrentOffsets[columnGroup.groupId] ?: 0) + addedOffset
+                                } else {
+                                    defaultOffset += addedOffset
+                                }
+                            }
+
+                            RepeatDirection.RIGHT -> {
+                                processRightRepeat(
+                                    sheet, region, items, blueprint, data, sheetIndex,
+                                    imageLocations, context, defaultOffset
+                                )
+                            }
+                        }
+
+                        isFirstRepeatInRow = false
+                    }
+                }
+
+                // repeat 영역 내부 행 (continuation) → 건너뜀
+                templateRow in repeatRowIndices -> Unit
+
+                // 정적 행
+                else -> {
                     processStaticRowWithCalculator(
                         sheet, rowSpec, data, sheetIndex, imageLocations, context,
                         columnGroups, columnGroupCurrentOffsets, defaultOffset, calculator,
                         repeatRegions
                     )
-                }
-
-                is RowSpec.RepeatRow -> {
-                    val rawItems = data[rowSpec.collectionName] as? Collection<*> ?: emptyList<Any>()
-                    val isEmpty = rawItems.isEmpty()
-                    // 빈 컬렉션이면 최소 1개 반복 단위(빈 행/열)를 위해 null 아이템 추가
-                    val items: Collection<Any?> = rawItems.ifEmpty { listOf(null) }
-                    val repeatKey = RepeatKey(rowSpec.collectionName, rowSpec.templateRowIndex, rowSpec.repeatStartCol)
-
-                    when (rowSpec.direction) {
-                        RepeatDirection.DOWN -> {
-                            val columnGroup = repeatToColumnGroup[repeatKey]
-                            val currentOffset = if (columnGroup != null) {
-                                columnGroupCurrentOffsets[columnGroup.groupId] ?: 0
-                            } else {
-                                defaultOffset
-                            }
-
-                            processDownRepeatWithCalculator(
-                                sheet, rowSpec, items, isEmpty, blueprint, data, sheetIndex,
-                                imageLocations, context, currentOffset, rowOffsets, columnGroup, calculator
-                            )
-
-                            val addedOffset = rowOffsets[rowSpec.templateRowIndex] ?: 0
-                            if (columnGroup != null) {
-                                columnGroupCurrentOffsets[columnGroup.groupId] =
-                                    (columnGroupCurrentOffsets[columnGroup.groupId] ?: 0) + addedOffset
-                            } else {
-                                defaultOffset += addedOffset
-                            }
-                        }
-
-                        RepeatDirection.RIGHT -> {
-                            processRightRepeat(
-                                sheet, rowSpec, items, blueprint, data, sheetIndex,
-                                imageLocations, context, defaultOffset
-                            )
-                        }
-                    }
-                }
-
-                is RowSpec.RepeatContinuation -> {
-                    // RepeatRow에서 이미 처리됨
                 }
             }
         }
@@ -478,7 +484,7 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
      */
     private fun processStaticRowWithCalculator(
         sheet: XSSFSheet,
-        rowSpec: RowSpec.StaticRow,
+        rowSpec: RowSpec,
         data: Map<String, Any>,
         sheetIndex: Int,
         imageLocations: MutableList<ImageLocation>,
@@ -492,7 +498,7 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
         for (cellSpec in rowSpec.cells) {
             // 셀이 속한 열 그룹 찾기
             val columnGroup = columnGroups.find {
-                cellSpec.columnIndex in it.startCol..it.endCol
+                cellSpec.columnIndex in it.colRange
             }
 
             val rowOffset = if (columnGroup != null) {
@@ -540,7 +546,7 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
             if (itemCount <= 1) continue
 
             val expansion = calculator.getExpansionForRegion(
-                region.collection, region.startRow, region.startCol
+                region.collection, region.area.start.row, region.area.start.col
             ) ?: continue
 
             val (expanded, _) = FormulaAdjuster.expandToRangeWithCalculator(formula, expansion, itemCount)
@@ -553,10 +559,13 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
 
     /**
      * DOWN 방향 repeat 처리 (PositionCalculator 사용)
+     *
+     * @param allRepeatColRanges 같은 행의 모든 repeat 열 범위 (non-repeat 셀 판별용)
+     * @param isFirstRepeatInRow 같은 행의 첫 번째 repeat인지 여부 (non-repeat 셀은 첫 번째에서만 처리)
      */
     private fun processDownRepeatWithCalculator(
         sheet: XSSFSheet,
-        rowSpec: RowSpec.RepeatRow,
+        region: RepeatRegionSpec,
         items: Collection<*>,
         isEmpty: Boolean,
         blueprint: SheetSpec,
@@ -567,44 +576,43 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
         currentOffset: Int,
         rowOffsets: Map<Int, Int>,
         columnGroup: ColumnGroup?,
-        calculator: PositionCalculator
+        calculator: PositionCalculator,
+        allRepeatColRanges: List<ColRange> = listOf(region.area.colRange),
+        isFirstRepeatInRow: Boolean = true
     ) {
-        val templateRowCount = rowSpec.repeatEndRowIndex - rowSpec.templateRowIndex + 1
-        val totalRepeatOffset = rowOffsets[rowSpec.templateRowIndex] ?: 0
+        val totalRepeatOffset = rowOffsets[region.area.start.row] ?: 0
 
-        // repeat 영역의 열 범위
-        val repeatColStart = columnGroup?.startCol ?: rowSpec.repeatStartCol
-        val repeatColEnd = columnGroup?.endCol ?: rowSpec.repeatEndCol
-
-        // repeat 범위 바깥의 셀은 한 번만 처리 (이미지 마커 등)
-        processNonRepeatCells(
-            sheet, rowSpec, blueprint, data, sheetIndex, imageLocations, context,
-            currentOffset, totalRepeatOffset, repeatColStart, repeatColEnd, calculator
-        )
+        // repeat 범위 바깥의 셀은 같은 행의 첫 번째에서만 한 번 처리 (이미지 마커 등)
+        if (isFirstRepeatInRow) {
+            processNonRepeatCells(
+                sheet, region, blueprint, data, sheetIndex, imageLocations, context,
+                currentOffset, totalRepeatOffset, allRepeatColRanges, calculator
+            )
+        }
 
         // 빈 컬렉션이고 emptyRangeContent가 있으면 그 내용을 출력
-        if (isEmpty && rowSpec.emptyRangeContent != null) {
-            writeEmptyRangeContent(sheet, rowSpec, currentOffset)
+        if (isEmpty && region.emptyRangeContent != null) {
+            writeEmptyRangeContent(sheet, region, currentOffset)
             return
         }
 
         items.forEachIndexed { itemIdx, item ->
             val itemData = if (item != null) {
-                data + (rowSpec.itemVariable to item)
+                data + (region.variable to item)
             } else data
 
-            for (templateOffset in 0 until templateRowCount) {
-                val templateRowIdx = rowSpec.templateRowIndex + templateOffset
-                val actualRowIndex = rowSpec.templateRowIndex + currentOffset +
-                    (itemIdx * templateRowCount) + templateOffset
+            for (templateOffset in 0 until region.area.rowRange.count) {
+                val templateRowIdx = region.area.start.row + templateOffset
+                val actualRowIndex = region.area.start.row + currentOffset +
+                    (itemIdx * region.area.rowRange.count) + templateOffset
                 val row = sheet.getRow(actualRowIndex) ?: continue
 
-                val currentRowSpec = blueprint.rows.find { it.templateRowIndex == templateRowIdx }
+                val currentRowSpec = blueprint.rowsByTemplateIndex[templateRowIdx]
                 val cellSpecs = currentRowSpec?.cells ?: continue
 
                 // repeat 범위 내 셀만 반복 처리
                 val repeatCellSpecs = cellSpecs.filter {
-                    it.columnIndex in repeatColStart..repeatColEnd
+                    it.columnIndex in (columnGroup?.colRange ?: region.area.colRange)
                 }
 
                 for (cellSpec in repeatCellSpecs) {
@@ -624,10 +632,12 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
     /**
      * repeat 범위 바깥의 셀을 처리한다 (이미지 마커 등).
      * 이 셀들은 반복되지 않고 한 번만 처리된다.
+     *
+     * @param allRepeatColRanges 같은 행의 모든 repeat 열 범위 목록 (이 범위에 속하는 셀은 건너뜀)
      */
     private fun processNonRepeatCells(
         sheet: XSSFSheet,
-        rowSpec: RowSpec.RepeatRow,
+        region: RepeatRegionSpec,
         blueprint: SheetSpec,
         data: Map<String, Any>,
         sheetIndex: Int,
@@ -635,24 +645,21 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
         context: RenderingContext,
         currentOffset: Int,
         totalRepeatOffset: Int,
-        repeatColStart: Int,
-        repeatColEnd: Int,
+        allRepeatColRanges: List<ColRange>,
         calculator: PositionCalculator
     ) {
-        val templateRowCount = rowSpec.repeatEndRowIndex - rowSpec.templateRowIndex + 1
-
-        for (templateOffset in 0 until templateRowCount) {
-            val templateRowIdx = rowSpec.templateRowIndex + templateOffset
-            val currentRowSpec = blueprint.rows.find { it.templateRowIndex == templateRowIdx }
+        for (templateOffset in 0 until region.area.rowRange.count) {
+            val templateRowIdx = region.area.start.row + templateOffset
+            val currentRowSpec = blueprint.rowsByTemplateIndex[templateRowIdx]
             val cellSpecs = currentRowSpec?.cells ?: continue
 
-            val nonRepeatCellSpecs = cellSpecs.filter {
-                it.columnIndex !in repeatColStart..repeatColEnd
+            val nonRepeatCellSpecs = cellSpecs.filter { spec ->
+                allRepeatColRanges.none { spec.columnIndex in it }
             }
             if (nonRepeatCellSpecs.isEmpty()) continue
 
             // 원본 행에서 셀 처리
-            val originalRow = sheet.getRow(rowSpec.templateRowIndex + templateOffset) ?: continue
+            val originalRow = sheet.getRow(region.area.start.row + templateOffset) ?: continue
             for (cellSpec in nonRepeatCellSpecs) {
                 val cell = originalRow.getCell(cellSpec.columnIndex) ?: continue
                 processCellContentXssf(
@@ -668,7 +675,7 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
 
     private fun processRightRepeat(
         sheet: XSSFSheet,
-        rowSpec: RowSpec.RepeatRow,
+        region: RepeatRegionSpec,
         items: Collection<*>,
         blueprint: SheetSpec,
         data: Map<String, Any>,
@@ -677,28 +684,27 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
         context: RenderingContext,
         currentOffset: Int
     ) {
-        val templateColCount = rowSpec.repeatEndCol - rowSpec.repeatStartCol + 1
-        val colShiftAmount = (items.size - 1) * templateColCount
+        val colShiftAmount = (items.size - 1) * region.area.colRange.count
 
-        for (rowIdx in rowSpec.templateRowIndex..rowSpec.repeatEndRowIndex) {
+        for (rowIdx in region.area.rowRange) {
             val actualRowIdx = rowIdx + currentOffset
             val row = sheet.getRow(actualRowIdx) ?: continue
 
-            val currentRowSpec = blueprint.rows.find { it.templateRowIndex == rowIdx }
+            val currentRowSpec = blueprint.rowsByTemplateIndex[rowIdx]
             val cellSpecs = currentRowSpec?.cells ?: continue
 
             // 반복 영역 내 셀 처리
             items.forEachIndexed { itemIdx, item ->
                 val itemData = if (item != null) {
-                    data + (rowSpec.itemVariable to item)
+                    data + (region.variable to item)
                 } else data
 
-                val colStart = rowSpec.repeatStartCol + (itemIdx * templateColCount)
+                val colStart = region.area.start.col + (itemIdx * region.area.colRange.count)
 
                 for (cellSpec in cellSpecs
-                    .filter { it.columnIndex in rowSpec.repeatStartCol..rowSpec.repeatEndCol }) {
+                    .filter { it.columnIndex in region.area.colRange }) {
 
-                    val targetColIdx = colStart + (cellSpec.columnIndex - rowSpec.repeatStartCol)
+                    val targetColIdx = colStart + (cellSpec.columnIndex - region.area.start.col)
                     val cell = row.getCell(targetColIdx) ?: continue
 
                     processCellContentXssf(
@@ -710,7 +716,7 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
             }
 
             // 반복 영역 오른쪽 셀 처리 (밀린 위치에서)
-            for (cellSpec in cellSpecs.filter { it.columnIndex > rowSpec.repeatEndCol }) {
+            for (cellSpec in cellSpecs.filter { it.columnIndex > region.area.end.col }) {
                 val shiftedColIdx = cellSpec.columnIndex + colShiftAmount
                 val cell = row.getCell(shiftedColIdx) ?: continue
 
@@ -809,16 +815,12 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
         if (position.contains(":")) {
             // 범위: B5:D10 -> 각 끝점의 최종 위치 계산
             val (start, end) = position.split(":")
-            val (startRow, startCol) = parseCellRef(start)
-            val (endRow, endCol) = parseCellRef(end)
-            val (finalStartRow, finalStartCol) = calculator.getFinalPosition(startRow, startCol)
-            val (finalEndRow, finalEndCol) = calculator.getFinalPosition(endRow, endCol)
-            toRangeRef(finalStartRow, finalStartCol, finalEndRow, finalEndCol)
+            val finalStart = calculator.getFinalPosition(parseCellRef(start))
+            val finalEnd = calculator.getFinalPosition(parseCellRef(end))
+            toRangeRef(finalStart, finalEnd)
         } else {
             // 단일 셀: B5 -> 최종 위치
-            val (row, col) = parseCellRef(position)
-            val (finalRow, finalCol) = calculator.getFinalPosition(row, col)
-            toCellRef(finalRow, finalCol)
+            calculator.getFinalPosition(parseCellRef(position)).toCellRefString()
         }
 
     // ========== emptyRange 처리 ==========
@@ -828,75 +830,57 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
      */
     private fun writeEmptyRangeContent(
         sheet: XSSFSheet,
-        rowSpec: RowSpec.RepeatRow,
+        region: RepeatRegionSpec,
         currentOffset: Int
     ) {
-        val emptyRangeContent = rowSpec.emptyRangeContent ?: return
-        val workbook = sheet.workbook
-        val templateRowCount = rowSpec.repeatEndRowIndex - rowSpec.templateRowIndex + 1
-        val templateColCount = rowSpec.repeatEndCol - rowSpec.repeatStartCol + 1
-
-        // emptyRangeContent의 행/열 개수
-        val contentRowCount = emptyRangeContent.rowCount
-        val contentColCount = emptyRangeContent.colCount
+        val emptyRangeContent = region.emptyRangeContent ?: return
 
         // repeat 영역의 실제 범위 계산
-        val repeatStartRow = rowSpec.templateRowIndex + currentOffset
-        val repeatEndRow = repeatStartRow + templateRowCount - 1
-        val repeatStartCol = rowSpec.repeatStartCol
-        val repeatEndCol = rowSpec.repeatEndCol
+        val repeatRows = RowRange(region.area.start.row + currentOffset, region.area.start.row + currentOffset + region.area.rowRange.count - 1)
 
         // repeat 영역의 조건부 서식 제거 (emptyRange 서식으로 대체하기 위해)
-        removeConditionalFormattingsInRange(sheet, repeatStartRow, repeatEndRow, repeatStartCol, repeatEndCol)
+        removeConditionalFormattingsInRange(sheet, repeatRows.start, repeatRows.end, region.area.start.col, region.area.end.col)
 
         // emptyRangeContent가 단일 셀이고 repeat 영역이 더 크면 병합
-        if (emptyRangeContent.isSingleCell && (templateRowCount > 1 || templateColCount > 1)) {
-            // 첫 번째 셀에 내용 설정
-            val row = sheet.getRow(repeatStartRow) ?: sheet.createRow(repeatStartRow)
-            val cell = row.getCell(repeatStartCol) ?: row.createCell(repeatStartCol)
+        if (emptyRangeContent.isSingleCell && (region.area.rowRange.count > 1 || region.area.colRange.count > 1)) {
+            val row = sheet.getRow(repeatRows.start) ?: sheet.createRow(repeatRows.start)
+            val cell = row.getCell(region.area.start.col) ?: row.createCell(region.area.start.col)
             val snapshot = emptyRangeContent.cells[0][0]
-            writeCellFromSnapshot(cell, snapshot, workbook)
+            writeCellFromSnapshot(cell, snapshot, sheet.workbook)
 
-            // 병합 영역 추가
-            sheet.addMergedRegion(CellRangeAddress(repeatStartRow, repeatEndRow, repeatStartCol, repeatEndCol))
-
-            // emptyRange 조건부 서식 적용
-            applyEmptyRangeConditionalFormattings(sheet, emptyRangeContent, repeatStartRow, repeatStartCol)
+            sheet.addMergedRegion(CellRangeAddress(repeatRows.start, repeatRows.end, region.area.start.col, region.area.end.col))
+            applyEmptyRangeConditionalFormattings(sheet, emptyRangeContent, repeatRows.start, region.area.start.col)
             return
         }
 
-        // 실제 출력할 행/열 개수 (repeat 영역과 emptyRange 중 작은 것)
-        val rowsToWrite = minOf(templateRowCount, contentRowCount)
-        val colsToWrite = minOf(templateColCount, contentColCount)
+        val rowsToWrite = minOf(region.area.rowRange.count, emptyRangeContent.rowCount)
+        val colsToWrite = minOf(region.area.colRange.count, emptyRangeContent.colCount)
 
         for (rowOffset in 0 until rowsToWrite) {
-            val actualRowIndex = rowSpec.templateRowIndex + currentOffset + rowOffset
+            val actualRowIndex = repeatRows.start + rowOffset
             val row = sheet.getRow(actualRowIndex) ?: sheet.createRow(actualRowIndex)
 
-            // 행 높이 설정
             emptyRangeContent.rowHeights.getOrNull(rowOffset)?.let { row.height = it }
 
             for (colOffset in 0 until colsToWrite) {
-                val colIndex = rowSpec.repeatStartCol + colOffset
+                val colIndex = region.area.start.col + colOffset
                 val snapshot = emptyRangeContent.cells.getOrNull(rowOffset)?.getOrNull(colOffset) ?: continue
                 val cell = row.getCell(colIndex) ?: row.createCell(colIndex)
-                writeCellFromSnapshot(cell, snapshot, workbook)
+                writeCellFromSnapshot(cell, snapshot, sheet.workbook)
             }
         }
 
-        // emptyRangeContent의 병합 영역 복사 (상대 좌표를 실제 좌표로 변환)
         for (mergedRegion in emptyRangeContent.mergedRegions) {
             val actualRegion = CellRangeAddress(
-                mergedRegion.firstRow + rowSpec.templateRowIndex + currentOffset,
-                mergedRegion.lastRow + rowSpec.templateRowIndex + currentOffset,
-                mergedRegion.firstColumn + rowSpec.repeatStartCol,
-                mergedRegion.lastColumn + rowSpec.repeatStartCol
+                mergedRegion.firstRow + repeatRows.start,
+                mergedRegion.lastRow + repeatRows.start,
+                mergedRegion.firstColumn + region.area.start.col,
+                mergedRegion.lastColumn + region.area.start.col
             )
             sheet.addMergedRegion(actualRegion)
         }
 
-        // emptyRange 조건부 서식 적용
-        applyEmptyRangeConditionalFormattings(sheet, emptyRangeContent, repeatStartRow, repeatStartCol)
+        applyEmptyRangeConditionalFormattings(sheet, emptyRangeContent, repeatRows.start, region.area.start.col)
     }
 
     /**

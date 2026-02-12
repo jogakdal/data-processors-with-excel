@@ -75,8 +75,9 @@ Repeats the specified range downward for each item in the collection.
 
 |   | A                                  | B               | C             |
 |---|------------------------------------|-----------------|---------------|
-| 1 | ${repeat(employees, A2:C2, emp)}   |                 |               |
-| 2 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
+| 1 | ${repeat(employees, A3:C3, emp)}   |                 |               |
+| 2 | 이름                                 | 직급              | 연봉            |
+| 3 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
 
 #### Data
 
@@ -97,11 +98,13 @@ mapOf(
 |   | A   | B  | C     |
 |---|-----|----|-------|
 | 1 |     |    |       |
-| 2 | 황용호 | 부장 | 8,000 |
-| 3 | 한용호 | 과장 | 6,500 |
-| 4 | 홍용호 | 대리 | 4,500 |
+| 2 | 이름  | 직급 | 연봉    |
+| 3 | 황용호 | 부장 | 8,000 |
+| 4 | 한용호 | 과장 | 6,500 |
+| 5 | 홍용호 | 대리 | 4,500 |
 
-> **Marker placement**: The `${repeat(...)}` marker can be placed anywhere in the workbook (even on a different sheet) as long as it is outside the repeat range. The area specified by the range parameter is what gets repeated.
+> [!NOTE]
+> The `${repeat(...)}` marker can be placed anywhere in the workbook (even on a different sheet) as long as it is outside the repeat range. The area specified by the range parameter is what gets repeated.
 
 ### 2.2 Multi-Row Repeat
 
@@ -147,6 +150,13 @@ Repeat regions located in different columns expand independently.
 |---|----------------------------------|---------------|---|-------------------------------------|----------------|
 | 1 | ${repeat(employees, A2:B2, emp)} |               |   | ${repeat(departments, D2:E2, dept)} |                |
 | 2 | ${emp.name}                      | ${emp.salary} |   | ${dept.name}                        | ${dept.budget} |
+
+#### Duplicate Markers
+
+If multiple repeat markers share the same collection and the same target range, they are considered duplicates. When duplicate markers are found, a warning log is emitted and only the last marker takes effect.
+
+- Even if they are on different sheets, referencing the same target via a sheet prefix (e.g., `'Sheet1'!A2:C2`) counts as a duplicate
+- If the ranges are the same but the collections differ, they are not duplicates
 
 #### Restrictions
 
@@ -274,7 +284,7 @@ mapOf("employees" to emptyList<Employee>())
 | 1 |             |   |   |
 | 2 | (데이터가 없습니다) |   |   |
 
-> **Note**:
+> [!NOTE]
 > - The content and style from A10:C10 are copied to the A2:C2 position.
 > - The original A10:C10 cells become blank in the output file.
 > - If the empty range is a single cell and the repeat region is larger, cells are automatically merged.
@@ -359,6 +369,7 @@ When a repeat region expands:
 | 4 | 항목3 | 300         |
 | 5 | 합계  | =SUM(B2:B4) |
 
+> [!NOTE]
 > The totals row originally at row 3 shifts to row 5, and the formula `=SUM(B2:B2)` is updated to reference the expanded range `=SUM(B2:B4)`.
 
 #### Formula Reference Behavior by Type
@@ -448,7 +459,15 @@ ${image(logo, B2, original)}  // Original size
 ${image(logo, B2, 200:150)}   // 200x150 pixels
 ```
 
-### 3.4 Named Parameter Format
+### 3.4 Duplicate Markers
+
+If multiple image markers share the same name, position, and size, they are considered duplicates. When duplicate markers are found, a warning log is emitted and only the last marker takes effect.
+
+- If the sizes differ, they are not duplicates (e.g., `${image(logo, B1:C2, 100:50)}` and `${image(logo, B1:C2, 200:100)}`)
+- Image markers without a `position` parameter are each inserted at their own marker cell location, so they are not subject to duplicate checking
+- Referencing the same target position from a different sheet via a sheet prefix (e.g., `'Sheet1'!B1:C2`) counts as a duplicate
+
+### 3.5 Named Parameter Format
 
 All parameters can be specified explicitly by name.
 
@@ -541,7 +560,8 @@ Some markers can also be written in formula form.
 
 **Advantage**: When specifying ranges or cells, you can leverage Excel's cell reference features (clicking, drag-selecting, etc.).
 
-> **Note**: Formula-style markers display as `#NAME?` errors in Excel. This is expected and they are processed correctly during generation.
+> [!NOTE]
+> Formula-style markers display as `#NAME?` errors in Excel. This is expected and they are processed correctly during generation.
 
 ### 6.1 Formula-Style Repeat Markers
 

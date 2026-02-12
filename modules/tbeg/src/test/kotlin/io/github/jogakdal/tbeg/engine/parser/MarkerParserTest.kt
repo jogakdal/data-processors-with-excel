@@ -489,7 +489,7 @@ class MarkerParserTest {
             val content = UnifiedMarkerParser.parse(
                 "\${emp.name}",
                 isFormula = false,
-                repeatItemVariable = "emp"
+                repeatItemVariables = setOf("emp")
             )
 
             assertTrue(content is CellContent.ItemField)
@@ -503,7 +503,7 @@ class MarkerParserTest {
             val content = UnifiedMarkerParser.parse(
                 "\${emp.department.name}",
                 isFormula = false,
-                repeatItemVariable = "emp"
+                repeatItemVariables = setOf("emp")
             )
 
             assertTrue(content is CellContent.ItemField)

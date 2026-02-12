@@ -1,3 +1,5 @@
+> 한국어 | **[English](./README.md)**
+
 # TBEG (Template Based Excel Generator)
 
 Excel 템플릿에 데이터를 바인딩하여 보고서를 생성하는 라이브러리입니다.
@@ -19,7 +21,7 @@ Excel 템플릿에 데이터를 바인딩하여 보고서를 생성하는 라이
 
 ```kotlin
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.1.0")
+    implementation("io.github.jogakdal:tbeg:1.1.1")
 }
 ```
 
@@ -27,7 +29,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.1.0'
+    implementation 'io.github.jogakdal:tbeg:1.1.1'
 }
 ```
 
@@ -37,7 +39,7 @@ dependencies {
 <dependency>
     <groupId>io.github.jogakdal</groupId>
     <artifactId>tbeg</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
 </dependency>
 ```
 
@@ -121,11 +123,11 @@ ${image(logo, B5, 100:50)}
 
 | 데이터 크기   | disabled | enabled | 속도 향상    |
 |----------|----------|---------|----------|
-| 1,000행   | 172ms    | 147ms   | 1.2배     |
-| 10,000행  | 1,801ms  | 663ms   | **2.7배** |
-| 30,000행  | -        | 1,057ms | -        |
-| 50,000행  | -        | 1,202ms | -        |
-| 100,000행 | -        | 3,154ms | -        |
+| 1,000행   | 179ms    | 146ms   | 1.2배     |
+| 10,000행  | 1,887ms  | 519ms   | **3.6배** |
+| 30,000행  | -        | 1,104ms | -        |
+| 50,000행  | -        | 1,269ms | -        |
+| 100,000행 | -        | 2,599ms | -        |
 
 ### 타 라이브러리와 비교 (30,000행)
 
@@ -134,28 +136,14 @@ ${image(logo, B5, 100:50)}
 | **TBEG** | **1.1초** | 스트리밍 모드                                                     |
 | JXLS     | 5.2초     | [벤치마크 출처](https://github.com/jxlsteam/jxls/discussions/203) |
 
+> [!TIP]
 > 벤치마크 실행: `./gradlew :tbeg:runBenchmark`
 
-## 설정 (application.yml)
-
-```yaml
-tbeg:
-  streaming-mode: enabled   # enabled, disabled
-  file-naming-mode: timestamp
-  preserve-template-layout: true
-```
-
-상세 프로젝트 구조는 [개발자 가이드](./DEVELOPMENT.ko.md)를 참고하세요.
-
-## 아키텍처
-
-TBEG는 파이프라인 아키텍처로 차트 추출 → 피벗 추출 → 템플릿 렌더링 → 숫자 서식 → XML 변수 치환 → 피벗 재생성 → 차트 복원 → 메타데이터 순으로 처리합니다. 렌더링 시 XSSF/SXSSF 전략을 자동 선택합니다.
-
-상세 아키텍처는 [개발자 가이드](./DEVELOPMENT.ko.md)를 참고하세요.
+설정 옵션의 상세 내용은 [설정 옵션 레퍼런스](./manual/ko/reference/configuration.md)를 참조하세요.
 
 ## 문서
 
-상세 문서는 아래 링크를 참고하세요:
+**상세 문서는 [TBEG 매뉴얼](./manual/ko/index.md)을 참조하세요.**
 
 - [사용자 가이드](./manual/ko/user-guide.md)
 - [템플릿 문법 레퍼런스](./manual/ko/reference/template-syntax.md)
@@ -164,6 +152,8 @@ TBEG는 파이프라인 아키텍처로 차트 추출 → 피벗 추출 → 템�
 - [기본 예제](./manual/ko/examples/basic-examples.md)
 - [고급 예제](./manual/ko/examples/advanced-examples.md)
 - [Spring Boot 예제](./manual/ko/examples/spring-boot-examples.md)
+- [모범 사례](./manual/ko/best-practices.md)
+- [문제 해결](./manual/ko/troubleshooting.md)
 - [유지보수 개발자 가이드](./manual/ko/developer-guide.md)
 
 ## 샘플 실행

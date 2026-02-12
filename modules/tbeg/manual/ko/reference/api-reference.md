@@ -28,6 +28,18 @@ class ExcelGenerator(config: TbegConfig = TbegConfig())
 |---------|------|--------|------|
 | config | TbegConfig | TbegConfig() | 생성기 설정 |
 
+### 메서드 선택 가이드
+
+| 메서드 | 반환 타입 | 용도 |
+|--------|----------|------|
+| `generate()` | `ByteArray` | 결과를 메모리에 받아 직접 처리 (HTTP 응답, 후처리 등) |
+| `generateToFile()` | `Path` | 결과를 파일로 직접 저장 (대용량 처리 시 권장) |
+| `generateAsync()` | `ByteArray` (suspend) | Kotlin Coroutine 환경에서 비동기 처리 |
+| `generateToFileAsync()` | `Path` (suspend) | Kotlin Coroutine 환경에서 파일로 비동기 저장 |
+| `generateFuture()` | `CompletableFuture<ByteArray>` | Java에서 비동기 처리 |
+| `generateToFileFuture()` | `CompletableFuture<Path>` | Java에서 파일로 비동기 저장 |
+| `submit()` / `submitToFile()` | `GenerationJob` | 백그라운드 처리 + 진행률 리스너 (API 서버에서 즉시 응답 후 처리) |
+
 ### 동기 메서드
 
 #### generate (Map)
@@ -271,7 +283,27 @@ fun submitToFile(
 ): GenerationJob
 ```
 
-### 리소스 관리
+### 발생 가능한 예외
+
+| 예외 | 발생 시점 | 원인 |
+|------|----------|------|
+| `TemplateProcessingException` | 템플릿 파싱 | 마커 문법 오류 (5가지 ErrorType으로 분류) |
+| `MissingTemplateDataException` | 데이터 바인딩 | 누락된 변수/컬렉션/이미지 (`THROW` 모드에서만) |
+| `FormulaExpansionException` | 수식 조정 | 수식 확장 실패 (병합 셀 + 함수 인자 수 초과) |
+
+`TemplateProcessingException`의 ErrorType:
+
+| ErrorType | 설명 |
+|-----------|------|
+| `INVALID_REPEAT_SYNTAX` | repeat 마커 문법 오류 |
+| `MISSING_REQUIRED_PARAMETER` | 필수 파라미터 누락 |
+| `INVALID_RANGE_FORMAT` | 잘못된 셀 범위 형식 |
+| `SHEET_NOT_FOUND` | 존재하지 않는 시트 참조 |
+| `INVALID_PARAMETER_VALUE` | 잘못된 파라미터 값 |
+
+상세한 오류 대응 방법은 [문제 해결 가이드](../troubleshooting.md#2-실행-시-오류)를 참조하세요.
+
+### 리소스 관리 및 스레드 안전성
 
 `ExcelGenerator`는 `Closeable`을 구현하므로 사용 후 반드시 닫아야 합니다.
 
@@ -280,6 +312,18 @@ ExcelGenerator().use { generator ->
     // 사용
 }
 ```
+
+내부적으로 `CachedThreadPool` 기반의 `CoroutineScope`를 보유하고 있으며, `close()` 호출 시 스코프와 디스패처가 정리됩니다.
+
+#### 스레드 안전성
+
+| API | 동시 호출 | 비고 |
+|-----|----------|------|
+| 동기 `generate()` / `generateToFile()` | 미지원 | 내부 파이프라인 상태를 공유하므로 동시 호출하면 안 됩니다 |
+| 비동기 `generateAsync()` / `generateFuture()` | 지원 | 각 작업이 코루틴 스코프 내에서 격리되어 실행됩니다 |
+| 백그라운드 `submit()` / `submitToFile()` | 지원 | 각 작업이 별도 코루틴으로 격리됩니다 |
+
+Spring Boot 환경에서는 `ExcelGenerator`가 싱글톤 Bean으로 등록됩니다. 동기 API를 여러 요청에서 동시에 호출해야 한다면, 요청마다 별도의 `ExcelGenerator` 인스턴스를 생성하거나 비동기 API를 사용하세요.
 
 ---
 
@@ -356,7 +400,8 @@ fun getItemCount(name: String): Int? = null
 | name | String | 컬렉션 이름 |
 | **반환** | Int? | 아이템 수, 알 수 없으면 null |
 
-> **성능 권장**: 대용량 데이터 처리 시 이 메서드를 구현하면 최적의 성능을 얻을 수 있습니다.
+> [!TIP]
+> 대용량 데이터 처리 시 이 메서드를 구현하면 데이터 이중 순회를 방지하여 최적의 성능을 얻을 수 있습니다.
 
 ---
 

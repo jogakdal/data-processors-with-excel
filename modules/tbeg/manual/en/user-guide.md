@@ -20,14 +20,12 @@
 ```kotlin
 // build.gradle.kts
 
-// 1. Repository configuration
 repositories {
     mavenCentral()
 }
 
-// 2. Add dependency
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.1.0")
+    implementation("io.github.jogakdal:tbeg:1.1.1")
 }
 ```
 
@@ -36,14 +34,12 @@ dependencies {
 ```groovy
 // build.gradle
 
-// 1. Repository configuration
 repositories {
     mavenCentral()
 }
 
-// 2. Add dependency
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.1.0'
+    implementation 'io.github.jogakdal:tbeg:1.1.1'
 }
 ```
 
@@ -56,7 +52,7 @@ dependencies {
     <dependency>
         <groupId>io.github.jogakdal</groupId>
         <artifactId>tbeg</artifactId>
-        <version>1.1.0</version>
+        <version>1.1.1</version>
     </dependency>
 </dependencies>
 ```
@@ -136,15 +132,17 @@ For detailed syntax, see the [Template Syntax Reference](./reference/template-sy
 
 ### 2.2 Repeating Data
 
-List data is repeatedly rendered within the designated range of the template.
+List data is repeatedly rendered within the designated range of the template. By default, it expands downward (DOWN), and rightward (RIGHT) expansion is also supported. For detailed syntax, see the [Template Syntax Reference](./reference/template-syntax.md#23-rightward-repeat-right); for code examples, see [Advanced Examples](./examples/advanced-examples.md#8-rightward-repeat).
 
 #### Template (employees.xlsx)
 
 |   | A                                  | B               | C             |
 |---|------------------------------------|-----------------|---------------|
-| 1 | ${repeat(employees, A2:C2, emp)}   |                 |               |
-| 2 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
+| 1 | ${repeat(employees, A3:C3, emp)}   |                 |               |
+| 2 | 이름                                 | 직급              | 연봉            |
+| 3 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
 
+> [!NOTE]
 > The `${repeat(...)}` marker can be placed anywhere in the workbook outside the repeat range (even on a different sheet). The area specified by the range parameter is what gets repeated.
 
 #### Kotlin Code
@@ -174,16 +172,20 @@ fun main() {
 
 #### Result
 
-|   | A   | B  | C     |
-|---|-----|----|-------|
-| 1 |     |    |       |
-| 2 | 황용호 | 부장 | 8,000 |
-| 3 | 한용호 | 과장 | 6,500 |
-| 4 | 홍용호 | 대리 | 4,500 |
 
-> **Automatic Adjustment of Related Elements**: When a repeat range expands, formulas, charts, pivot tables, and other affected elements have their coordinates and ranges automatically adjusted. For details, see the [Template Syntax Reference](./reference/template-syntax.md#26-관련-요소-자동-조정).
+|   | A    | B  | C     |
+|---|------|----|-------|
+| 1 |      |    |       |
+| 2 | 이름   | 직급 | 연봉    |
+| 3 | 황용호  | 부장 | 8,000 |
+| 4 | 한용호  | 과장 | 6,500 |
+| 5 | 홍용호  | 대리 | 4,500 |
 
-> **Empty Collection Handling**: When a collection is empty, you can display alternative content. The content from the range specified by the `empty` parameter is rendered. For details, see the [Template Syntax Reference](./reference/template-syntax.md#27-빈-컬렉션-처리-empty).
+> [!TIP]
+> When a repeat range expands, formulas, charts, pivot tables, and other affected elements have their coordinates and ranges automatically adjusted. For details, see the [Template Syntax Reference](./reference/template-syntax.md#28-automatic-adjustment-of-related-elements).
+
+> [!TIP]
+> When a collection is empty, you can display alternative content. The content from the range specified by the `empty` parameter is rendered. For details, see the [Template Syntax Reference](./reference/template-syntax.md#27-empty-collection-handling-empty).
 
 ### 2.3 Image Insertion
 
@@ -513,7 +515,8 @@ class ReportService(
 }
 ```
 
-> **Important**: The `@Transactional` annotation is required when using JPA Streams. Since a Stream is closed when the transaction ends, the transaction must remain active until Excel generation is complete.
+> [!WARNING]
+> The `@Transactional` annotation is required when using JPA Streams. Since a Stream is closed when the transaction ends, the transaction must remain active until Excel generation is complete.
 
 ### 5.5 Recommended Configuration for Large-Scale Processing
 
@@ -533,3 +536,4 @@ val generator = ExcelGenerator(config)
 - [Template Syntax Reference](./reference/template-syntax.md) - Detailed template syntax
 - [API Reference](./reference/api-reference.md) - Class and method details
 - [Basic Examples](./examples/basic-examples.md) - Various usage examples
+- [Troubleshooting](./troubleshooting.md) - Common issues and solutions

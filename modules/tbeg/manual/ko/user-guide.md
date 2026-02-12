@@ -18,23 +18,12 @@
 ```kotlin
 // build.gradle.kts
 
-// 1. 리포지토리 설정
 repositories {
     mavenCentral()
-    // 사내 Nexus 리포지토리
-    maven {
-        url = uri("https://nexus.hunet.tech/repository/maven-public/")
-    }
 }
 
-// 2. 의존성 추가
 dependencies {
-    // BOM 사용 (권장) - 버전 자동 관리
-    implementation(platform("com.hunet.common:common-bom:2026.1.0-SNAPSHOT"))
-    implementation("io.github.jogakdal:tbeg")
-
-    // 또는 직접 버전 지정
-    // implementation("io.github.jogakdal:tbeg:1.1.0-SNAPSHOT")
+    implementation("io.github.jogakdal:tbeg:1.1.1")
 }
 ```
 
@@ -43,23 +32,12 @@ dependencies {
 ```groovy
 // build.gradle
 
-// 1. 리포지토리 설정
 repositories {
     mavenCentral()
-    // 사내 Nexus 리포지토리
-    maven {
-        url 'https://nexus.hunet.tech/repository/maven-public/'
-    }
 }
 
-// 2. 의존성 추가
 dependencies {
-    // BOM 사용 (권장) - 버전 자동 관리
-    implementation platform('com.hunet.common:common-bom:2026.1.0-SNAPSHOT')
-    implementation 'io.github.jogakdal:tbeg'
-
-    // 또는 직접 버전 지정
-    // implementation 'io.github.jogakdal:tbeg:1.1.0-SNAPSHOT'
+    implementation 'io.github.jogakdal:tbeg:1.1.1'
 }
 ```
 
@@ -68,33 +46,11 @@ dependencies {
 ```xml
 <!-- pom.xml -->
 
-<!-- 1. 리포지토리 설정 -->
-<repositories>
-    <repository>
-        <id>hunet-nexus</id>
-        <name>Hunet Nexus Repository</name>
-        <url>https://nexus.hunet.tech/repository/maven-public/</url>
-    </repository>
-</repositories>
-
-<!-- 2. BOM 임포트 (권장) - 버전 자동 관리 -->
-<dependencyManagement>
-    <dependencies>
-        <dependency>
-            <groupId>com.hunet.common</groupId>
-            <artifactId>common-bom</artifactId>
-            <version>2026.1.0-SNAPSHOT</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-    </dependencies>
-</dependencyManagement>
-
-<!-- 3. 의존성 추가 (버전 생략 가능) -->
 <dependencies>
     <dependency>
-        <groupId>com.hunet.common</groupId>
+        <groupId>io.github.jogakdal</groupId>
         <artifactId>tbeg</artifactId>
+        <version>1.1.1</version>
     </dependency>
 </dependencies>
 ```
@@ -174,15 +130,17 @@ TBEG은 Excel 템플릿에 특수 마커를 사용하여 데이터를 바인딩�
 
 ### 2.2 반복 처리
 
-리스트 데이터를 템플릿의 지정된 범위에 반복 출력합니다.
+리스트 데이터를 템플릿의 지정된 범위에 반복 출력합니다. 기본적으로 아래 방향(DOWN)으로 확장되며, 오른쪽 방향(RIGHT) 확장도 지원합니다. 자세한 문법은 [템플릿 문법 레퍼런스](./reference/template-syntax.md#23-오른쪽-방향-반복-right)를, 코드 예제는 [고급 예제](./examples/advanced-examples.md#8-오른쪽-방향-반복)를 참조하세요.
 
 #### 템플릿 (employees.xlsx)
 
 |   | A                                  | B               | C             |
 |---|------------------------------------|-----------------|---------------|
-| 1 | ${repeat(employees, A2:C2, emp)}   |                 |               |
-| 2 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
+| 1 | ${repeat(employees, A3:C3, emp)}   |                 |               |
+| 2 | 이름                                 | 직급              | 연봉            |
+| 3 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
 
+> [!NOTE]
 > `${repeat(...)}` 마커는 반복 범위 밖이라면 워크북 내 어디에 있어도 됩니다(다른 시트도 가능). 범위 파라미터로 지정된 영역이 반복됩니다.
 
 #### Kotlin 코드
@@ -212,16 +170,20 @@ fun main() {
 
 #### 결과
 
-|   | A   | B  | C     |
-|---|-----|----|-------|
-| 1 |     |    |       |
-| 2 | 황용호 | 부장 | 8,000 |
-| 3 | 한용호 | 과장 | 6,500 |
-| 4 | 홍용호 | 대리 | 4,500 |
 
-> **관련 요소 자동 조정**: 반복 영역이 확장되면 수식 참조, 차트, 피벗 테이블 등 영향 받는 요소들의 좌표와 범위가 자동으로 조정됩니다. 자세한 내용은 [템플릿 문법 레퍼런스](./reference/template-syntax.md#26-관련-요소-자동-조정)를 참조하세요.
+|   | A    | B  | C     |
+|---|------|----|-------|
+| 1 |      |    |       |
+| 2 | 이름   | 직급 | 연봉    |
+| 3 | 황용호  | 부장 | 8,000 |
+| 4 | 한용호  | 과장 | 6,500 |
+| 5 | 홍용호  | 대리 | 4,500 |
 
-> **빈 컬렉션 처리**: 컬렉션이 비어있을 때 대체 내용을 표시할 수 있습니다. `empty` 파라미터로 지정된 범위의 내용이 출력됩니다. 자세한 내용은 [템플릿 문법 레퍼런스](./reference/template-syntax.md#27-빈-컬렉션-처리-empty)를 참조하세요.
+> [!TIP]
+> 반복 영역이 확장되면 수식 참조, 차트, 피벗 테이블 등 영향 받는 요소들의 좌표와 범위가 자동으로 조정됩니다. 자세한 내용은 [템플릿 문법 레퍼런스](./reference/template-syntax.md#28-관련-요소-자동-조정)를 참조하세요.
+
+> [!TIP]
+> 컬렉션이 비어있을 때 대체 내용을 표시할 수 있습니다. `empty` 파라미터로 지정된 범위의 내용이 출력됩니다. 자세한 내용은 [템플릿 문법 레퍼런스](./reference/template-syntax.md#27-빈-컬렉션-처리-empty)를 참조하세요.
 
 ### 2.3 이미지 삽입
 
@@ -551,7 +513,8 @@ class ReportService(
 }
 ```
 
-> **중요**: JPA Stream을 사용할 때는 `@Transactional` 어노테이션이 필수입니다. Stream은 트랜잭션이 끝나면 닫히므로 Excel 생성이 완료될 때까지 트랜잭션이 유지되어야 합니다.
+> [!WARNING]
+> JPA Stream을 사용할 때는 `@Transactional` 어노테이션이 필수입니다. Stream은 트랜잭션이 끝나면 닫히므로 Excel 생성이 완료될 때까지 트랜잭션이 유지되어야 합니다.
 
 ### 5.5 대용량 처리 권장 설정
 
@@ -571,3 +534,4 @@ val generator = ExcelGenerator(config)
 - [템플릿 문법 레퍼런스](./reference/template-syntax.md) - 상세 템플릿 문법
 - [API 레퍼런스](./reference/api-reference.md) - 클래스 및 메서드 상세
 - [기본 예제](./examples/basic-examples.md) - 다양한 사용 예제
+- [문제 해결](./troubleshooting.md) - 자주 발생하는 문제와 해결 방법

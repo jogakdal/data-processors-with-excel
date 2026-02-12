@@ -86,8 +86,9 @@ public class SimpleReport {
 
 |   | A                                  | B               | C             |
 |---|------------------------------------|-----------------|---------------|
-| 1 | ${repeat(employees, A2:C2, emp)}   |                 |               |
-| 2 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
+| 1 | ${repeat(employees, A3:C3, emp)}   |                 |               |
+| 2 | 이름                                 | 직급              | 연봉            |
+| 3 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
 
 ### Kotlin Code
 
@@ -152,10 +153,11 @@ public class EmployeeList {
 |   | A    | B  | C     |
 |---|------|----|-------|
 | 1 |      |    |       |
-| 2 | 황용호 | 부장 | 8,000 |
-| 3 | 한용호 | 과장 | 6,500 |
-| 4 | 홍용호 | 대리 | 4,500 |
-| 5 | 김용호 | 사원 | 3,500 |
+| 2 | 이름   | 직급 | 연봉    |
+| 3 | 황용호  | 부장 | 8,000 |
+| 4 | 한용호  | 과장 | 6,500 |
+| 5 | 홍용호  | 대리 | 4,500 |
+| 6 | 김용호  | 사원 | 3,500 |
 
 ---
 
@@ -453,3 +455,4 @@ public class WithMetadata {
 - [Advanced Examples](./advanced-examples.md) - Large-scale processing, asynchronous processing, etc.
 - [Spring Boot Examples](./spring-boot-examples.md) - Spring Boot integration examples
 - [Template Syntax Reference](../reference/template-syntax.md) - Detailed syntax
+- [Best Practices](../best-practices.md) - Template design and performance optimization

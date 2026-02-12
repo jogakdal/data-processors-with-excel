@@ -32,6 +32,7 @@ io.github.jogakdal.tbeg/
 │   └── ProgressInfo.kt
 ├── engine/
 │   ├── core/                           # 핵심 유틸리티
+│   │   ├── CommonTypes.kt              # 공통 타입 (CellCoord, CellArea, IndexRange, CollectionSizes 등)
 │   │   ├── ExcelUtils.kt
 │   │   ├── ChartProcessor.kt
 │   │   ├── PivotTableProcessor.kt
@@ -102,7 +103,9 @@ class TbegPipeline(vararg processors: ExcelProcessor) {
 각 프로세서는 특정 처리 단계를 담당합니다.
 
 ```kotlin
-interface ExcelProcessor {
+internal interface ExcelProcessor {
+    val name: String
+    fun shouldProcess(context: ProcessingContext): Boolean = true
     fun process(context: ProcessingContext): ProcessingContext
 }
 ```
@@ -112,34 +115,42 @@ interface ExcelProcessor {
 프로세서 간 데이터를 전달하는 컨텍스트입니다.
 
 ```kotlin
-data class ProcessingContext(
+internal class ProcessingContext(
     val templateBytes: ByteArray,
     val dataProvider: ExcelDataProvider,
     val config: TbegConfig,
-    val metadata: DocumentMetadata? = null,
-    var resultBytes: ByteArray = ByteArray(0),
-    var processedRowCount: Int = 0,
+    val metadata: DocumentMetadata?
+) {
+    var resultBytes: ByteArray = templateBytes
+    var processedRowCount: Int = 0
     // 프로세서 간 공유 데이터
-    var chartInfoList: List<ChartInfo> = emptyList(),
-    var pivotInfoList: List<PivotInfo> = emptyList(),
-    var workbookSpec: WorkbookSpec? = null
-)
+    var chartInfo: ChartProcessor.ChartInfo? = null
+    var pivotTableInfos: List<PivotTableProcessor.PivotTableInfo> = emptyList()
+    var variableResolver: ((String) -> String)? = null
+    var requiredNames: RequiredNames? = null
+}
 ```
 
 ### 2.4 프로세서 구현 예시
 
 ```kotlin
 class TemplateRenderProcessor : ExcelProcessor {
+    override val name = "TemplateRender"
+
     override fun process(context: ProcessingContext): ProcessingContext {
+        val analyzer = TemplateAnalyzer()
+        val blueprint = XSSFWorkbook(ByteArrayInputStream(context.resultBytes)).use {
+            analyzer.analyzeFromWorkbook(it)
+        }
+        context.requiredNames = blueprint.extractRequiredNames()
+
         val engine = TemplateRenderingEngine(context.config.streamingMode)
-
-        val resultBytes = engine.process(
-            ByteArrayInputStream(context.templateBytes),
+        context.resultBytes = engine.process(
+            ByteArrayInputStream(context.resultBytes),
             context.dataProvider,
-            context.workbookSpec?.extractRequiredNames()
+            context.requiredNames!!
         )
-
-        return context.copy(resultBytes = resultBytes)
+        return context
     }
 }
 ```
@@ -153,7 +164,9 @@ class TemplateRenderProcessor : ExcelProcessor {
 렌더링 모드(XSSF/SXSSF)에 따라 다른 전략을 사용합니다.
 
 ```kotlin
-sealed interface RenderingStrategy {
+internal interface RenderingStrategy {
+    val name: String
+
     fun render(
         templateBytes: ByteArray,
         data: Map<String, Any>,
@@ -161,8 +174,8 @@ sealed interface RenderingStrategy {
     ): ByteArray
 }
 
-class XssfRenderingStrategy : RenderingStrategy
-class SxssfRenderingStrategy : RenderingStrategy
+internal class XssfRenderingStrategy : RenderingStrategy
+internal class SxssfRenderingStrategy : RenderingStrategy
 ```
 
 ### 3.2 XSSF vs SXSSF
@@ -179,14 +192,27 @@ class SxssfRenderingStrategy : RenderingStrategy
 공통 로직을 추상 클래스로 분리합니다.
 
 ```kotlin
-abstract class AbstractRenderingStrategy : RenderingStrategy {
-    protected fun evaluateCellContent(
-        content: CellContent,
-        data: Map<String, Any>,
+internal abstract class AbstractRenderingStrategy : RenderingStrategy {
+    // 추상 메서드 — 서브클래스 구현 필수
+    protected abstract fun <T> withWorkbook(
+        templateBytes: ByteArray,
+        block: (workbook: Workbook, xssfWorkbook: XSSFWorkbook) -> T
+    ): T
+    protected abstract fun processSheet(
+        sheet: Sheet, sheetIndex: Int, blueprint: SheetSpec,
+        data: Map<String, Any>, imageLocations: MutableList<ImageLocation>,
         context: RenderingContext
-    ): Any?
+    )
+    protected abstract fun finalizeWorkbook(workbook: Workbook): ByteArray
 
-    protected fun applyCellStyle(cell: Cell, styleIndex: Short, workbook: Workbook)
+    // 훅 메서드 — 선택적 오버라이드
+    protected open fun beforeProcessSheets(workbook: Workbook, blueprint: WorkbookSpec, ...)
+    protected open fun afterProcessSheets(workbook: Workbook, context: RenderingContext)
+
+    // 공통 유틸리티
+    protected fun processCellContent(cell: Cell, content: CellContent, ...)
+    protected fun setCellValue(cell: Cell, value: Any?)
+    protected fun insertImages(workbook: Workbook, imageLocations: List<ImageLocation>, ...)
 }
 ```
 
@@ -219,62 +245,124 @@ ${repeat(employees, A3:C3, emp, DOWN)}
 ### 4.3 사용 예시
 
 ```kotlin
-// 마커 파싱
-val marker = UnifiedMarkerParser.parse("repeat(employees, A3:C3, emp, DOWN)")
+// 마커 파싱 — 반환 타입은 CellContent (sealed interface)
+val content = UnifiedMarkerParser.parse("\${repeat(employees, A3:C3, emp, DOWN)}")
 
-// 파라미터 접근
-val collection = marker["collection"]     // "employees"
-val range = marker.getRange("range")      // CellRangeAddress
-val direction = marker.getDirection("direction")  // RepeatDirection.DOWN
-
-// 선택 파라미터 확인
-if (marker.has("alias")) {
-    val alias = marker["alias"]
+// 반환값은 CellContent의 서브타입으로 분기
+when (content) {
+    is CellContent.RepeatMarker -> {
+        content.collection   // "employees"
+        content.area         // CellArea
+        content.variable     // "emp"
+        content.direction    // RepeatDirection.DOWN
+    }
+    is CellContent.ImageMarker -> { content.name; content.position }
+    is CellContent.Variable -> content.name
+    is CellContent.ItemField -> content.fieldPath
+    is CellContent.Formula -> content.formula
+    // ... StaticString, StaticNumber, StaticBoolean, Empty 등
+    else -> {}
 }
 ```
 
 ### 4.4 지원 마커
 
-| 마커             | 용도          | 필수 파라미터           |
-|----------------|-------------|-------------------|
-| `repeat`       | 반복 데이터 확장   | collection, range |
-| `image`        | 이미지 삽입      | name              |
-| `formulaRange` | 수식 범위 지정    | range             |
-| `emptyRange`   | 빈 범위 처리     | range, direction  |
-| `akzj`         | 빈 범위 처리(별칭) | range, direction  |
+| 마커       | 용도        | 필수 파라미터           | 선택 파라미터                         |
+|----------|-----------|-------------------|---------------------------------|
+| `repeat` | 반복 데이터 확장 | collection, range | var, direction(=DOWN), empty    |
+| `image`  | 이미지 삽입    | name              | position, size(=fit)            |
+| `size`   | 컬렉션 크기 출력 | collection        |                                 |
 
 ---
 
 ## 5. 위치 계산
 
-### 5.1 PositionCalculator
+### 5.0 공통 타입 (CommonTypes)
+
+#### CollectionSizes
+
+컬렉션 이름 → 아이템 수 매핑을 나타내는 value class이다. 위치 계산과 수식 확장에 사용된다.
+
+```kotlin
+// 팩토리 메서드
+val sizes = CollectionSizes.of("employees" to 10, "departments" to 3)
+
+// 빌더 함수
+val sizes = buildCollectionSizes {
+    put("employees", 10)
+    put("departments", 3)
+}
+
+// 빈 인스턴스
+val empty = CollectionSizes.EMPTY
+
+// 조회
+val count: Int? = sizes["employees"]  // 10
+```
+
+#### CellArea
+
+셀 영역(start/end 좌표)을 표현하는 data class이다. `RepeatRegionSpec`과 `ColumnGroup` 등에서 영역 정보를 담는다.
+
+```kotlin
+// CellCoord 기반 생성
+val area = CellArea(CellCoord(2, 0), CellCoord(5, 3))
+
+// 4개 좌표 직접 생성
+val area = CellArea(startRow = 2, startCol = 0, endRow = 5, endCol = 3)
+
+// 프로퍼티 접근
+area.start.row   // 2
+area.end.col     // 3
+area.rowRange    // RowRange(2, 5)
+area.colRange    // ColRange(0, 3)
+
+// 영역 겹침 판별
+area.overlapsColumns(other)  // 열 범위 겹침 여부
+area.overlapsRows(other)     // 행 범위 겹침 여부
+area.overlaps(other)         // 2D 공간 겹침 여부
+```
+
+### 5.1 중복 마커 감지
+
+`TemplateAnalyzer.analyzeWorkbook()`은 4단계로 템플릿을 분석합니다:
+
+1. **수집**: 모든 시트에서 repeat 마커 수집 (`collectRepeatRegions`)
+2. **repeat 중복 제거**: 같은 컬렉션 + 같은 대상 범위의 repeat이 여러 개이면 경고 후 마지막만 유지 (`deduplicateRepeatRegions`)
+3. **SheetSpec 생성**: 중복 제거된 repeat 목록을 기반으로 각 시트 분석 (`analyzeSheet`)
+4. **셀 마커 중복 제거**: image 등 셀에 남는 범위 마커의 중복을 후처리로 제거 (`deduplicateCellMarkers`)
+
+대상 시트 결정: 범위에 시트 접두사(`'Sheet1'!A1:B2`)가 있으면 해당 시트, 없으면 마커가 위치한 시트가 대상입니다.
+
+새로운 범위 마커를 추가할 때 중복 감지가 필요하면 `cellMarkerDedupKey()` 메서드의 `when` 분기에 추가합니다.
+
+### 5.2 PositionCalculator
 
 다중 repeat 영역의 위치를 계산합니다.
 
 ```kotlin
 class PositionCalculator(
     repeatRegions: List<RepeatRegionSpec>,
-    collectionSizes: Map<String, Int>,
+    collectionSizes: CollectionSizes,
     templateLastRow: Int = -1
 ) {
     // 모든 repeat 확장 정보 계산
     fun calculate(): List<RepeatExpansion>
 
     // 템플릿 위치 -> 최종 위치 변환
-    fun getFinalPosition(templateRow: Int, templateCol: Int): Pair<Int, Int>
+    fun getFinalPosition(templateRow: Int, templateCol: Int): CellCoord
+    fun getFinalPosition(template: CellCoord): CellCoord
 
     // 범위의 최종 위치 계산
-    fun getFinalRange(
-        templateFirstRow: Int, templateLastRow: Int,
-        templateFirstCol: Int, templateLastCol: Int
-    ): CellRangeAddress
+    fun getFinalRange(start: CellCoord, end: CellCoord): CellRangeAddress
+    fun getFinalRange(range: CellRangeAddress): CellRangeAddress
 
     // 실제 출력 행 정보 조회
     fun getRowInfo(actualRow: Int): RowInfo
 }
 ```
 
-### 5.2 RepeatExpansion
+### 5.3 RepeatExpansion
 
 ```kotlin
 data class RepeatExpansion(
@@ -287,21 +375,20 @@ data class RepeatExpansion(
 )
 ```
 
-### 5.3 위치 계산 규칙
+### 5.4 위치 계산 규칙
 
 1. **독립 요소**: 어느 repeat에도 영향받지 않으면 템플릿 위치 유지
 2. **단일 영향**: 하나의 repeat에만 영향받으면 해당 확장량만큼 이동
 3. **다중 영향**: 여러 repeat에 영향받으면 최대 오프셋 적용
 
-### 5.4 열 그룹
+### 5.5 열 그룹
 
 같은 열 범위의 repeat는 서로 영향을 주고, 다른 열 그룹의 repeat는 독립적으로 확장됩니다.
 
 ```kotlin
 data class ColumnGroup(
     val groupId: Int,
-    val startCol: Int,
-    val endCol: Int,
+    val colRange: ColRange,
     val repeatRegions: List<RepeatRegionSpec>
 )
 ```
@@ -315,9 +402,9 @@ data class ColumnGroup(
 SXSSF 모드에서 Iterator를 순차적으로 소비합니다.
 
 ```kotlin
-class StreamingDataSource(
+internal class StreamingDataSource(
     private val dataProvider: ExcelDataProvider,
-    private val expectedSizes: Map<String, Int>
+    private val expectedSizes: CollectionSizes = CollectionSizes.EMPTY
 ) : Closeable {
     // repeat 영역별 현재 아이템
     fun advanceToNextItem(repeatKey: RepeatKey): Any?
@@ -351,11 +438,18 @@ class PositionCalculatorTest {
     @Test
     fun `단일 repeat 확장 계산`() {
         val regions = listOf(
-            RepeatRegionSpec("items", "item", 2, 2, 0, 2, RepeatDirection.DOWN)
+            RepeatRegionSpec(
+                collection = "items",
+                variable = "item",
+                area = CellArea(2, 0, 2, 2),
+                direction = RepeatDirection.DOWN
+            )
         )
-        val sizes = mapOf("items" to 5)
 
-        val calculator = PositionCalculator(regions, sizes)
+        val calculator = PositionCalculator(
+            repeatRegions = regions,
+            collectionSizes = CollectionSizes.of("items" to 5)
+        )
         val expansions = calculator.calculate()
 
         assertEquals(1, expansions.size)
@@ -460,6 +554,8 @@ class DatabaseDataProvider(
 
 ```kotlin
 class WatermarkProcessor : ExcelProcessor {
+    override val name = "Watermark"
+
     override fun process(context: ProcessingContext): ProcessingContext {
         // 워터마크 추가 로직
         return context

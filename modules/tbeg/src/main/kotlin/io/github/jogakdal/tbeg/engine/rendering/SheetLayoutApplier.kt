@@ -1,5 +1,6 @@
 package io.github.jogakdal.tbeg.engine.rendering
 
+import io.github.jogakdal.tbeg.engine.core.CollectionSizes
 import io.github.jogakdal.tbeg.engine.core.ConditionalFormattingUtils
 import org.apache.poi.ss.usermodel.ConditionalFormattingRule
 import org.apache.poi.ss.usermodel.ConditionType
@@ -34,16 +35,16 @@ internal class SheetLayoutApplier {
     fun applyConditionalFormattings(
         sheet: SXSSFSheet,
         conditionalFormattings: List<ConditionalFormattingSpec>,
-        repeatRegions: Map<Int, RowSpec.RepeatRow>,
+        repeatRegions: List<RepeatRegionSpec>,
         data: Map<String, Any>,
         totalRowOffset: Int,
-        collectionSizes: Map<String, Int> = emptyMap()
+        collectionSizes: CollectionSizes = CollectionSizes.EMPTY
     ) {
         if (conditionalFormattings.isEmpty()) return
 
         val xssfSheet = (sheet.workbook as SXSSFWorkbook).xssfWorkbook.getSheetAt(sheet.workbook.getSheetIndex(sheet))
         val scf = xssfSheet.sheetConditionalFormatting
-        val maxRepeatEndRow = repeatRegions.values.maxOfOrNull { it.repeatEndRowIndex } ?: -1
+        val maxRepeatEndRow = repeatRegions.maxOfOrNull { it.area.end.row } ?: -1
 
         for (cfInfo in conditionalFormattings) {
             val allRanges = cfInfo.ranges.flatMap { range ->
@@ -64,29 +65,28 @@ internal class SheetLayoutApplier {
     /** 조건부 서식 범위를 반복 영역에 맞게 확장 */
     private fun expandRangeForConditionalFormatting(
         range: CellRangeAddress,
-        repeatRegions: Map<Int, RowSpec.RepeatRow>,
+        repeatRegions: List<RepeatRegionSpec>,
         data: Map<String, Any>,
-        collectionSizes: Map<String, Int>,
+        collectionSizes: CollectionSizes,
         totalRowOffset: Int,
         maxRepeatEndRow: Int
     ): List<CellRangeAddress> {
-        val overlappingRepeat = repeatRegions.values.find { repeat ->
-            range.firstRow >= repeat.templateRowIndex && range.lastRow <= repeat.repeatEndRowIndex
+        val overlappingRegion = repeatRegions.find { region ->
+            range.firstRow in region.area.rowRange && range.lastRow in region.area.rowRange
         } ?: return listOf(calculateOffsetRange(range, totalRowOffset, maxRepeatEndRow))
 
-        val itemCount = (data[overlappingRepeat.collectionName] as? Collection<*>)?.size
-            ?: collectionSizes[overlappingRepeat.collectionName]
+        val itemCount = (data[overlappingRegion.collection] as? Collection<*>)?.size
+            ?: collectionSizes[overlappingRegion.collection]
             ?: return emptyList()
 
         // 빈 컬렉션인 경우 건너뜀 (emptyRange 조건부 서식이 별도로 적용됨)
         if (itemCount == 0) return emptyList()
 
-        val templateRowCount = overlappingRepeat.repeatEndRowIndex - overlappingRepeat.templateRowIndex + 1
-        val relativeStartRow = range.firstRow - overlappingRepeat.templateRowIndex
+        val relativeStartRow = range.firstRow - overlappingRegion.area.start.row
         val rowSpan = range.lastRow - range.firstRow
 
         return (0 until itemCount).map { itemIdx ->
-            (overlappingRepeat.templateRowIndex + (itemIdx * templateRowCount) + relativeStartRow).let { newFirstRow ->
+            (overlappingRegion.area.start.row + (itemIdx * overlappingRegion.area.rowRange.count) + relativeStartRow).let { newFirstRow ->
                 CellRangeAddress(newFirstRow, newFirstRow + rowSpan, range.firstColumn, range.lastColumn)
             }
         }
@@ -121,27 +121,27 @@ internal class SheetLayoutApplier {
      */
     fun applyEmptyRangeConditionalFormattings(
         sheet: SXSSFSheet,
-        repeatRegions: Map<Int, RowSpec.RepeatRow>,
-        collectionSizes: Map<String, Int>,
+        repeatRegions: List<RepeatRegionSpec>,
+        collectionSizes: CollectionSizes,
         calculator: PositionCalculator
     ) {
         val xssfSheet = (sheet.workbook as SXSSFWorkbook).xssfWorkbook.getSheetAt(sheet.workbook.getSheetIndex(sheet))
         val scf = xssfSheet.sheetConditionalFormatting
 
-        for ((_, repeatRow) in repeatRegions) {
+        for (region in repeatRegions) {
             // 빈 컬렉션이 아니면 건너뜀
-            val itemCount = collectionSizes[repeatRow.collectionName] ?: continue
+            val itemCount = collectionSizes[region.collection] ?: continue
             if (itemCount > 0) continue
 
             // emptyRangeContent가 없거나 조건부 서식이 없으면 건너뜀
-            val emptyRangeContent = repeatRow.emptyRangeContent ?: continue
+            val emptyRangeContent = region.emptyRangeContent ?: continue
             if (emptyRangeContent.conditionalFormattings.isEmpty()) continue
 
             // repeat 영역의 실제 위치 계산
             val expansion = calculator.getExpansionForRegion(
-                repeatRow.collectionName, repeatRow.templateRowIndex, repeatRow.repeatStartCol
+                region.collection, region.area.start.row, region.area.start.col
             )
-            val actualStartRow = expansion?.finalStartRow ?: repeatRow.templateRowIndex
+            val actualStartRow = expansion?.finalStartRow ?: region.area.start.row
 
             // emptyRange 조건부 서식 적용
             for (cfSpec in emptyRangeContent.conditionalFormattings) {
@@ -150,8 +150,8 @@ internal class SheetLayoutApplier {
                     CellRangeAddress(
                         range.firstRow + actualStartRow,
                         range.lastRow + actualStartRow,
-                        range.firstColumn + repeatRow.repeatStartCol,
-                        range.lastColumn + repeatRow.repeatStartCol
+                        range.firstColumn + region.area.start.col,
+                        range.lastColumn + region.area.start.col
                     )
                 }.toTypedArray()
 
@@ -297,23 +297,23 @@ internal class SheetLayoutApplier {
         for (region in mergedRegions) {
             // 이 병합 영역이 속한 반복 영역 찾기
             val containingExpansion = expansions.find { expansion ->
-                region.firstRow >= expansion.region.startRow &&
-                    region.lastRow <= expansion.region.endRow &&
-                    region.firstColumn >= expansion.region.startCol &&
-                    region.lastColumn <= expansion.region.endCol
+                region.firstRow in expansion.region.area.rowRange &&
+                    region.lastRow in expansion.region.area.rowRange &&
+                    region.firstColumn in expansion.region.area.colRange &&
+                    region.lastColumn in expansion.region.area.colRange
             }
 
             if (containingExpansion != null) {
                 // 반복 영역 내 병합: 각 아이템마다 복제
                 val repeatRegion = containingExpansion.region
-                val templateRowCount = repeatRegion.endRow - repeatRegion.startRow + 1
-                val templateColCount = repeatRegion.endCol - repeatRegion.startCol + 1
+                val templateRowCount = repeatRegion.area.rowRange.count
+                val templateColCount = repeatRegion.area.colRange.count
                 val itemCount = containingExpansion.itemCount
 
-                val relativeFirstRow = region.firstRow - repeatRegion.startRow
-                val relativeLastRow = region.lastRow - repeatRegion.startRow
-                val relativeFirstCol = region.firstColumn - repeatRegion.startCol
-                val relativeLastCol = region.lastColumn - repeatRegion.startCol
+                val relativeFirstRow = region.firstRow - repeatRegion.area.start.row
+                val relativeLastRow = region.lastRow - repeatRegion.area.start.row
+                val relativeFirstCol = region.firstColumn - repeatRegion.area.start.col
+                val relativeLastCol = region.lastColumn - repeatRegion.area.start.col
 
                 for (itemIdx in 0 until itemCount) {
                     val (newFirstRow, newFirstCol) = when (repeatRegion.direction) {
@@ -348,10 +348,7 @@ internal class SheetLayoutApplier {
                 }
             } else {
                 // 반복 영역 외부: 최종 위치만 계산
-                val final = calculator.getFinalRange(
-                    region.firstRow, region.lastRow,
-                    region.firstColumn, region.lastColumn
-                )
+                val final = calculator.getFinalRange(region)
 
                 val key = "${final.firstRow}:${final.lastRow}:${final.firstColumn}:${final.lastColumn}"
                 if (key !in addedRegions) {

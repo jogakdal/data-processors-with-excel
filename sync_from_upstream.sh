@@ -108,6 +108,9 @@ fi
 if [[ -f "$TBEG_SRC/DEVELOPMENT.md" ]]; then
     cp "$TBEG_SRC/DEVELOPMENT.md" "$TMPDIR/DEVELOPMENT.md"
 fi
+if [[ -f "$TBEG_SRC/CHANGELOG.md" ]]; then
+    cp "$TBEG_SRC/CHANGELOG.md" "$TMPDIR/CHANGELOG.md"
+fi
 
 # -------------------------------------------------------------------
 # 4) common-core 유틸리티를 internal 패키지로 복사
@@ -222,6 +225,22 @@ if [[ -d "$TMPDIR/manual" ]]; then
 fi
 
 # -------------------------------------------------------------------
+# 7-2) 문서 내 버전에서 -SNAPSHOT 접미사 제거
+#      문서의 의존성 예제에는 릴리스 버전만 표기한다.
+# -------------------------------------------------------------------
+echo "[7-2/8] 문서 버전에서 -SNAPSHOT 제거..."
+
+find "$TMPDIR" -maxdepth 1 -name "*.md" -type f | while read -r f; do
+    sed -i '' -E 's/([0-9]+\.[0-9]+\.[0-9]+)-SNAPSHOT/\1/g' "$f"
+done
+
+if [[ -d "$TMPDIR/manual" ]]; then
+    find "$TMPDIR/manual" -name "*.md" -type f | while read -r f; do
+        sed -i '' -E 's/([0-9]+\.[0-9]+\.[0-9]+)-SNAPSHOT/\1/g' "$f"
+    done
+fi
+
+# -------------------------------------------------------------------
 # 8) META-INF AutoConfiguration.imports 치환
 # -------------------------------------------------------------------
 echo "[8/8] META-INF 파일 치환..."
@@ -284,6 +303,9 @@ fi
 if [[ -f "$TMPDIR/DEVELOPMENT.md" ]]; then
     cp "$TMPDIR/DEVELOPMENT.md" "$TARGET/DEVELOPMENT.ko.md"
 fi
+if [[ -f "$TMPDIR/CHANGELOG.md" ]]; then
+    cp "$TMPDIR/CHANGELOG.md" "$TARGET/CHANGELOG.ko.md"
+fi
 
 # -------------------------------------------------------------------
 # 버전 동기화
@@ -313,3 +335,4 @@ echo "  - $TARGET/src/main/resources/META-INF/spring/"
 echo "  - $TARGET/manual/ko/ (한국어 원본)"
 echo "  - $TARGET/README.ko.md (한국어 README)"
 echo "  - $TARGET/DEVELOPMENT.ko.md (한국어 개발자 가이드)"
+echo "  - $TARGET/CHANGELOG.ko.md (한국어 변경 이력)"

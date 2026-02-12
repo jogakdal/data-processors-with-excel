@@ -2,6 +2,7 @@ package io.github.jogakdal.tbeg.engine.rendering
 
 import io.github.jogakdal.tbeg.internal.commonLogger
 import io.github.jogakdal.tbeg.ExcelDataProvider
+import io.github.jogakdal.tbeg.engine.core.CollectionSizes
 import java.io.Closeable
 
 /**
@@ -22,7 +23,7 @@ import java.io.Closeable
  */
 internal class StreamingDataSource(
     private val dataProvider: ExcelDataProvider,
-    private val expectedSizes: Map<String, Int> = emptyMap()
+    private val expectedSizes: CollectionSizes = CollectionSizes.EMPTY
 ) : Closeable {
     private val iteratorsByRepeat = mutableMapOf<RepeatKey, Iterator<Any>>()
     private val currentItemByRepeat = mutableMapOf<RepeatKey, Any?>()

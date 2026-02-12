@@ -115,7 +115,8 @@ TbegConfig(
 )
 ```
 
-> **참고**: Excel 내장 포맷 인덱스는 [Microsoft 문서](https://docs.microsoft.com/en-us/dotnet/api/documentformat.openxml.spreadsheet.numberingformat)를 참조하세요.
+> [!NOTE]
+> Excel 내장 포맷 인덱스는 [Microsoft 문서](https://docs.microsoft.com/en-us/dotnet/api/documentformat.openxml.spreadsheet.numberingformat)를 참조하세요.
 
 #### missingDataBehavior
 
@@ -167,34 +168,33 @@ io.github.jogakdal.tbeg.spring.TbegProperties
 ### application.yml 예시
 
 ```yaml
-hunet:
-  tbeg:
-    # 스트리밍 모드: enabled, disabled
-    streaming-mode: enabled
+tbeg:
+  # 스트리밍 모드: enabled, disabled
+  streaming-mode: enabled
 
-    # 파일명 생성 모드: none, timestamp
-    file-naming-mode: timestamp
+  # 파일명 생성 모드: none, timestamp
+  file-naming-mode: timestamp
 
-    # 파일명 타임스탬프 형식
-    timestamp-format: yyyyMMdd_HHmmss
+  # 파일명 타임스탬프 형식
+  timestamp-format: yyyyMMdd_HHmmss
 
-    # 파일명 충돌 정책: error, sequence
-    file-conflict-policy: sequence
+  # 파일명 충돌 정책: error, sequence
+  file-conflict-policy: sequence
 
-    # 진행률 콜백 호출 간격
-    progress-report-interval: 100
+  # 진행률 콜백 호출 간격
+  progress-report-interval: 100
 
-    # 템플릿 레이아웃 보존
-    preserve-template-layout: true
+  # 템플릿 레이아웃 보존
+  preserve-template-layout: true
 
-    # 정수 숫자 서식 인덱스 (기본: 3, #,##0)
-    pivot-integer-format-index: 3
+  # 정수 숫자 서식 인덱스 (기본: 3, #,##0)
+  pivot-integer-format-index: 3
 
-    # 소수 숫자 서식 인덱스 (기본: 4, #,##0.00)
-    pivot-decimal-format-index: 4
+  # 소수 숫자 서식 인덱스 (기본: 4, #,##0.00)
+  pivot-decimal-format-index: 4
 
-    # 데이터 누락 시 동작: warn, throw
-    missing-data-behavior: warn
+  # 데이터 누락 시 동작: warn, throw
+  missing-data-behavior: warn
 ```
 
 ### 프로퍼티 매핑

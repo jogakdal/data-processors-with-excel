@@ -70,6 +70,7 @@ public class SimpleReport {
 
 ### 결과
 
+
 |   | A    | B          |
 |---|------|------------|
 | 1 | 제목   | 월간 보고서     |
@@ -84,8 +85,9 @@ public class SimpleReport {
 
 |   | A                                  | B               | C             |
 |---|------------------------------------|-----------------|---------------|
-| 1 | ${repeat(employees, A2:C2, emp)}   |                 |               |
-| 2 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
+| 1 | ${repeat(employees, A3:C3, emp)}   |                 |               |
+| 2 | 이름                                 | 직급              | 연봉            |
+| 3 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
 
 ### Kotlin 코드
 
@@ -147,13 +149,15 @@ public class EmployeeList {
 
 ### 결과
 
+
 |   | A    | B  | C     |
 |---|------|----|-------|
 | 1 |      |    |       |
-| 2 | 황용호 | 부장 | 8,000 |
-| 3 | 한용호 | 과장 | 6,500 |
-| 4 | 홍용호 | 대리 | 4,500 |
-| 5 | 김용호 | 사원 | 3,500 |
+| 2 | 이름   | 직급 | 연봉    |
+| 3 | 황용호  | 부장 | 8,000 |
+| 4 | 한용호  | 과장 | 6,500 |
+| 5 | 홍용호  | 대리 | 4,500 |
+| 6 | 김용호  | 사원 | 3,500 |
 
 ---
 
@@ -451,3 +455,4 @@ public class WithMetadata {
 - [고급 예제](./advanced-examples.md) - 대용량 처리, 비동기 처리 등
 - [Spring Boot 예제](./spring-boot-examples.md) - Spring Boot 환경 예제
 - [템플릿 문법 레퍼런스](../reference/template-syntax.md) - 상세 문법
+- [모범 사례](../best-practices.md) - 템플릿 설계 및 성능 최적화

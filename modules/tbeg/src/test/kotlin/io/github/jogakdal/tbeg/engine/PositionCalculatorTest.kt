@@ -1,5 +1,8 @@
 package io.github.jogakdal.tbeg.engine
 
+import io.github.jogakdal.tbeg.engine.core.CellCoord
+import io.github.jogakdal.tbeg.engine.core.CellArea
+import io.github.jogakdal.tbeg.engine.core.CollectionSizes
 import io.github.jogakdal.tbeg.engine.rendering.PositionCalculator
 import io.github.jogakdal.tbeg.engine.rendering.RepeatDirection
 import io.github.jogakdal.tbeg.engine.rendering.RepeatRegionSpec
@@ -26,7 +29,7 @@ class PositionCalculatorTest {
         fun noRepeatRegions() {
             val calculator = PositionCalculator(
                 repeatRegions = emptyList(),
-                collectionSizes = emptyMap()
+                collectionSizes = CollectionSizes.EMPTY
             )
             calculator.calculate()
 
@@ -43,17 +46,14 @@ class PositionCalculatorTest {
                 RepeatRegionSpec(
                     collection = "items",
                     variable = "item",
-                    startRow = 4,
-                    endRow = 5,
-                    startCol = 0,
-                    endCol = 2,
+                    area = CellArea(CellCoord(4, 0), CellCoord(5, 2)),
                     direction = RepeatDirection.DOWN
                 )
             )
 
             val calculator = PositionCalculator(
                 repeatRegions = regions,
-                collectionSizes = mapOf("items" to 3)
+                collectionSizes = CollectionSizes.of("items" to 3)
             )
             calculator.calculate()
 
@@ -68,17 +68,14 @@ class PositionCalculatorTest {
                 RepeatRegionSpec(
                     collection = "items",
                     variable = "item",
-                    startRow = 4,
-                    endRow = 5,
-                    startCol = 0,
-                    endCol = 2,
+                    area = CellArea(CellCoord(4, 0), CellCoord(5, 2)),
                     direction = RepeatDirection.DOWN
                 )
             )
 
             val calculator = PositionCalculator(
                 repeatRegions = regions,
-                collectionSizes = mapOf("items" to 1)
+                collectionSizes = CollectionSizes.of("items" to 1)
             )
             calculator.calculate()
 
@@ -94,17 +91,14 @@ class PositionCalculatorTest {
                 RepeatRegionSpec(
                     collection = "items",
                     variable = "item",
-                    startRow = 4,
-                    endRow = 5,
-                    startCol = 0,
-                    endCol = 2,
+                    area = CellArea(CellCoord(4, 0), CellCoord(5, 2)),
                     direction = RepeatDirection.DOWN
                 )
             )
 
             val calculator = PositionCalculator(
                 repeatRegions = regions,
-                collectionSizes = mapOf("items" to 0)
+                collectionSizes = CollectionSizes.of("items" to 0)
             )
             calculator.calculate()
 
@@ -124,17 +118,14 @@ class PositionCalculatorTest {
                 RepeatRegionSpec(
                     collection = "items",
                     variable = "item",
-                    startRow = 4,  // 5행 (1-indexed)
-                    endRow = 5,    // 6행 (1-indexed)
-                    startCol = 0,
-                    endCol = 2,
+                    area = CellArea(CellCoord(4, 0), CellCoord(5, 2)),  // 5-6행 (1-indexed)
                     direction = RepeatDirection.DOWN
                 )
             )
 
             val calculator = PositionCalculator(
                 repeatRegions = regions,
-                collectionSizes = mapOf("items" to 3)
+                collectionSizes = CollectionSizes.of("items" to 3)
             )
             calculator.calculate()
 
@@ -154,17 +145,14 @@ class PositionCalculatorTest {
                 RepeatRegionSpec(
                     collection = "items",
                     variable = "item",
-                    startRow = 4,
-                    endRow = 5,
-                    startCol = 0,
-                    endCol = 2,
+                    area = CellArea(CellCoord(4, 0), CellCoord(5, 2)),
                     direction = RepeatDirection.DOWN
                 )
             )
 
             val calculator = PositionCalculator(
                 repeatRegions = regions,
-                collectionSizes = mapOf("items" to 3)
+                collectionSizes = CollectionSizes.of("items" to 3)
             )
             calculator.calculate()
 
@@ -215,17 +203,14 @@ class PositionCalculatorTest {
                 RepeatRegionSpec(
                     collection = "items",
                     variable = "item",
-                    startRow = 4,
-                    endRow = 5,
-                    startCol = 0,
-                    endCol = 2,
+                    area = CellArea(CellCoord(4, 0), CellCoord(5, 2)),
                     direction = RepeatDirection.DOWN
                 )
             )
 
             val calculator = PositionCalculator(
                 repeatRegions = regions,
-                collectionSizes = mapOf("items" to 3)
+                collectionSizes = CollectionSizes.of("items" to 3)
             )
             calculator.calculate()
 
@@ -243,17 +228,14 @@ class PositionCalculatorTest {
                 RepeatRegionSpec(
                     collection = "items",
                     variable = "item",
-                    startRow = 5,
-                    endRow = 5,
-                    startCol = 0,
-                    endCol = 2,
+                    area = CellArea(CellCoord(5, 0), CellCoord(5, 2)),
                     direction = RepeatDirection.DOWN
                 )
             )
 
             val calculator = PositionCalculator(
                 repeatRegions = regions,
-                collectionSizes = mapOf("items" to 4)
+                collectionSizes = CollectionSizes.of("items" to 4)
             )
             calculator.calculate()
 
@@ -280,26 +262,20 @@ class PositionCalculatorTest {
                 RepeatRegionSpec(
                     collection = "employees",
                     variable = "emp",
-                    startRow = 2,
-                    endRow = 3,
-                    startCol = 0,
-                    endCol = 2,
+                    area = CellArea(CellCoord(2, 0), CellCoord(3, 2)),
                     direction = RepeatDirection.DOWN
                 ),
                 RepeatRegionSpec(
                     collection = "departments",
                     variable = "dept",
-                    startRow = 5,
-                    endRow = 6,
-                    startCol = 0,
-                    endCol = 2,
+                    area = CellArea(CellCoord(5, 0), CellCoord(6, 2)),
                     direction = RepeatDirection.DOWN
                 )
             )
 
             val calculator = PositionCalculator(
                 repeatRegions = regions,
-                collectionSizes = mapOf(
+                collectionSizes = CollectionSizes.of(
                     "employees" to 2,    // 2행 × 2 = 4행 (확장량 2)
                     "departments" to 3   // 2행 × 3 = 6행 (확장량 4)
                 )
@@ -341,17 +317,14 @@ class PositionCalculatorTest {
                 RepeatRegionSpec(
                     collection = "items",
                     variable = "item",
-                    startRow = 4,
-                    endRow = 5,
-                    startCol = 0,
-                    endCol = 2,
+                    area = CellArea(CellCoord(4, 0), CellCoord(5, 2)),
                     direction = RepeatDirection.DOWN
                 )
             )
 
             val calculator = PositionCalculator(
                 repeatRegions = regions,
-                collectionSizes = mapOf("items" to 3)  // 확장량: (3-1) × 2 = 4
+                collectionSizes = CollectionSizes.of("items" to 3)  // 확장량: (3-1) × 2 = 4
             )
             calculator.calculate()
 
@@ -372,17 +345,14 @@ class PositionCalculatorTest {
                 RepeatRegionSpec(
                     collection = "items",
                     variable = "item",
-                    startRow = 4,
-                    endRow = 5,
-                    startCol = 0,
-                    endCol = 2,
+                    area = CellArea(CellCoord(4, 0), CellCoord(5, 2)),
                     direction = RepeatDirection.DOWN
                 )
             )
 
             val calculator = PositionCalculator(
                 repeatRegions = regions,
-                collectionSizes = mapOf("items" to 3)
+                collectionSizes = CollectionSizes.of("items" to 3)
             )
             calculator.calculate()
 

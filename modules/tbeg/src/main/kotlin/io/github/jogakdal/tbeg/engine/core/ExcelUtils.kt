@@ -50,20 +50,24 @@ internal fun toColumnLetter(index: Int) = index.toColumnLetter()
 
 /**
  * 셀 참조 문자열을 파싱한다. (절대 좌표 $도 지원)
- * 예: "B5" -> (row=4, col=1)
- *     "$B$5" -> (row=4, col=1)  // $ 기호는 무시
+ * 예: "B5" -> CellCoord(row=4, col=1)
+ *     "$B$5" -> CellCoord(row=4, col=1)  // $ 기호는 무시
  *
  * @param ref 셀 참조 문자열 (예: "A1", "$B$5", "AA100")
- * @return Pair(행 인덱스, 열 인덱스) - 0-based
+ * @return CellCoord(행 인덱스, 열 인덱스) - 0-based
  */
-internal fun parseCellRef(ref: String): Pair<Int, Int> {
+internal fun parseCellRef(ref: String): CellCoord {
     val cleaned = ref.replace("$", "")  // 절대 좌표 기호 제거
     val colPart = cleaned.takeWhile(Char::isLetter).uppercase()
     val rowPart = cleaned.dropWhile(Char::isLetter)
-    val col = colPart.toColumnIndex()
-    val row = rowPart.toInt() - 1
-    return row to col
+    return CellCoord(row = rowPart.toInt() - 1, col = colPart.toColumnIndex())
 }
+
+/**
+ * CellCoord를 셀 참조 문자열로 변환한다.
+ * 예: CellCoord(row=4, col=1) -> "B5"
+ */
+internal fun CellCoord.toCellRefString() = toCellRef(row, col)
 
 /**
  * 0-based 행/열 인덱스를 셀 참조 문자열로 변환한다.
@@ -77,6 +81,13 @@ internal fun toCellRef(row: Int, col: Int) = "${col.toColumnLetter()}${row + 1}"
  */
 internal fun toRangeRef(startRow: Int, startCol: Int, endRow: Int, endCol: Int) =
     "${toCellRef(startRow, startCol)}:${toCellRef(endRow, endCol)}"
+
+/**
+ * CellCoord를 범위 참조 문자열로 변환한다.
+ * 예: (CellCoord(0, 0), CellCoord(4, 2)) -> "A1:C5"
+ */
+internal fun toRangeRef(start: CellCoord, end: CellCoord) =
+    "${start.toCellRefString()}:${end.toCellRefString()}"
 
 /**
  * 범위 문자열에서 시트 참조를 분리한다.
