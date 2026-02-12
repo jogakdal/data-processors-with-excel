@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 This file is maintained in this project only and is not affected by upstream sync.
 
+## [1.1.1] - 2026-02-12
+
+### Bug Fixes
+- Fixed multi independent repeat regions on the same row: some regions were missing or non-repeat cells were rendered duplicately
+- Fixed `UnifiedMarkerParser` to recognize multiple repeat variables on the same row
+
+### New Features
+- **Duplicate marker detection**: Warns when repeat markers share the same collection + target range, or image markers share the same name + position + size
+
+### Internal Improvements
+- Row spec structure overhaul: simplified `RowSpec` to single data class, separated repeat info into `RepeatRegionSpec`
+- Introduced common types: `IndexRange`/`RowRange`/`ColRange`, `CollectionSizes`, `CellCoord`, `CellArea`
+- `TemplateAnalyzer` reorganized into 4-phase analysis pipeline
+- Added parameterized tests for multi repeat regions and duplicate marker detection
+
+### Documentation
+- Added CHANGELOG (ko/en)
+- Added 3 new manuals: best-practices, troubleshooting, migration-guide (ko/en)
+- Major updates to existing manuals: index, user-guide, developer-guide, api-reference, etc.
+
 ## [1.1.0] - 2026-02-10
 
 **First public release on Maven Central**
