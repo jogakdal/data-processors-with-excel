@@ -26,6 +26,7 @@
 .last_sync_commit
 
 ### Claude Code ###
-.claude/
+.claude
+.mcp.json
 **/docs/
 CLAUDE.md
