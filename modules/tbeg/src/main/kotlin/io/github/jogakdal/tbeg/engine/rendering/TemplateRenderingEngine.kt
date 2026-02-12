@@ -2,6 +2,8 @@ package io.github.jogakdal.tbeg.engine.rendering
 
 import io.github.jogakdal.tbeg.ExcelDataProvider
 import io.github.jogakdal.tbeg.StreamingMode
+import io.github.jogakdal.tbeg.engine.core.CollectionSizes
+import io.github.jogakdal.tbeg.engine.core.buildCollectionSizes
 import io.github.jogakdal.tbeg.internal.VariableProcessor
 import java.io.InputStream
 import java.lang.reflect.Field
@@ -54,7 +56,7 @@ class TemplateRenderingEngine(
      */
     private fun createRenderingContext(
         streamingDataSource: StreamingDataSource? = null,
-        collectionSizes: Map<String, Int> = emptyMap()
+        collectionSizes: CollectionSizes = CollectionSizes.EMPTY
     ) = RenderingContext(
         analyzer = analyzer,
         imageInserter = imageInserter,
@@ -106,9 +108,10 @@ class TemplateRenderingEngine(
         val templateBytes = template.readBytes()
 
         // 컬렉션 크기 계산 (위치 계산용)
-        val collectionSizes = mutableMapOf<String, Int>()
-        requiredNames?.collections?.forEach { name ->
-            collectionSizes[name] = getCollectionSize(dataProvider, name)
+        val collectionSizes = buildCollectionSizes {
+            requiredNames?.collections?.forEach { name ->
+                put(name, getCollectionSize(dataProvider, name))
+            }
         }
 
         // 단순 변수와 이미지 데이터 수집 (컬렉션 제외)

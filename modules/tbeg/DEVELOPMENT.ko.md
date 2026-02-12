@@ -92,6 +92,7 @@ src/main/kotlin/com/hunet/common/tbeg/
 │
 ├── engine/                                 # 내부 엔진 (internal)
 │   ├── core/                               # 핵심 유틸리티
+│   │   ├── CommonTypes.kt                  # 공통 타입 (CellCoord, CellArea, IndexRange, CollectionSizes 등)
 │   │   ├── ChartProcessor.kt               # 차트 추출/복원
 │   │   ├── PivotTableProcessor.kt          # 피벗 테이블 처리
 │   │   ├── XmlVariableProcessor.kt         # XML 내 변수 치환
@@ -165,13 +166,13 @@ src/main/kotlin/com/hunet/common/tbeg/
 
 ### 렌더링 엔진
 
-| 클래스                       | 역할                               |
-|---------------------------|----------------------------------|
-| `TemplateRenderingEngine` | 렌더링 전략 선택 및 실행                   |
-| `TemplateAnalyzer`        | 템플릿 분석 (마커 파싱, 정규식 정의)           |
-| `WorkbookSpec`            | 분석된 템플릿 명세 (SheetSpec, CellSpec) |
-| `PositionCalculator`      | repeat 확장 시 셀 위치 계산              |
-| `FormulaAdjuster`         | 수식 참조 자동 확장                      |
+| 클래스                       | 역할                                                                       |
+|---------------------------|--------------------------------------------------------------------------|
+| `TemplateRenderingEngine` | 렌더링 전략 선택 및 실행                                                           |
+| `TemplateAnalyzer`        | 템플릿 분석 (마커 파싱, 중복 마커 감지)                                                  |
+| `WorkbookSpec`            | 분석된 템플릿 명세 (SheetSpec, RowSpec, CellSpec, RepeatRegionSpec, ColumnGroup) |
+| `PositionCalculator`      | repeat 확장 시 셀 위치 계산                                                      |
+| `FormulaAdjuster`         | 수식 참조 자동 확장                                                              |
 
 ### 스트리밍 지원
 
@@ -380,6 +381,7 @@ parser/
 
 | 기능         | 설명                   | 처리 위치                     |
 |------------|----------------------|---------------------------|
+| 중복 마커 감지  | 범위 마커 중복 경고 및 자동 제거 | `TemplateAnalyzer`        |
 | 변수 치환      | 단순 값 바인딩             | `TemplateRenderingEngine` |
 | 중첩 변수      | 객체 속성 접근             | `TemplateRenderingEngine` |
 | 반복 (DOWN)  | 행 방향 확장              | `RenderingStrategy`       |
@@ -425,18 +427,63 @@ repeat에서 확장된 모든 행은 **repeat 기준 템플릿 행**의 스타�
 
 #### 1.4 열 그룹 독립성
 서로 다른 열 범위의 repeat은 독립적으로 위치가 계산됩니다.
+**같은 행에 여러 독립 repeat이 있어도** 열 범위가 겹치지 않으면 각각 별도의 `RepeatRegionSpec`으로 관리되어 독립 확장됩니다.
 
 ```
-예시:
-- A-C 열: employees repeat (확장 +2행)
-- F-H 열: department repeat (확장 +3행)
+예시 1: 서로 다른 행에 배치된 repeat
+- A-C 열 (3행): employees repeat (확장 +2행)
+- F-H 열 (8행): department repeat (확장 +3행)
 
-actualRow 10에서:
-- A-C 열 관점: templateRow = actualRow - employees확장량
-- F-H 열 관점: templateRow = actualRow - department확장량 (해당 열 범위에서만)
+예시 2: 같은 행에 배치된 repeat
+- A-D 열 (2행): eventTypes repeat (5개 → +4행)
+- J-K 열 (2행): languages repeat (4개 → +3행)
+→ 각 repeat이 독립적으로 확장, 결과 행 수 = max(5, 4)
 ```
 
-### 1.5 빈 컬렉션 처리 (emptyRange)
+**같은 행 다중 repeat 구현 핵심:**
+- `SheetSpec.repeatRegions`: 반복 영역 정보를 `RepeatRegionSpec` 리스트로 저장 (행 중심이 아닌 영역 중심)
+- `TemplateAnalyzer.buildRowSpecs()`: repeat 영역에 속한 행의 셀 파싱 시 모든 아이템 변수를 인식
+- `UnifiedMarkerParser.parse()`: `repeatItemVariables: Set<String>`으로 같은 행의 모든 아이템 변수를 인식
+- non-repeat 셀은 같은 행의 첫 번째 repeat에서만 처리 (중복 방지)
+
+### 1.5 중복 마커 감지
+
+범위를 취급하는 마커(repeat, image)가 동일 대상에 대해 중복 선언되면 경고 로그를 출력하고 마지막 마커만 유지한다.
+
+#### TemplateAnalyzer의 4단계 분석 구조
+
+```
+analyzeWorkbook(workbook)
+  Phase 1: 모든 시트에서 repeat 마커 수집 (collectRepeatRegions)
+  Phase 2: repeat 중복 제거 (deduplicateRepeatRegions)
+  Phase 3: SheetSpec 생성 (analyzeSheet — 중복 제거된 repeat 목록 사용)
+  Phase 4: 셀 단위 범위 마커 중복 제거 (deduplicateCellMarkers)
+```
+
+- **Phase 1~2**: repeat는 `RepeatRegionSpec`으로 추출되어 셀에서 분리되므로 SheetSpec 생성 전에 중복 제거
+- **Phase 3~4**: image 등 셀에 남는 마커는 SheetSpec 생성 후 후처리로 중복 제거 (중복 마커를 `CellContent.Empty`로 교체)
+
+#### 중복 판정 기준
+
+| 마커     | 중복 키                          | 비고                              |
+|--------|-------------------------------|---------------------------------|
+| repeat | 컬렉션 + 대상 시트 + 영역(CellArea)   | 대상 시트는 범위의 시트 접두사로 결정, 없으면 현재 시트 |
+| image  | 이름 + 대상 시트 + 위치 + 크기(sizeSpec) | position이 없는 image는 중복 체크 대상 아님 |
+
+#### 겹침 검증과의 처리 순서
+
+중복 제거(Phase 2)는 겹침 검증(`PositionCalculator.validateNoOverlap`)보다 **반드시 먼저** 실행된다.
+같은 영역의 중복 repeat은 `overlaps() == true`이므로, 중복 제거가 선행되지 않으면 겹침 검증에서 예외가 발생한다.
+
+```
+TemplateAnalyzer.analyzeWorkbook()
+  → Phase 2: 중복 repeat 제거 (경고 로그)     ← 먼저
+      ↓
+RenderingStrategy.processSheet()
+  → validateNoOverlap(blueprint.repeatRegions)  ← 나중
+```
+
+### 1.6 빈 컬렉션 처리 (emptyRange)
 
 컬렉션이 비어있을 때의 동작을 제어합니다.
 
@@ -618,8 +665,9 @@ hunet:
 
 ### 일반 제한사항
 
-- repeat 영역은 2D 공간에서 겹쳐야 함
+- repeat 영역은 2D 공간에서 겹치면 안 됨
 - 같은 열 범위 내 여러 repeat은 세로로 배치 가능
+- 같은 행에 여러 repeat을 배치할 경우 열 범위가 겹치지 않아야 함
 - 시퀀스 번호는 최대 10,000까지 시도
 
 ### 내부 상수
@@ -718,12 +766,12 @@ val NEW_MARKER = MarkerDefinition("newmarker", listOf(
 src/test/
 ├── kotlin/com/hunet/common/tbeg/
 │   ├── TbegTest.kt                     # 통합 테스트
-│   ├── PerformanceBenchmark.kt         # 성능 벤치마크
+│   ├── EmptyCollectionTest.kt          # 빈 컬렉션 처리 테스트
 │   ├── engine/
-│   │   ├── rendering/
-│   │   │   ├── PositionCalculatorTest.kt
-│   │   │   ├── FormulaAdjusterTest.kt
-│   │   │   └── ...
+│   │   ├── TemplateRenderingEngineTest.kt  # 렌더링 엔진 테스트
+│   │   ├── DuplicateRepeatDetectionTest.kt # 중복 마커 감지 테스트
+│   │   ├── PositionCalculatorTest.kt
+│   │   ├── ForwardReferenceTest.kt
 │   │   └── ...
 │   └── ...
 └── resources/

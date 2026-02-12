@@ -94,6 +94,7 @@ src/main/kotlin/io/github/jogakdal/tbeg/
 │
 ├── engine/                                 # Internal engine (internal)
 │   ├── core/                               # Core utilities
+│   │   ├── CommonTypes.kt                  # Common types (CellCoord, CellArea, IndexRange, CollectionSizes, etc.)
 │   │   ├── ChartProcessor.kt               # Chart extraction/restoration
 │   │   ├── PivotTableProcessor.kt          # Pivot table processing
 │   │   ├── XmlVariableProcessor.kt         # Variable substitution in XML
@@ -170,8 +171,8 @@ src/main/kotlin/io/github/jogakdal/tbeg/
 | Class                       | Role                                                  |
 |-----------------------------|-------------------------------------------------------|
 | `TemplateRenderingEngine`   | Selects and executes rendering strategy                |
-| `TemplateAnalyzer`          | Template analysis (marker parsing, regex definitions)  |
-| `WorkbookSpec`              | Analyzed template specification (SheetSpec, CellSpec)  |
+| `TemplateAnalyzer`          | Template analysis (marker parsing, duplicate marker detection)  |
+| `WorkbookSpec`              | Analyzed template specification (SheetSpec, RowSpec, CellSpec, RepeatRegionSpec, ColumnGroup) |
 | `PositionCalculator`        | Cell position calculation during repeat expansion      |
 | `FormulaAdjuster`           | Automatic formula reference expansion                  |
 
@@ -382,6 +383,7 @@ parser/
 
 | Feature                | Description                                  | Handled By                |
 |------------------------|----------------------------------------------|---------------------------|
+| Duplicate marker detection | Warning and auto-removal for duplicate range markers | `TemplateAnalyzer`  |
 | Variable substitution  | Simple value binding                         | `TemplateRenderingEngine` |
 | Nested variables       | Object property access                       | `TemplateRenderingEngine` |
 | Repeat (DOWN)          | Row-direction expansion                      | `RenderingStrategy`       |
@@ -427,18 +429,63 @@ When multiple template rows map to the same actualRow (from different column gro
 
 #### 1.4 Column Group Independence
 Repeats in different column ranges have their positions calculated independently.
+**Even when multiple independent repeats exist on the same row**, they are managed as separate `RepeatRegionSpec` instances and expanded independently as long as their column ranges do not overlap.
 
 ```
-Example:
-- Columns A-C: employees repeat (expanded by +2 rows)
-- Columns F-H: department repeat (expanded by +3 rows)
+Example 1: Repeats placed on different rows
+- Columns A-C (row 3): employees repeat (expanded by +2 rows)
+- Columns F-H (row 8): department repeat (expanded by +3 rows)
 
-At actualRow 10:
-- Columns A-C perspective: templateRow = actualRow - employees expansion
-- Columns F-H perspective: templateRow = actualRow - department expansion (within that column range only)
+Example 2: Repeats placed on the same row
+- Columns A-D (row 2): eventTypes repeat (5 items -> +4 rows)
+- Columns J-K (row 2): languages repeat (4 items -> +3 rows)
+-> Each repeat expands independently; resulting row count = max(5, 4)
 ```
 
-### 1.5 Empty Collection Handling (emptyRange)
+**Key implementation details for multiple repeats on the same row:**
+- `SheetSpec.repeatRegions`: Stores repeat region information as a `RepeatRegionSpec` list (region-centric, not row-centric)
+- `TemplateAnalyzer.buildRowSpecs()`: When parsing cells in a repeat region's rows, recognizes all item variables
+- `UnifiedMarkerParser.parse()`: Uses `repeatItemVariables: Set<String>` to recognize all item variables on the same row
+- Non-repeat cells are processed only by the first repeat on the same row (prevents duplication)
+
+### 1.5 Duplicate Marker Detection
+
+Range-handling markers (repeat, image) that are declared multiple times for the same target produce a warning log, and only the last marker is retained.
+
+#### TemplateAnalyzer 4-Phase Analysis Structure
+
+```
+analyzeWorkbook(workbook)
+  Phase 1: Collect repeat markers from all sheets (collectRepeatRegions)
+  Phase 2: Deduplicate repeat markers (deduplicateRepeatRegions)
+  Phase 3: Build SheetSpec (analyzeSheet — uses deduplicated repeat list)
+  Phase 4: Deduplicate cell-level range markers (deduplicateCellMarkers)
+```
+
+- **Phase 1-2**: Since repeat markers are extracted into `RepeatRegionSpec` and separated from cells, deduplication occurs before SheetSpec is built
+- **Phase 3-4**: Markers that remain in cells (e.g., image) are deduplicated as a post-processing step after SheetSpec creation (duplicate markers are replaced with `CellContent.Empty`)
+
+#### Duplication Criteria
+
+| Marker | Duplication Key                              | Notes                                                          |
+|--------|----------------------------------------------|----------------------------------------------------------------|
+| repeat | collection + target sheet + region (CellArea) | Target sheet is determined by the range's sheet prefix; defaults to current sheet |
+| image  | name + target sheet + position + sizeSpec     | Images without a position are not subject to duplication checks |
+
+#### Ordering with Overlap Validation
+
+Deduplication (Phase 2) is **always executed before** overlap validation (`PositionCalculator.validateNoOverlap`).
+Since duplicate repeats on the same region yield `overlaps() == true`, failure to deduplicate first would cause an exception during overlap validation.
+
+```
+TemplateAnalyzer.analyzeWorkbook()
+  -> Phase 2: Remove duplicate repeats (warning log)     <- first
+      |
+RenderingStrategy.processSheet()
+  -> validateNoOverlap(blueprint.repeatRegions)           <- later
+```
+
+### 1.6 Empty Collection Handling (emptyRange)
 
 Controls behavior when a collection is empty.
 
@@ -619,8 +666,9 @@ tbeg:
 
 ### General Limitations
 
-- Repeat regions must occupy the same 2D space
+- Repeat regions must not overlap in 2D space
 - Multiple repeats within the same column range can be stacked vertically
+- When placing multiple repeats on the same row, their column ranges must not overlap
 - Sequence numbers are attempted up to a maximum of 10,000
 
 ### Internal Constants
@@ -719,12 +767,12 @@ val NEW_MARKER = MarkerDefinition("newmarker", listOf(
 src/test/
 ├── kotlin/io/github/jogakdal/tbeg/
 │   ├── TbegTest.kt                     # Integration tests
-│   ├── PerformanceBenchmark.kt         # Performance benchmark
+│   ├── EmptyCollectionTest.kt          # Empty collection handling tests
 │   ├── engine/
-│   │   ├── rendering/
-│   │   │   ├── PositionCalculatorTest.kt
-│   │   │   ├── FormulaAdjusterTest.kt
-│   │   │   └── ...
+│   │   ├── TemplateRenderingEngineTest.kt  # Rendering engine tests
+│   │   ├── DuplicateRepeatDetectionTest.kt # Duplicate marker detection tests
+│   │   ├── PositionCalculatorTest.kt
+│   │   ├── ForwardReferenceTest.kt
 │   │   └── ...
 │   └── ...
 └── resources/

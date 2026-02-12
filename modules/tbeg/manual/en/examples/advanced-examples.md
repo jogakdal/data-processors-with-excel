@@ -18,6 +18,10 @@
 8. [Rightward Repeat](#8-rightward-repeat)
 9. [Empty Collection Handling](#9-empty-collection-handling)
 
+> [!NOTE]
+> The examples in this document load templates from the `resources/templates/` directory.
+> To read directly from the file system, use `File("template.xlsx").inputStream()`.
+
 ---
 
 ## 1. DataProvider Usage
@@ -152,7 +156,8 @@ ExcelGenerator().use { generator ->
 - No need to iterate over the data twice
 - A `SELECT COUNT(*)` query in the DB is very fast as it typically uses only indexes
 
-> **Note**: Everything works correctly even without providing a count. However, TBEG will need to traverse the collection first to determine the total row count, which may cause a performance penalty due to double iteration.
+> [!NOTE]
+> Everything works correctly even without providing a count. However, TBEG will need to traverse the collection first to determine the total row count, which may cause a performance penalty due to double iteration.
 
 #### Including Images
 
@@ -365,7 +370,8 @@ class ReportService(
 }
 ```
 
-> **Note**: Streams must be used within a `@Transactional` scope. Once the transaction ends, the DB connection is closed and the Stream becomes invalid.
+> [!WARNING]
+> Streams must be used within a `@Transactional` scope. Once the transaction ends, the DB connection is closed and the Stream becomes invalid.
 
 #### Java Implementation Example
 
@@ -642,7 +648,8 @@ fun generateReport(departmentId: Long): ByteArray {
 }
 ```
 
-> **Warning**: Cursors must be used within a `@Transactional` scope. Once the transaction ends, the Cursor becomes invalid.
+> [!WARNING]
+> Cursors must be used within a `@Transactional` scope. Once the transaction ends, the Cursor becomes invalid.
 
 ---
 
@@ -651,6 +658,8 @@ fun generateReport(departmentId: Long): ByteArray {
 In a microservice architecture, this pattern fetches data from another service's API in **paginated** chunks and converts it to Excel.
 
 #### PageableList-Based Iterator
+
+This leverages the `PageableList` type provided by the `standard-api-response` library.
 
 ```kotlin
 class PageableListIterator<T>(
@@ -683,9 +692,20 @@ class PageableListIterator<T>(
 ```kotlin
 import io.github.jogakdal.tbeg.ExcelGenerator
 import io.github.jogakdal.tbeg.simpleDataProvider
+import com.hunet.common.stdapi.response.PageableList
 import java.io.File
 
 data class EmployeeDto(val name: String, val salary: Int)
+
+// Feign Client interface definition
+// @FeignClient(name = "employee-service")
+// interface EmployeeApiClient {
+//     @GetMapping("/api/employees")
+//     fun getEmployees(
+//         @RequestParam("page") page: Int,
+//         @RequestParam("size") size: Int
+//     ): StandardResponse<PageableList<EmployeeDto>>
+// }
 
 // Fetch data by calling another microservice's API
 fun fetchEmployeesFromApi(page: Int, size: Int): PageableList<EmployeeDto> {
@@ -744,7 +764,8 @@ fun main() {
 }
 ```
 
-> **Note**: `PageableList` and `StandardResponse` are types from a standard API response library. You can adopt this pattern when using a standard API response format across microservices.
+> [!NOTE]
+> `PageableList` and `StandardResponse` are types from a standard API response library. You can adopt this pattern when using a standard API response format across microservices.
 
 ---
 
@@ -998,8 +1019,9 @@ fun main() {
 
 |   | A                                  | B               | C             |
 |---|------------------------------------|-----------------|---------------|
-| 1 | ${repeat(employees, A2:C2, emp)}   |                 |               |
-| 2 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
+| 1 | ${repeat(employees, A3:C3, emp)}   |                 |               |
+| 2 | 이름                                 | 직급              | 연봉            |
+| 3 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
 
 ### Kotlin Code
 
@@ -1190,9 +1212,11 @@ fun main() {
 | 4 | 한용호  | 6,500 |   | IT전략기획팀  | 30,000 |
 | 5 | 홍용호  | 4,500 |   |          |        |
 
-> **Note**: Each repeat region expands independently. In the example above, there are 3 employees and 2 departments, so each expands by a different number of rows.
+> [!NOTE]
+> Each repeat region expands independently. In the example above, there are 3 employees and 2 departments, so each expands by a different number of rows.
 
-> **Warning**: Repeat regions must not overlap in 2D space.
+> [!IMPORTANT]
+> Repeat regions must not overlap in 2D space.
 
 ---
 
@@ -1322,7 +1346,8 @@ ${repeat(collection=employees, range=A4:C4, var=emp, direction=DOWN, empty=A7:C7
 =TBEG_REPEAT(collection=employees, range=A4:C4, var=emp, direction=DOWN, empty=A7:C7)
 ```
 
-> **Note**: The `empty` range must be at a different location from the repeat region. It can reference another area in the same sheet or a different sheet.
+> [!NOTE]
+> The `empty` range must be at a different location from the repeat region. It can reference another area in the same sheet or a different sheet.
 
 ---
 
@@ -1331,3 +1356,4 @@ ${repeat(collection=employees, range=A4:C4, var=emp, direction=DOWN, empty=A7:C7
 - [Spring Boot Examples](./spring-boot-examples.md) - Spring Boot integration
 - [Configuration Reference](../reference/configuration.md) - Detailed settings
 - [API Reference](../reference/api-reference.md) - API details
+- [Best Practices](../best-practices.md) - Template design and performance optimization

@@ -1,5 +1,6 @@
 package io.github.jogakdal.tbeg.engine.rendering
 
+import io.github.jogakdal.tbeg.engine.core.RowRange
 import io.github.jogakdal.tbeg.exception.FormulaExpansionException
 import org.apache.poi.ss.usermodel.Cell
 import org.apache.poi.ss.usermodel.CellType
@@ -39,30 +40,28 @@ internal class RepeatExpansionProcessor {
      */
     fun expandColumnsRight(
         sheet: XSSFSheet,
-        repeatRow: RowSpec.RepeatRow,
+        region: RepeatRegionSpec,
         itemCount: Int
     ) {
-        val templateColCount = repeatRow.repeatEndCol - repeatRow.repeatStartCol + 1
-        val colsToInsert = (itemCount - 1) * templateColCount
+        val colsToInsert = (itemCount - 1) * region.area.colRange.count
 
         if (colsToInsert <= 0) return
 
-        val shiftStartCol = repeatRow.repeatEndCol + 1
         shiftColumnsRight(
-            sheet, shiftStartCol, colsToInsert,
-            repeatRow.templateRowIndex, repeatRow.repeatEndRowIndex
+            sheet, region.area.end.col + 1, colsToInsert,
+            region.area.rowRange
         )
 
-        (repeatRow.templateRowIndex..repeatRow.repeatEndRowIndex)
+        region.area.rowRange
             .mapNotNull(sheet::getRow)
             .forEach { row ->
-                val templateCells = (repeatRow.repeatStartCol..repeatRow.repeatEndCol)
+                val templateCells = region.area.colRange
                     .mapNotNull(row::getCell)
                     .withIndex()
 
                 (1 until itemCount).forEach { itemIdx ->
                     templateCells.forEach { (templateOffset, templateCell) ->
-                        val newColIdx = repeatRow.repeatStartCol + (itemIdx * templateColCount) + templateOffset
+                        val newColIdx = region.area.start.col + (itemIdx * region.area.colRange.count) + templateOffset
                         row.createCell(newColIdx).apply {
                             cellStyle = templateCell.cellStyle
                             copyValueFrom(templateCell)
@@ -79,10 +78,9 @@ internal class RepeatExpansionProcessor {
         sheet: XSSFSheet,
         startCol: Int,
         shiftAmount: Int,
-        startRow: Int,
-        endRow: Int
+        rowRange: RowRange
     ) {
-        for (rowIdx in startRow..endRow) {
+        for (rowIdx in rowRange.start..rowRange.end) {
             val row = sheet.getRow(rowIdx) ?: continue
             // 오른쪽에서 왼쪽으로 처리하여 덮어쓰기 방지
             val cellsToMove = row.toList().filter { it.columnIndex >= startCol }
@@ -98,10 +96,9 @@ internal class RepeatExpansionProcessor {
                     CellType.NUMERIC -> newCell.setCellValue(cell.numericCellValue)
                     CellType.BOOLEAN -> newCell.setCellValue(cell.booleanCellValue)
                     CellType.FORMULA -> {
-                        val adjustedFormula = FormulaAdjuster.adjustForColumnExpansion(
+                        newCell.cellFormula = FormulaAdjuster.adjustForColumnExpansion(
                             cell.cellFormula, startCol, shiftAmount
                         )
-                        newCell.cellFormula = adjustedFormula
                     }
                     CellType.BLANK -> newCell.setBlank()
                     else -> {}
@@ -117,23 +114,21 @@ internal class RepeatExpansionProcessor {
      */
     fun copyMergedRegionsForRepeat(
         sheet: XSSFSheet,
-        repeatRow: RowSpec.RepeatRow,
+        region: RepeatRegionSpec,
         itemCount: Int,
         templateMergedRegions: List<CellRangeAddress>
     ) {
-        val templateRowCount = repeatRow.repeatEndRowIndex - repeatRow.templateRowIndex + 1
-
         // 반복 영역 내 병합 영역 찾기
-        val repeatMergedRegions = templateMergedRegions.filter { region ->
-            region.firstRow >= repeatRow.templateRowIndex &&
-                region.lastRow <= repeatRow.repeatEndRowIndex &&
-                region.firstColumn >= repeatRow.repeatStartCol &&
-                region.lastColumn <= repeatRow.repeatEndCol
+        val repeatMergedRegions = templateMergedRegions.filter { merged ->
+            merged.firstRow in region.area.rowRange &&
+                merged.lastRow in region.area.rowRange &&
+                merged.firstColumn in region.area.colRange &&
+                merged.lastColumn in region.area.colRange
         }
 
         // 각 추가 아이템에 대해 병합 영역 복제
         for (itemIdx in 1 until itemCount) {
-            val rowOffset = itemIdx * templateRowCount
+            val rowOffset = itemIdx * region.area.rowRange.count
             for (templateRegion in repeatMergedRegions) {
                 val newRegion = CellRangeAddress(
                     templateRegion.firstRow + rowOffset,
@@ -155,12 +150,11 @@ internal class RepeatExpansionProcessor {
      */
     fun expandConditionalFormattingForRepeat(
         sheet: XSSFSheet,
-        repeatRow: RowSpec.RepeatRow,
+        region: RepeatRegionSpec,
         itemCount: Int
     ) {
         if (itemCount <= 1) return
 
-        val templateRowCount = repeatRow.repeatEndRowIndex - repeatRow.templateRowIndex + 1
         val scf = sheet.sheetConditionalFormatting
         val cfCount = scf.numConditionalFormattings
 
@@ -171,10 +165,10 @@ internal class RepeatExpansionProcessor {
 
             // 반복 영역 내의 범위만 필터
             val repeatRanges = ranges.filter { range ->
-                range.firstRow >= repeatRow.templateRowIndex &&
-                        range.lastRow <= repeatRow.repeatEndRowIndex &&
-                        range.firstColumn >= repeatRow.repeatStartCol &&
-                        (repeatRow.repeatEndCol == Int.MAX_VALUE || range.lastColumn <= repeatRow.repeatEndCol)
+                range.firstRow in region.area.rowRange &&
+                        range.lastRow in region.area.rowRange &&
+                        range.firstColumn in region.area.colRange &&
+                        (region.area.end.col == Int.MAX_VALUE || range.lastColumn in region.area.colRange)
             }
 
             if (repeatRanges.isEmpty()) continue
@@ -185,7 +179,7 @@ internal class RepeatExpansionProcessor {
 
             // 각 추가 아이템에 대해 새 범위 생성 및 추가
             for (itemIdx in 1 until itemCount) {
-                val rowOffset = itemIdx * templateRowCount
+                val rowOffset = itemIdx * region.area.rowRange.count
                 val newRanges = repeatRanges.map { range ->
                     CellRangeAddress(
                         range.firstRow + rowOffset,
@@ -209,33 +203,27 @@ internal class RepeatExpansionProcessor {
      */
     fun expandFormulasAfterRepeat(
         sheet: XSSFSheet,
-        repeatRow: RowSpec.RepeatRow,
+        region: RepeatRegionSpec,
         itemCount: Int,
-        templateRowCount: Int,
         rowsInserted: Int
     ) {
         if (itemCount <= 1 || rowsInserted <= 0) return
 
-        // shiftRows 후 반복 영역의 끝 위치
-        val newRepeatEndRow = repeatRow.repeatEndRowIndex + rowsInserted
-
         // 반복 영역 이후의 행에서 수식 셀 찾기
-        for (rowIdx in (newRepeatEndRow + 1)..sheet.lastRowNum) {
+        for (rowIdx in (region.area.end.row + rowsInserted + 1)..sheet.lastRowNum) {
             val row = sheet.getRow(rowIdx) ?: continue
             row.forEach { cell ->
                 if (cell.cellType == CellType.FORMULA) {
                     val originalFormula = cell.cellFormula
-                    val (expandedFormula, isSeq) = FormulaAdjuster.expandSingleRefToRowRange(
+                    val (expandedFormula, isSequential) = FormulaAdjuster.expandSingleRefToRowRange(
                         originalFormula,
-                        repeatRow.templateRowIndex,
-                        repeatRow.repeatEndRowIndex,
-                        itemCount,
-                        templateRowCount
+                        region.area.rowRange,
+                        itemCount
                     )
 
                     if (expandedFormula != originalFormula) {
                         // 비연속 참조이고 인자 수가 255개를 초과하면 경고
-                        if (!isSeq && itemCount > 255) {
+                        if (!isSequential && itemCount > 255) {
                             throw FormulaExpansionException(
                                 sheetName = sheet.sheetName,
                                 cellRef = cell.address.formatAsString(),
@@ -258,41 +246,34 @@ internal class RepeatExpansionProcessor {
      */
     fun expandFormulasAfterRightRepeat(
         sheet: XSSFSheet,
-        repeatRow: RowSpec.RepeatRow,
+        region: RepeatRegionSpec,
         itemCount: Int,
-        templateColCount: Int,
         colsInserted: Int
     ) {
         if (itemCount <= 1) return
 
-        // 반복 영역 오른쪽의 새 시작 열
-        val newColStart = repeatRow.repeatEndCol + colsInserted + 1
-
         // 반복 영역의 행 범위 내에서 수식 셀 찾기
-        for (rowIdx in repeatRow.templateRowIndex..repeatRow.repeatEndRowIndex) {
+        for (rowIdx in region.area.rowRange) {
             val row = sheet.getRow(rowIdx) ?: continue
             row.forEach { cell ->
                 // 반복 영역 오른쪽에 있는 수식 셀만 처리
-                if (cell.columnIndex >= newColStart && cell.cellType == CellType.FORMULA) {
+                if (cell.columnIndex > region.area.end.col + colsInserted && cell.cellType == CellType.FORMULA) {
                     val originalFormula = cell.cellFormula
 
-                    // XSSF 모드에서 확장된 데이터 열(repeatStartCol~repeatEndCol + colsInserted)은
+                    // XSSF 모드에서 확장된 데이터 열(startCol~endCol + colsInserted)은
                     // shiftColumnsRight 이후에 생성되므로 추가 열 이동이 필요 없음.
                     // 순환 참조도 발생하지 않음: 확장 범위(열 1~itemCount*templateColCount)가
                     // 수식 셀 위치(newColStart 이상)를 포함하지 않음.
-                    val (expandedFormula, isSeq) = FormulaAdjuster.expandSingleRefToColumnRange(
+                    val (expandedFormula, isSequential) = FormulaAdjuster.expandSingleRefToColumnRange(
                         originalFormula,
-                        repeatRow.repeatStartCol,
-                        repeatRow.repeatEndCol,
-                        repeatRow.templateRowIndex,
-                        repeatRow.repeatEndRowIndex,
-                        itemCount,
-                        templateColCount
+                        region.area.colRange,
+                        region.area.rowRange,
+                        itemCount
                     )
 
                     if (expandedFormula != originalFormula) {
                         // 비연속 참조이고 인자 수가 255개를 초과하면 오류
-                        if (!isSeq && itemCount > 255) {
+                        if (!isSequential && itemCount > 255) {
                             throw FormulaExpansionException(
                                 sheetName = sheet.sheetName,
                                 cellRef = cell.address.formatAsString(),

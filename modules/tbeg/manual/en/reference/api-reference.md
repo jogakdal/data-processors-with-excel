@@ -30,6 +30,18 @@ class ExcelGenerator(config: TbegConfig = TbegConfig())
 |-----------|------|---------|-------------|
 | config | TbegConfig | TbegConfig() | Generator configuration |
 
+### Method Selection Guide
+
+| Method | Return Type | Use Case |
+|--------|-------------|----------|
+| `generate()` | `ByteArray` | Receive results in memory for direct processing (HTTP response, post-processing, etc.) |
+| `generateToFile()` | `Path` | Save results directly to file (recommended for large-scale processing) |
+| `generateAsync()` | `ByteArray` (suspend) | Async processing in Kotlin Coroutine environments |
+| `generateToFileAsync()` | `Path` (suspend) | Async file saving in Kotlin Coroutine environments |
+| `generateFuture()` | `CompletableFuture<ByteArray>` | Async processing in Java |
+| `generateToFileFuture()` | `CompletableFuture<Path>` | Async file saving in Java |
+| `submit()` / `submitToFile()` | `GenerationJob` | Background processing + progress listener (respond immediately from API server, process later) |
+
 ### Synchronous Methods
 
 #### generate (Map)
@@ -273,7 +285,27 @@ fun submitToFile(
 ): GenerationJob
 ```
 
-### Resource Management
+### Possible Exceptions
+
+| Exception | When Thrown | Cause |
+|-----------|------------|-------|
+| `TemplateProcessingException` | Template parsing | Marker syntax error (classified into 5 ErrorTypes) |
+| `MissingTemplateDataException` | Data binding | Missing variable/collection/image (only in `THROW` mode) |
+| `FormulaExpansionException` | Formula adjustment | Formula expansion failure (merged cells + function argument count exceeded) |
+
+`TemplateProcessingException` ErrorTypes:
+
+| ErrorType | Description |
+|-----------|-------------|
+| `INVALID_REPEAT_SYNTAX` | Repeat marker syntax error |
+| `MISSING_REQUIRED_PARAMETER` | Required parameter missing |
+| `INVALID_RANGE_FORMAT` | Invalid cell range format |
+| `SHEET_NOT_FOUND` | Reference to non-existent sheet |
+| `INVALID_PARAMETER_VALUE` | Invalid parameter value |
+
+For detailed error handling, see the [Troubleshooting Guide](../troubleshooting.md#2-runtime-errors).
+
+### Resource Management and Thread Safety
 
 `ExcelGenerator` implements `Closeable`, so it must be closed after use.
 
@@ -282,6 +314,18 @@ ExcelGenerator().use { generator ->
     // use the generator
 }
 ```
+
+Internally, it holds a `CoroutineScope` backed by a `CachedThreadPool`, which is cleaned up when `close()` is called.
+
+#### Thread Safety
+
+| API | Concurrent Calls | Notes |
+|-----|-------------------|-------|
+| Synchronous `generate()` / `generateToFile()` | Not supported | Shares internal pipeline state; must not be called concurrently |
+| Async `generateAsync()` / `generateFuture()` | Supported | Each task runs in isolation within the coroutine scope |
+| Background `submit()` / `submitToFile()` | Supported | Each task is isolated in a separate coroutine |
+
+In a Spring Boot environment, `ExcelGenerator` is registered as a singleton bean. If you need to call the synchronous API concurrently from multiple requests, either create a separate `ExcelGenerator` instance per request or use the async API.
 
 ---
 
@@ -358,7 +402,8 @@ Returns the number of items in a collection.
 | name | String | Collection name |
 | **Returns** | Int? | Item count, or null if unknown |
 
-> **Performance tip**: Implementing this method enables optimal performance when processing large datasets.
+> [!TIP]
+> Implementing this method prevents double iteration of the data, enabling optimal performance when processing large datasets.
 
 ---
 
@@ -654,3 +699,4 @@ data class ProgressInfo(
 
 - [Configuration](./configuration.md) - TbegConfig options
 - [Basic Examples](../examples/basic-examples.md) - Various usage examples
+- [Troubleshooting](../troubleshooting.md) - Problem resolution

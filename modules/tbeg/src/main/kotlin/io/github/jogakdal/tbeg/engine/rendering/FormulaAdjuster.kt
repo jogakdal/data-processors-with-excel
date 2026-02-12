@@ -1,7 +1,6 @@
 package io.github.jogakdal.tbeg.engine.rendering
 
-import io.github.jogakdal.tbeg.engine.core.toColumnIndex
-import io.github.jogakdal.tbeg.engine.core.toColumnLetter
+import io.github.jogakdal.tbeg.engine.core.*
 
 /**
  * 셀 참조 정보를 담는 데이터 클래스
@@ -134,8 +133,8 @@ object FormulaAdjuster {
         if (shiftAmount > 0 && shiftStart >= 0 && position >= shiftStart) position + shiftAmount else position
 
     /** 순환 참조 여부 체크 (0-based 인덱스 기준) */
-    private fun isCircularRef(row: Int, col: Int, formulaCellRow: Int, formulaCellCol: Int) =
-        formulaCellRow >= 0 && formulaCellCol >= 0 && row == formulaCellRow && col == formulaCellCol
+    private fun isCircularRef(row: Int, col: Int, formulaCell: CellCoord) =
+        formulaCell.row >= 0 && formulaCell.col >= 0 && row == formulaCell.row && col == formulaCell.col
 
     /** 순환 참조 방지를 위한 최대 위치 계산 (0-based 인덱스 기준) */
     private fun calculateMaxPosition(formulaCellPos: Int, shiftAmount: Int, shiftStart: Int) =
@@ -146,27 +145,25 @@ object FormulaAdjuster {
      * 반복 처리로 인한 행 오프셋에 따라 수식 내 셀 참조 조정
      *
      * @param formula 원본 수식
-     * @param repeatStartRow 반복 영역 시작 행 (0-based)
+     * @param repeatRows 반복 영역 행 범위 (0-based)
      * @param rowOffset 행 오프셋 (실제 데이터 수 - 템플릿 행 수)
      * @return 조정된 수식
      *
-     * 예: =SUM(C6:C6), repeatStartRow=5, rowOffset=2 -> =SUM(C6:C8)
+     * 예: =SUM(C6:C6), repeatRows=RowRange(5,5), rowOffset=2 -> =SUM(C6:C8)
      */
     fun adjustForRowExpansion(
         formula: String,
-        repeatStartRow: Int,
-        repeatEndRow: Int,
+        repeatRows: RowRange,
         rowOffset: Int
     ) = if (rowOffset == 0) formula
     else adjustSingleReferences(
-        adjustRangeReferences(formula, repeatStartRow, repeatEndRow, rowOffset), repeatEndRow, rowOffset
+        adjustRangeReferences(formula, repeatRows, rowOffset), repeatRows, rowOffset
     )
 
     /** 범위 참조 조정 (예: C6:C6 -> C6:C8) - 범위의 끝 셀이 반복 영역에 포함되면 확장 */
     private fun adjustRangeReferences(
         formula: String,
-        repeatStartRow: Int,
-        repeatEndRow: Int,
+        repeatRows: RowRange,
         rowOffset: Int
     ) = RANGE_CAPTURE_PATTERN.replace(formula) { match ->
         val range = match.toRangeRef()
@@ -176,14 +173,14 @@ object FormulaAdjuster {
             match.value
         } else {
             // 끝 행이 반복 영역에 포함되고 절대 참조가 아닌 경우 확장
-            val adjustedEndRow = if (!range.end.isRowAbsolute && (range.end.row - 1) in repeatStartRow..repeatEndRow) {
+            val adjustedEndRow = if (!range.end.isRowAbsolute && (range.end.row - 1) in repeatRows) {
                 range.end.row + rowOffset
             } else {
                 range.end.row
             }
 
             // 시작 행도 반복 영역 이후면 조정
-            val adjustedStartRow = if (!range.start.isRowAbsolute && (range.start.row - 1) > repeatEndRow) {
+            val adjustedStartRow = if (!range.start.isRowAbsolute && (range.start.row - 1) > repeatRows.end) {
                 range.start.row + rowOffset
             } else {
                 range.start.row
@@ -194,7 +191,7 @@ object FormulaAdjuster {
     }
 
     /** 단일 셀 참조 조정 (반복 영역 이후의 참조만) */
-    private fun adjustSingleReferences(formula: String, repeatEndRow: Int, rowOffset: Int) =
+    private fun adjustSingleReferences(formula: String, repeatRows: RowRange, rowOffset: Int) =
         findRangePositions(formula).let { ranges ->
             CELL_REF_PATTERN.replace(formula) { match ->
                 if (isPartOfRange(match, ranges)) match.value
@@ -202,7 +199,7 @@ object FormulaAdjuster {
                     // 다른 시트 참조면 조정하지 않음
                     if (ref.hasSheetRef) match.value
                     // 절대 행 참조($)는 조정하지 않음, 반복 영역 이후의 행만 조정
-                    else if (!ref.isRowAbsolute && (ref.row - 1) > repeatEndRow) ref.format(newRow = ref.row + rowOffset)
+                    else if (!ref.isRowAbsolute && (ref.row - 1) > repeatRows.end) ref.format(newRow = ref.row + rowOffset)
                     else match.value
                 }
             }
@@ -271,42 +268,36 @@ object FormulaAdjuster {
      * 해당 참조를 행 방향으로 확장된 범위로 변환한다.
      *
      * @param formula 원본 수식
-     * @param repeatStartRow 반복 영역 시작 행 (0-based)
-     * @param repeatEndRow 반복 영역 끝 행 (0-based)
+     * @param repeatRows 반복 영역 행 범위 (0-based)
      * @param itemCount 반복 아이템 수
-     * @param templateRowCount 템플릿 행 수 (repeatEndRow - repeatStartRow + 1)
-     * @param formulaCellRow 수식이 위치한 셀의 행 인덱스 (0-based, 순환 참조 방지용)
-     * @param formulaCellCol 수식이 위치한 셀의 열 인덱스 (0-based, 순환 참조 방지용)
+     * @param formulaCell 수식이 위치한 셀의 좌표 (0-based, 순환 참조 방지용)
      * @param rowShiftAmount 확장 후 adjustForRowExpansion에서 이동될 행 수 (순환 참조 방지용)
-     * @param rowShiftStartRow 행 이동이 시작되는 행 인덱스 (0-based, repeatEndRow + 1)
+     * @param rowShiftStartRow 행 이동이 시작되는 행 인덱스 (0-based, repeatRows.end + 1)
      * @return 확장된 수식과 비연속 참조 여부
      *
      * 예 (1행 템플릿):
-     *   =SUM(B8), repeatStartRow=7, itemCount=3, templateRowCount=1
+     *   =SUM(B8), repeatRows=RowRange(7,7), itemCount=3
      *   -> =SUM(B8:B10) (행 방향 연속 범위)
      *
      * 예 (2행 템플릿):
-     *   =SUM(B8), repeatStartRow=6, repeatEndRow=7, itemCount=3, templateRowCount=2
+     *   =SUM(B8), repeatRows=RowRange(6,7), itemCount=3
      *   -> =SUM(B8,B10,B12) (행 방향 비연속 - B8은 템플릿 2번째 행, 각 아이템마다 +2)
      *
      * 순환 참조 방지:
      *   수식이 B15에 있고 =SUM(B5)를 =SUM(B5:B20)로 확장하면 B15가 범위에 포함됨
-     *   -> formulaCellRow=14를 전달하면 =SUM(B5:B14)로 제한하여 순환 참조 방지
+     *   -> formulaCell=CellCoord(14,1)을 전달하면 =SUM(B5:B14)로 제한하여 순환 참조 방지
      */
     fun expandSingleRefToRowRange(
         formula: String,
-        repeatStartRow: Int,
-        repeatEndRow: Int,
+        repeatRows: RowRange,
         itemCount: Int,
-        templateRowCount: Int,
-        formulaCellRow: Int = -1,
-        formulaCellCol: Int = -1,
+        formulaCell: CellCoord = CellCoord(-1, -1),
         rowShiftAmount: Int = 0,
         rowShiftStartRow: Int = -1
-    ): Pair<String, Boolean> {
-        if (itemCount <= 1) return formula to false
+    ): FormulaExpansionResult {
+        if (itemCount <= 1) return FormulaExpansionResult(formula, false)
 
-        var isSeq = true
+        var isSequential = true
         val ranges = findRangePositions(formula)
 
         val result = CELL_REF_PATTERN.replace(formula) { match ->
@@ -322,17 +313,17 @@ object FormulaAdjuster {
                     val rowIndex = ref.row - 1
                     val colIndex = toColumnIndex(ref.col)
 
-                    if (rowIndex !in repeatStartRow..repeatEndRow || ref.isRowAbsolute) {
+                    if (rowIndex !in repeatRows || ref.isRowAbsolute) {
                         match.value
-                    } else if (templateRowCount == 1) {
+                    } else if (repeatRows.count == 1) {
                         // 1행 템플릿: 연속 범위로 확장
                         var endRowIndex = rowIndex + (itemCount - 1)
 
                         // 순환 참조 방지: 같은 열이고 참조가 수식 셀보다 위에 있는 경우
-                        if (colIndex == formulaCellCol && rowIndex < formulaCellRow) {
+                        if (colIndex == formulaCell.col && rowIndex < formulaCell.row) {
                             val finalEndRowIndex = calculateShiftedPosition(endRowIndex, rowShiftAmount, rowShiftStartRow)
-                            if (finalEndRowIndex >= formulaCellRow) {
-                                val maxRowIndex = calculateMaxPosition(formulaCellRow, rowShiftAmount, rowShiftStartRow)
+                            if (finalEndRowIndex >= formulaCell.row) {
+                                val maxRowIndex = calculateMaxPosition(formulaCell.row, rowShiftAmount, rowShiftStartRow)
                                 endRowIndex = minOf(endRowIndex, maxRowIndex - 1)
                             }
                         }
@@ -341,17 +332,18 @@ object FormulaAdjuster {
                         if (endRowIndex <= rowIndex) {
                             match.value
                         } else {
-                            "${ref.colAbs}${ref.col}${ref.rowAbs}${ref.row}:${ref.colAbs}${ref.col}${ref.rowAbs}${endRowIndex + 1}"
+                            "${ref.colAbs}${ref.col}${ref.rowAbs}${ref.row}:" +
+                                    "${ref.colAbs}${ref.col}${ref.rowAbs}${endRowIndex + 1}"
                         }
                     } else {
                         // 다중 행 템플릿: 비연속 셀 나열
-                        isSeq = false
+                        isSequential = false
                         val cells = (0 until itemCount).mapNotNull { idx ->
-                            val newRowIndex = rowIndex + (idx * templateRowCount)
+                            val newRowIndex = rowIndex + (idx * repeatRows.count)
                             val finalRowIndex = calculateShiftedPosition(newRowIndex, rowShiftAmount, rowShiftStartRow)
 
                             // 순환 참조 방지: 이동 후 수식 셀과 같은 위치면 제외
-                            if (isCircularRef(finalRowIndex, colIndex, formulaCellRow, formulaCellCol)) null
+                            if (isCircularRef(finalRowIndex, colIndex, formulaCell)) null
                             else "${ref.colAbs}${ref.col}${ref.rowAbs}${newRowIndex + 1}"
                         }
                         if (cells.isEmpty()) match.value else cells.joinToString(",")
@@ -360,7 +352,7 @@ object FormulaAdjuster {
             }
         }
 
-        return result to isSeq
+        return FormulaExpansionResult(result, isSequential)
     }
 
     /**
@@ -370,29 +362,25 @@ object FormulaAdjuster {
      * 해당 참조를 확장된 범위로 변환한다.
      *
      * @param formula 원본 수식
-     * @param repeatStartCol 반복 영역 시작 열 (0-based)
-     * @param repeatEndCol 반복 영역 끝 열 (0-based)
-     * @param repeatStartRow 반복 영역 시작 행 (0-based)
-     * @param repeatEndRow 반복 영역 끝 행 (0-based)
+     * @param repeatCols 반복 영역 열 범위 (0-based)
+     * @param repeatRows 반복 영역 행 범위 (0-based)
      * @param itemCount 반복 아이템 수
-     * @param templateColCount 템플릿 열 수 (repeatEndCol - repeatStartCol + 1)
-     * @param formulaCellCol 수식이 위치한 셀의 열 인덱스 (0-based, 순환 참조 방지용)
-     * @param formulaCellRow 수식이 위치한 셀의 행 인덱스 (0-based, 순환 참조 방지용)
+     * @param formulaCell 수식이 위치한 셀의 좌표 (0-based, 순환 참조 방지용)
      * @param colShiftAmount 확장 후 adjustForColumnExpansion에서 이동될 열 수 (순환 참조 방지용)
-     * @param colShiftStartCol 열 이동이 시작되는 열 인덱스 (0-based, repeatEndCol + 1)
+     * @param colShiftStartCol 열 이동이 시작되는 열 인덱스 (0-based, repeatCols.end + 1)
      * @return 확장된 수식과 비연속 참조 여부
      *
      * 예 (1열 템플릿):
-     *   =SUM(B7), repeatStartCol=1, itemCount=3, templateColCount=1
+     *   =SUM(B7), repeatCols=ColRange(1,1), itemCount=3
      *   -> =SUM(B7:D7) (연속 범위)
      *
      * 예 (2열 템플릿):
-     *   =SUM(B7), repeatStartCol=1, repeatEndCol=2, itemCount=3, templateColCount=2
+     *   =SUM(B7), repeatCols=ColRange(1,2), repeatRows=RowRange(6,7), itemCount=3
      *   -> =SUM(B7,D7,F7) (비연속 - B는 템플릿 1번째 열, 각 아이템마다 +2)
      *
      * 순환 참조 방지:
      *   수식이 F7에 있고 =SUM(B7)을 =SUM(B7:GR7)로 확장하면 F7이 범위에 포함됨
-     *   -> formulaCellCol=5를 전달하면 =SUM(B7:E7)로 제한하여 순환 참조 방지
+     *   -> formulaCell=CellCoord(6,5)를 전달하면 =SUM(B7:E7)로 제한하여 순환 참조 방지
      *
      * 열 이동 고려:
      *   확장된 범위의 끝 열이 colShiftStartCol 이상이면, colShiftAmount만큼 이동됨
@@ -400,20 +388,16 @@ object FormulaAdjuster {
      */
     fun expandSingleRefToColumnRange(
         formula: String,
-        repeatStartCol: Int,
-        repeatEndCol: Int,
-        repeatStartRow: Int,
-        repeatEndRow: Int,
+        repeatCols: ColRange,
+        repeatRows: RowRange,
         itemCount: Int,
-        templateColCount: Int,
-        formulaCellCol: Int = -1,
-        formulaCellRow: Int = -1,
+        formulaCell: CellCoord = CellCoord(-1, -1),
         colShiftAmount: Int = 0,
         colShiftStartCol: Int = -1
-    ): Pair<String, Boolean> {
-        if (itemCount <= 1) return formula to false
+    ): FormulaExpansionResult {
+        if (itemCount <= 1) return FormulaExpansionResult(formula, false)
 
-        var isSeq = true
+        var isSequential = true
         val ranges = findRangePositions(formula)
 
         val result = CELL_REF_PATTERN.replace(formula) { match ->
@@ -430,19 +414,19 @@ object FormulaAdjuster {
                     val colIndex = toColumnIndex(ref.col)
 
                     // 반복 영역 내의 셀인지 확인 (열과 행 모두 반복 영역 내에 있어야 함)
-                    if (colIndex !in repeatStartCol..repeatEndCol || rowIndex !in repeatStartRow..repeatEndRow) {
+                    if (colIndex !in repeatCols || rowIndex !in repeatRows) {
                         match.value
                     } else if (ref.isColAbsolute) {
                         match.value
-                    } else if (templateColCount == 1) {
+                    } else if (repeatCols.count == 1) {
                         // 1열 템플릿: 연속 범위로 확장
                         var endColIndex = colIndex + (itemCount - 1)
 
                         // 순환 참조 방지: 같은 행이고 참조가 수식 셀보다 왼쪽에 있는 경우
-                        if (rowIndex == formulaCellRow && colIndex < formulaCellCol) {
+                        if (rowIndex == formulaCell.row && colIndex < formulaCell.col) {
                             val finalEndColIndex = calculateShiftedPosition(endColIndex, colShiftAmount, colShiftStartCol)
-                            if (finalEndColIndex >= formulaCellCol) {
-                                val maxColIndex = calculateMaxPosition(formulaCellCol, colShiftAmount, colShiftStartCol)
+                            if (finalEndColIndex >= formulaCell.col) {
+                                val maxColIndex = calculateMaxPosition(formulaCell.col, colShiftAmount, colShiftStartCol)
                                 endColIndex = minOf(endColIndex, maxColIndex - 1)
                             }
                         }
@@ -456,13 +440,13 @@ object FormulaAdjuster {
                         }
                     } else {
                         // 다중 열 템플릿: 비연속 셀 나열
-                        isSeq = false
+                        isSequential = false
                         val cells = (0 until itemCount).mapNotNull { idx ->
-                            val newColIndex = colIndex + (idx * templateColCount)
+                            val newColIndex = colIndex + (idx * repeatCols.count)
                             val finalColIndex = calculateShiftedPosition(newColIndex, colShiftAmount, colShiftStartCol)
 
                             // 순환 참조 방지: 이동 후 수식 셀과 같은 위치면 제외
-                            if (isCircularRef(rowIndex, finalColIndex, formulaCellRow, formulaCellCol)) null
+                            if (isCircularRef(rowIndex, finalColIndex, formulaCell)) null
                             else "${ref.colAbs}${toColumnLetter(newColIndex)}${ref.rowAbs}${ref.row}"
                         }
                         if (cells.isEmpty()) match.value else cells.joinToString(",")
@@ -471,7 +455,7 @@ object FormulaAdjuster {
             }
         }
 
-        return result to isSeq
+        return FormulaExpansionResult(result, isSequential)
     }
 
     // ========== PositionCalculator 연동 메서드 ==========
@@ -557,7 +541,7 @@ object FormulaAdjuster {
      */
     data class SheetExpansionInfo(
         val expansions: List<PositionCalculator.RepeatExpansion>,
-        val collectionSizes: Map<String, Int>
+        val collectionSizes: CollectionSizes
     )
 
     /**
@@ -611,17 +595,17 @@ object FormulaAdjuster {
         expansion: PositionCalculator.RepeatExpansion,
         itemCount: Int,
         otherSheetExpansions: Map<String, SheetExpansionInfo> = emptyMap()
-    ): Pair<String, Boolean> {
-        if (itemCount <= 1 && otherSheetExpansions.isEmpty()) return formula to false
+    ): FormulaExpansionResult {
+        if (itemCount <= 1 && otherSheetExpansions.isEmpty()) return FormulaExpansionResult(formula, false)
 
         // 0. 단일 셀 범위를 단일 셀 참조로 정규화 (B8:B8 → B8)
         val normalizedFormula = normalizeSingleCellRanges(formula)
 
         val region = expansion.region
-        val templateRowCount = region.endRow - region.startRow + 1
-        val templateColCount = region.endCol - region.startCol + 1
+        val templateRowCount = region.area.rowRange.count
+        val templateColCount = region.area.colRange.count
 
-        var isSeq = true
+        var isSequential = true
 
         // 1. 먼저 범위 참조 처리 (B3:B5 → B3:B9)
         var result = expandRangeReferencesWithCalculator(
@@ -652,7 +636,7 @@ object FormulaAdjuster {
                     // 현재 시트 참조
                     if (itemCount <= 1) {
                         match.value
-                    } else if (rowIndex !in region.startRow..region.endRow || colIndex !in region.startCol..region.endCol) {
+                    } else if (rowIndex !in region.area.rowRange || colIndex !in region.area.colRange) {
                         match.value
                     } else if (ref.isRowAbsolute && region.direction == RepeatDirection.DOWN) {
                         match.value
@@ -662,13 +646,13 @@ object FormulaAdjuster {
                         when (region.direction) {
                             RepeatDirection.DOWN -> {
                                 if (templateRowCount == 1) {
-                                    val startRow = expansion.finalStartRow + (rowIndex - region.startRow) + 1
+                                    val startRow = expansion.finalStartRow + (rowIndex - region.area.start.row) + 1
                                     val endRow = startRow + (itemCount - 1)
                                     val col = toColumnLetter(colIndex)
                                     "${ref.colAbs}$col${ref.rowAbs}$startRow:${ref.colAbs}$col${ref.rowAbs}$endRow"
                                 } else {
-                                    isSeq = false
-                                    val relativeRow = rowIndex - region.startRow
+                                    isSequential = false
+                                    val relativeRow = rowIndex - region.area.start.row
                                     val cells = (0 until itemCount).map { idx ->
                                         val newRow = expansion.finalStartRow + (idx * templateRowCount) + relativeRow + 1
                                         val col = toColumnLetter(colIndex)
@@ -679,13 +663,13 @@ object FormulaAdjuster {
                             }
                             RepeatDirection.RIGHT -> {
                                 if (templateColCount == 1) {
-                                    val startCol = expansion.finalStartCol + (colIndex - region.startCol)
+                                    val startCol = expansion.finalStartCol + (colIndex - region.area.start.col)
                                     val endCol = startCol + (itemCount - 1)
                                     val row = ref.row
                                     "${ref.colAbs}${toColumnLetter(startCol)}${ref.rowAbs}$row:${ref.colAbs}${toColumnLetter(endCol)}${ref.rowAbs}$row"
                                 } else {
-                                    isSeq = false
-                                    val relativeCol = colIndex - region.startCol
+                                    isSequential = false
+                                    val relativeCol = colIndex - region.area.start.col
                                     val cells = (0 until itemCount).map { idx ->
                                         val newCol = expansion.finalStartCol + (idx * templateColCount) + relativeCol
                                         "${ref.colAbs}${toColumnLetter(newCol)}${ref.rowAbs}${ref.row}"
@@ -699,7 +683,7 @@ object FormulaAdjuster {
             }
         }
 
-        return result to isSeq
+        return FormulaExpansionResult(result, isSequential)
     }
 
     /** 다른 시트의 단일 셀 참조를 확장 (해당 시트의 repeat 영역에 포함되면 범위로 확장) */
@@ -716,23 +700,23 @@ object FormulaAdjuster {
             if (itemCount <= 1) continue
 
             // 참조가 repeat 영역에 포함되는지 확인
-            if (rowIndex !in region.startRow..region.endRow || colIndex !in region.startCol..region.endCol) {
+            if (rowIndex !in region.area.rowRange || colIndex !in region.area.colRange) {
                 continue
             }
 
-            val templateRowCount = region.endRow - region.startRow + 1
-            val templateColCount = region.endCol - region.startCol + 1
+            val templateRowCount = region.area.rowRange.count
+            val templateColCount = region.area.colRange.count
 
             when (region.direction) {
                 RepeatDirection.DOWN -> {
                     if (ref.isRowAbsolute) continue
                     return if (templateRowCount == 1) {
-                        val startRow = expansion.finalStartRow + (rowIndex - region.startRow) + 1
+                        val startRow = expansion.finalStartRow + (rowIndex - region.area.start.row) + 1
                         val endRow = startRow + (itemCount - 1)
                         val col = toColumnLetter(colIndex)
                         "${ref.sheetRef}${ref.colAbs}$col${ref.rowAbs}$startRow:${ref.colAbs}$col${ref.rowAbs}$endRow"
                     } else {
-                        val relativeRow = rowIndex - region.startRow
+                        val relativeRow = rowIndex - region.area.start.row
                         val cells = (0 until itemCount).map { idx ->
                             val newRow = expansion.finalStartRow + (idx * templateRowCount) + relativeRow + 1
                             val col = toColumnLetter(colIndex)
@@ -744,11 +728,11 @@ object FormulaAdjuster {
                 RepeatDirection.RIGHT -> {
                     if (ref.isColAbsolute) continue
                     return if (templateColCount == 1) {
-                        val startCol = expansion.finalStartCol + (colIndex - region.startCol)
+                        val startCol = expansion.finalStartCol + (colIndex - region.area.start.col)
                         val endCol = startCol + (itemCount - 1)
                         "${ref.sheetRef}${ref.colAbs}${toColumnLetter(startCol)}${ref.rowAbs}${ref.row}:${ref.colAbs}${toColumnLetter(endCol)}${ref.rowAbs}${ref.row}"
                     } else {
-                        val relativeCol = colIndex - region.startCol
+                        val relativeCol = colIndex - region.area.start.col
                         val cells = (0 until itemCount).map { idx ->
                             val newCol = expansion.finalStartCol + (idx * templateColCount) + relativeCol
                             "${ref.sheetRef}${ref.colAbs}${toColumnLetter(newCol)}${ref.rowAbs}${ref.row}"
@@ -795,8 +779,8 @@ object FormulaAdjuster {
                 match.value
             } else {
                 // 끝 셀이 repeat 영역 내에 있는지 확인
-                val endInRegion = endRowIndex in region.startRow..region.endRow &&
-                    endColIndex in region.startCol..region.endCol
+                val endInRegion = endRowIndex in region.area.rowRange &&
+                    endColIndex in region.area.colRange
 
                 if (!endInRegion) {
                     match.value
@@ -806,10 +790,10 @@ object FormulaAdjuster {
                             if (range.end.isRowAbsolute) {
                                 match.value
                             } else if (templateRowCount == 1) {
-                                val newEndRow = expansion.finalStartRow + (endRowIndex - region.startRow) + itemCount
+                                val newEndRow = expansion.finalStartRow + (endRowIndex - region.area.start.row) + itemCount
                                 range.format(newEndRow = newEndRow)
                             } else {
-                                val relativeRow = endRowIndex - region.startRow
+                                val relativeRow = endRowIndex - region.area.start.row
                                 val newEndRow = expansion.finalStartRow + ((itemCount - 1) * templateRowCount) + relativeRow + 1
                                 range.format(newEndRow = newEndRow)
                             }
@@ -818,10 +802,10 @@ object FormulaAdjuster {
                             if (range.end.isColAbsolute) {
                                 match.value
                             } else if (templateColCount == 1) {
-                                val newEndCol = expansion.finalStartCol + (endColIndex - region.startCol) + itemCount - 1
+                                val newEndCol = expansion.finalStartCol + (endColIndex - region.area.start.col) + itemCount - 1
                                 range.format(newEndCol = toColumnLetter(newEndCol))
                             } else {
-                                val relativeCol = endColIndex - region.startCol
+                                val relativeCol = endColIndex - region.area.start.col
                                 val newEndCol = expansion.finalStartCol + ((itemCount - 1) * templateColCount) + relativeCol
                                 range.format(newEndCol = toColumnLetter(newEndCol))
                             }
@@ -845,22 +829,22 @@ object FormulaAdjuster {
             if (itemCount <= 1) continue
 
             // 끝 셀이 repeat 영역에 포함되는지 확인
-            val endInRegion = endRowIndex in region.startRow..region.endRow &&
-                endColIndex in region.startCol..region.endCol
+            val endInRegion = endRowIndex in region.area.rowRange &&
+                endColIndex in region.area.colRange
 
             if (!endInRegion) continue
 
-            val templateRowCount = region.endRow - region.startRow + 1
-            val templateColCount = region.endCol - region.startCol + 1
+            val templateRowCount = region.area.rowRange.count
+            val templateColCount = region.area.colRange.count
 
             when (region.direction) {
                 RepeatDirection.DOWN -> {
                     if (range.end.isRowAbsolute) continue
                     return if (templateRowCount == 1) {
-                        val newEndRow = expansion.finalStartRow + (endRowIndex - region.startRow) + itemCount
+                        val newEndRow = expansion.finalStartRow + (endRowIndex - region.area.start.row) + itemCount
                         range.format(newEndRow = newEndRow)
                     } else {
-                        val relativeRow = endRowIndex - region.startRow
+                        val relativeRow = endRowIndex - region.area.start.row
                         val newEndRow = expansion.finalStartRow + ((itemCount - 1) * templateRowCount) + relativeRow + 1
                         range.format(newEndRow = newEndRow)
                     }
@@ -868,10 +852,10 @@ object FormulaAdjuster {
                 RepeatDirection.RIGHT -> {
                     if (range.end.isColAbsolute) continue
                     return if (templateColCount == 1) {
-                        val newEndCol = expansion.finalStartCol + (endColIndex - region.startCol) + itemCount - 1
+                        val newEndCol = expansion.finalStartCol + (endColIndex - region.area.start.col) + itemCount - 1
                         range.format(newEndCol = toColumnLetter(newEndCol))
                     } else {
-                        val relativeCol = endColIndex - region.startCol
+                        val relativeCol = endColIndex - region.area.start.col
                         val newEndCol = expansion.finalStartCol + ((itemCount - 1) * templateColCount) + relativeCol
                         range.format(newEndCol = toColumnLetter(newEndCol))
                     }

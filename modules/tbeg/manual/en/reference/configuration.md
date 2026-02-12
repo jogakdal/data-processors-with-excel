@@ -117,7 +117,8 @@ TbegConfig(
 )
 ```
 
-> **Note**: For Excel built-in format indices, refer to the [Microsoft documentation](https://docs.microsoft.com/en-us/dotnet/api/documentformat.openxml.spreadsheet.numberingformat).
+> [!NOTE]
+> For Excel built-in format indices, refer to the [Microsoft documentation](https://docs.microsoft.com/en-us/dotnet/api/documentformat.openxml.spreadsheet.numberingformat).
 
 #### missingDataBehavior
 
@@ -350,3 +351,5 @@ val config = TbegConfig(
 
 - [API Reference](./api-reference.md) - ExcelGenerator API details
 - [User Guide](../user-guide.md) - Complete guide
+- [Troubleshooting](../troubleshooting.md) - Problem resolution
+- [Best Practices](../best-practices.md) - Template design and performance optimization

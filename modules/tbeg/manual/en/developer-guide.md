@@ -34,6 +34,7 @@ io.github.jogakdal.tbeg/
 │   └── ProgressInfo.kt
 ├── engine/
 │   ├── core/                           # Core utilities
+│   │   ├── CommonTypes.kt              # Common types (CellCoord, CellArea, IndexRange, CollectionSizes, etc.)
 │   │   ├── ExcelUtils.kt
 │   │   ├── ChartProcessor.kt
 │   │   ├── PivotTableProcessor.kt
@@ -104,7 +105,9 @@ class TbegPipeline(vararg processors: ExcelProcessor) {
 Each processor is responsible for a specific processing stage.
 
 ```kotlin
-interface ExcelProcessor {
+internal interface ExcelProcessor {
+    val name: String
+    fun shouldProcess(context: ProcessingContext): Boolean = true
     fun process(context: ProcessingContext): ProcessingContext
 }
 ```
@@ -114,34 +117,42 @@ interface ExcelProcessor {
 A context object that carries data between processors.
 
 ```kotlin
-data class ProcessingContext(
+internal class ProcessingContext(
     val templateBytes: ByteArray,
     val dataProvider: ExcelDataProvider,
     val config: TbegConfig,
-    val metadata: DocumentMetadata? = null,
-    var resultBytes: ByteArray = ByteArray(0),
-    var processedRowCount: Int = 0,
+    val metadata: DocumentMetadata?
+) {
+    var resultBytes: ByteArray = templateBytes
+    var processedRowCount: Int = 0
     // Shared data between processors
-    var chartInfoList: List<ChartInfo> = emptyList(),
-    var pivotInfoList: List<PivotInfo> = emptyList(),
-    var workbookSpec: WorkbookSpec? = null
-)
+    var chartInfo: ChartProcessor.ChartInfo? = null
+    var pivotTableInfos: List<PivotTableProcessor.PivotTableInfo> = emptyList()
+    var variableResolver: ((String) -> String)? = null
+    var requiredNames: RequiredNames? = null
+}
 ```
 
 ### 2.4 Processor Implementation Example
 
 ```kotlin
 class TemplateRenderProcessor : ExcelProcessor {
+    override val name = "TemplateRender"
+
     override fun process(context: ProcessingContext): ProcessingContext {
+        val analyzer = TemplateAnalyzer()
+        val blueprint = XSSFWorkbook(ByteArrayInputStream(context.resultBytes)).use {
+            analyzer.analyzeFromWorkbook(it)
+        }
+        context.requiredNames = blueprint.extractRequiredNames()
+
         val engine = TemplateRenderingEngine(context.config.streamingMode)
-
-        val resultBytes = engine.process(
-            ByteArrayInputStream(context.templateBytes),
+        context.resultBytes = engine.process(
+            ByteArrayInputStream(context.resultBytes),
             context.dataProvider,
-            context.workbookSpec?.extractRequiredNames()
+            context.requiredNames!!
         )
-
-        return context.copy(resultBytes = resultBytes)
+        return context
     }
 }
 ```
@@ -155,7 +166,9 @@ class TemplateRenderProcessor : ExcelProcessor {
 Different strategies are used depending on the rendering mode (XSSF/SXSSF).
 
 ```kotlin
-sealed interface RenderingStrategy {
+internal interface RenderingStrategy {
+    val name: String
+
     fun render(
         templateBytes: ByteArray,
         data: Map<String, Any>,
@@ -163,8 +176,8 @@ sealed interface RenderingStrategy {
     ): ByteArray
 }
 
-class XssfRenderingStrategy : RenderingStrategy
-class SxssfRenderingStrategy : RenderingStrategy
+internal class XssfRenderingStrategy : RenderingStrategy
+internal class SxssfRenderingStrategy : RenderingStrategy
 ```
 
 ### 3.2 XSSF vs SXSSF
@@ -181,14 +194,27 @@ class SxssfRenderingStrategy : RenderingStrategy
 Common logic is extracted into an abstract class.
 
 ```kotlin
-abstract class AbstractRenderingStrategy : RenderingStrategy {
-    protected fun evaluateCellContent(
-        content: CellContent,
-        data: Map<String, Any>,
+internal abstract class AbstractRenderingStrategy : RenderingStrategy {
+    // Abstract methods — must be implemented by subclasses
+    protected abstract fun <T> withWorkbook(
+        templateBytes: ByteArray,
+        block: (workbook: Workbook, xssfWorkbook: XSSFWorkbook) -> T
+    ): T
+    protected abstract fun processSheet(
+        sheet: Sheet, sheetIndex: Int, blueprint: SheetSpec,
+        data: Map<String, Any>, imageLocations: MutableList<ImageLocation>,
         context: RenderingContext
-    ): Any?
+    )
+    protected abstract fun finalizeWorkbook(workbook: Workbook): ByteArray
 
-    protected fun applyCellStyle(cell: Cell, styleIndex: Short, workbook: Workbook)
+    // Hook methods — optional override
+    protected open fun beforeProcessSheets(workbook: Workbook, blueprint: WorkbookSpec, ...)
+    protected open fun afterProcessSheets(workbook: Workbook, context: RenderingContext)
+
+    // Common utilities
+    protected fun processCellContent(cell: Cell, content: CellContent, ...)
+    protected fun setCellValue(cell: Cell, value: Any?)
+    protected fun insertImages(workbook: Workbook, imageLocations: List<ImageLocation>, ...)
 }
 ```
 
@@ -221,62 +247,124 @@ ${repeat(employees, A3:C3, emp, DOWN)}
 ### 4.3 Usage Example
 
 ```kotlin
-// Parse a marker
-val marker = UnifiedMarkerParser.parse("repeat(employees, A3:C3, emp, DOWN)")
+// Parse a marker — return type is CellContent (sealed interface)
+val content = UnifiedMarkerParser.parse("\${repeat(employees, A3:C3, emp, DOWN)}")
 
-// Access parameters
-val collection = marker["collection"]     // "employees"
-val range = marker.getRange("range")      // CellRangeAddress
-val direction = marker.getDirection("direction")  // RepeatDirection.DOWN
-
-// Check optional parameters
-if (marker.has("alias")) {
-    val alias = marker["alias"]
+// Branch based on CellContent subtype
+when (content) {
+    is CellContent.RepeatMarker -> {
+        content.collection   // "employees"
+        content.area         // CellArea
+        content.variable     // "emp"
+        content.direction    // RepeatDirection.DOWN
+    }
+    is CellContent.ImageMarker -> { content.name; content.position }
+    is CellContent.Variable -> content.name
+    is CellContent.ItemField -> content.fieldPath
+    is CellContent.Formula -> content.formula
+    // ... StaticString, StaticNumber, StaticBoolean, Empty, etc.
+    else -> {}
 }
 ```
 
 ### 4.4 Supported Markers
 
-| Marker | Purpose | Required Parameters |
-|--------|---------|---------------------|
-| `repeat` | Expand repeated data | collection, range |
-| `image` | Insert image | name |
-| `formulaRange` | Define formula range | range |
-| `emptyRange` | Handle empty ranges | range, direction |
-| `akzj` | Handle empty ranges (alias) | range, direction |
+| Marker | Purpose | Required Parameters | Optional Parameters |
+|--------|---------|---------------------|---------------------|
+| `repeat` | Expand repeated data | collection, range | var, direction(=DOWN), empty |
+| `image` | Insert image | name | position, size(=fit) |
+| `size` | Output collection size | collection | |
 
 ---
 
 ## 5. Position Calculation
 
-### 5.1 PositionCalculator
+### 5.0 Common Types (CommonTypes)
+
+#### CollectionSizes
+
+A value class representing the mapping of collection names to item counts. Used for position calculation and formula expansion.
+
+```kotlin
+// Factory method
+val sizes = CollectionSizes.of("employees" to 10, "departments" to 3)
+
+// Builder function
+val sizes = buildCollectionSizes {
+    put("employees", 10)
+    put("departments", 3)
+}
+
+// Empty instance
+val empty = CollectionSizes.EMPTY
+
+// Lookup
+val count: Int? = sizes["employees"]  // 10
+```
+
+#### CellArea
+
+A data class representing a cell area (start/end coordinates). Used in `RepeatRegionSpec`, `ColumnGroup`, and other components to hold area information.
+
+```kotlin
+// Create from CellCoord
+val area = CellArea(CellCoord(2, 0), CellCoord(5, 3))
+
+// Create with 4 coordinates directly
+val area = CellArea(startRow = 2, startCol = 0, endRow = 5, endCol = 3)
+
+// Property access
+area.start.row   // 2
+area.end.col     // 3
+area.rowRange    // RowRange(2, 5)
+area.colRange    // ColRange(0, 3)
+
+// Area overlap detection
+area.overlapsColumns(other)  // Whether column ranges overlap
+area.overlapsRows(other)     // Whether row ranges overlap
+area.overlaps(other)         // Whether 2D areas overlap
+```
+
+### 5.1 Duplicate Marker Detection
+
+`TemplateAnalyzer.analyzeWorkbook()` analyzes the template in 4 stages:
+
+1. **Collection**: Collect repeat markers from all sheets (`collectRepeatRegions`)
+2. **Repeat deduplication**: If multiple repeats share the same collection + same target range, warn and keep only the last one (`deduplicateRepeatRegions`)
+3. **SheetSpec creation**: Analyze each sheet based on the deduplicated repeat list (`analyzeSheet`)
+4. **Cell marker deduplication**: Post-process to remove duplicates of range markers remaining in cells, such as image markers (`deduplicateCellMarkers`)
+
+Target sheet determination: If the range has a sheet prefix (`'Sheet1'!A1:B2`), that sheet is used; otherwise, the sheet where the marker is located is the target.
+
+When adding a new range marker that requires duplicate detection, add it to the `when` branch of the `cellMarkerDedupKey()` method.
+
+### 5.2 PositionCalculator
 
 Calculates the positions of multiple repeat regions.
 
 ```kotlin
 class PositionCalculator(
     repeatRegions: List<RepeatRegionSpec>,
-    collectionSizes: Map<String, Int>,
+    collectionSizes: CollectionSizes,
     templateLastRow: Int = -1
 ) {
     // Calculate all repeat expansion information
     fun calculate(): List<RepeatExpansion>
 
     // Convert template position to final position
-    fun getFinalPosition(templateRow: Int, templateCol: Int): Pair<Int, Int>
+    fun getFinalPosition(templateRow: Int, templateCol: Int): CellCoord
+    fun getFinalPosition(template: CellCoord): CellCoord
 
     // Calculate final position of a range
-    fun getFinalRange(
-        templateFirstRow: Int, templateLastRow: Int,
-        templateFirstCol: Int, templateLastCol: Int
-    ): CellRangeAddress
+    fun getFinalRange(start: CellCoord, end: CellCoord): CellRangeAddress
+    fun getFinalRange(range: CellRangeAddress): CellRangeAddress
 
     // Retrieve row information for an actual output row
     fun getRowInfo(actualRow: Int): RowInfo
 }
 ```
 
-### 5.2 RepeatExpansion
+### 5.3 RepeatExpansion
 
 ```kotlin
 data class RepeatExpansion(
@@ -289,21 +377,20 @@ data class RepeatExpansion(
 )
 ```
 
-### 5.3 Position Calculation Rules
+### 5.4 Position Calculation Rules
 
 1. **Independent elements**: If not affected by any repeat, the template position is preserved.
 2. **Single influence**: If affected by only one repeat, the position shifts by that expansion amount.
 3. **Multiple influences**: If affected by multiple repeats, the maximum offset is applied.
 
-### 5.4 Column Groups
+### 5.5 Column Groups
 
 Repeats sharing the same column range affect each other, while repeats in different column groups expand independently.
 
 ```kotlin
 data class ColumnGroup(
     val groupId: Int,
-    val startCol: Int,
-    val endCol: Int,
+    val colRange: ColRange,
     val repeatRegions: List<RepeatRegionSpec>
 )
 ```
@@ -317,9 +404,9 @@ data class ColumnGroup(
 Consumes iterators sequentially in SXSSF mode.
 
 ```kotlin
-class StreamingDataSource(
+internal class StreamingDataSource(
     private val dataProvider: ExcelDataProvider,
-    private val expectedSizes: Map<String, Int>
+    private val expectedSizes: CollectionSizes = CollectionSizes.EMPTY
 ) : Closeable {
     // Current item for each repeat region
     fun advanceToNextItem(repeatKey: RepeatKey): Any?
@@ -353,11 +440,18 @@ class PositionCalculatorTest {
     @Test
     fun `single repeat expansion calculation`() {
         val regions = listOf(
-            RepeatRegionSpec("items", "item", 2, 2, 0, 2, RepeatDirection.DOWN)
+            RepeatRegionSpec(
+                collection = "items",
+                variable = "item",
+                area = CellArea(2, 0, 2, 2),
+                direction = RepeatDirection.DOWN
+            )
         )
-        val sizes = mapOf("items" to 5)
 
-        val calculator = PositionCalculator(regions, sizes)
+        val calculator = PositionCalculator(
+            repeatRegions = regions,
+            collectionSizes = CollectionSizes.of("items" to 5)
+        )
         val expansions = calculator.calculate()
 
         assertEquals(1, expansions.size)
@@ -462,6 +556,8 @@ New processing stages can be added to the pipeline.
 
 ```kotlin
 class WatermarkProcessor : ExcelProcessor {
+    override val name = "Watermark"
+
     override fun process(context: ProcessingContext): ProcessingContext {
         // Watermark insertion logic
         return context

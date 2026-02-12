@@ -73,7 +73,3 @@ internal class TbegPipeline(private val processors: List<ExcelProcessor>) {
     fun excludeProcessor(name: String): TbegPipeline =
         TbegPipeline(processors.filter { it.name != name })
 }
-
-/** 하위 호환성을 위한 타입 별칭 */
-@Deprecated("TbegPipeline으로 이름이 변경되었습니다.", ReplaceWith("TbegPipeline"))
-internal typealias ExcelPipeline = TbegPipeline

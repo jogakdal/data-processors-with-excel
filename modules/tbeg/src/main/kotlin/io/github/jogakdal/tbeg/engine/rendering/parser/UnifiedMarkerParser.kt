@@ -35,13 +35,13 @@ object UnifiedMarkerParser {
      *
      * @param text 셀 텍스트 또는 수식
      * @param isFormula 수식 셀인지 여부
-     * @param repeatItemVariable 현재 반복 영역의 아이템 변수명 (반복 영역 내부인 경우)
+     * @param repeatItemVariables 현재 반복 영역의 아이템 변수명 집합 (같은 행에 여러 repeat이 있을 수 있음)
      * @return 분석된 셀 내용
      */
     fun parse(
         text: String?,
         isFormula: Boolean = false,
-        repeatItemVariable: String? = null
+        repeatItemVariables: Set<String>? = null
     ): CellContent {
         if (text.isNullOrEmpty()) return CellContent.Empty
 
@@ -57,7 +57,7 @@ object UnifiedMarkerParser {
         }
 
         // 3. 텍스트 형태 변수/아이템 필드 파싱
-        return parseTextContent(text, repeatItemVariable)
+        return parseTextContent(text, repeatItemVariables)
     }
 
     /**
@@ -111,10 +111,10 @@ object UnifiedMarkerParser {
     /**
      * 텍스트 내용 분석
      */
-    private fun parseTextContent(text: String, repeatItemVariable: String?): CellContent {
+    private fun parseTextContent(text: String, repeatItemVariables: Set<String>?): CellContent {
         // 아이템 필드 체크 (반복 영역 내부)
         ITEM_FIELD_PATTERN.find(text)?.let { match ->
-            if (repeatItemVariable != null && match.groupValues[1] == repeatItemVariable) {
+            if (repeatItemVariables != null && match.groupValues[1] in repeatItemVariables) {
                 return CellContent.ItemField(
                     itemVariable = match.groupValues[1],
                     fieldPath = match.groupValues[2],

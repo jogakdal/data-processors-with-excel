@@ -1,5 +1,8 @@
 package io.github.jogakdal.tbeg.engine.rendering
 
+import io.github.jogakdal.tbeg.engine.core.CellArea
+import io.github.jogakdal.tbeg.engine.core.ColRange
+import io.github.jogakdal.tbeg.engine.core.RowRange
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.ss.usermodel.ConditionType
 import org.apache.poi.ss.util.CellRangeAddress
@@ -33,11 +36,9 @@ data class WorkbookSpec(
                 }
             }
 
-        // RepeatRow의 collectionName도 추가
-        sheets.asSequence()
-            .flatMap { it.rows.asSequence() }
-            .filterIsInstance<RowSpec.RepeatRow>()
-            .forEach { collections += it.collectionName }
+        // repeatRegions의 collection도 추가
+        sheets.flatMap { it.repeatRegions }
+            .forEach { collections += it.collection }
 
         return RequiredNames(variables, collections, images)
     }
@@ -55,8 +56,14 @@ data class SheetSpec(
     val defaultRowHeight: Short,
     val headerFooter: HeaderFooterSpec? = null,
     val printSetup: PrintSetupSpec? = null,
-    val conditionalFormattings: List<ConditionalFormattingSpec> = emptyList()
-)
+    val conditionalFormattings: List<ConditionalFormattingSpec> = emptyList(),
+    val repeatRegions: List<RepeatRegionSpec> = emptyList()
+) {
+    /** templateRowIndex로 RowSpec을 빠르게 조회하기 위한 맵 */
+    val rowsByTemplateIndex: Map<Int, RowSpec> by lazy {
+        rows.associateBy { it.templateRowIndex }
+    }
+}
 
 /**
  * 헤더/푸터 정보
@@ -104,41 +111,11 @@ data class PrintSetupSpec(
 /**
  * 행 명세
  */
-sealed class RowSpec {
-    abstract val templateRowIndex: Int
-    abstract val height: Short?
-    abstract val cells: List<CellSpec>
-
-    /** 일반 행 - 그대로 출력 */
-    data class StaticRow(
-        override val templateRowIndex: Int,
-        override val height: Short?,
-        override val cells: List<CellSpec>
-    ) : RowSpec()
-
-    /** 반복 영역 시작 - 데이터 개수만큼 확장 */
-    data class RepeatRow(
-        override val templateRowIndex: Int,
-        override val height: Short?,
-        override val cells: List<CellSpec>,
-        val collectionName: String,
-        val itemVariable: String,
-        val repeatEndRowIndex: Int,
-        val repeatStartCol: Int = 0,
-        val repeatEndCol: Int = Int.MAX_VALUE,
-        val direction: RepeatDirection = RepeatDirection.DOWN,
-        val emptyRangeSpec: EmptyRangeSpec? = null,        // 컬렉션이 비어있을 때 표시할 범위 명세
-        val emptyRangeContent: EmptyRangeContent? = null   // 컬렉션이 비어있을 때 표시할 내용 (미리 읽음)
-    ) : RowSpec()
-
-    /** 반복 영역 내부 행 (첫 행 제외) - RepeatRow에 포함되어 처리됨 */
-    data class RepeatContinuation(
-        override val templateRowIndex: Int,
-        override val height: Short?,
-        override val cells: List<CellSpec>,
-        val parentRepeatRowIndex: Int
-    ) : RowSpec()
-}
+data class RowSpec(
+    val templateRowIndex: Int,
+    val height: Short?,
+    val cells: List<CellSpec>
+)
 
 /**
  * 셀 명세
@@ -230,35 +207,11 @@ enum class RepeatDirection {
 data class RepeatRegionSpec(
     val collection: String,
     val variable: String,
-    val startRow: Int,
-    val endRow: Int,
-    val startCol: Int,
-    val endCol: Int,
+    val area: CellArea,
     val direction: RepeatDirection = RepeatDirection.DOWN,
-    val emptyRange: EmptyRangeSpec? = null  // 컬렉션이 비어있을 때 표시할 범위
-) {
-    /**
-     * 다른 repeat 영역과 열 범위가 겹치는지 확인
-     */
-    fun overlapsColumns(other: RepeatRegionSpec): Boolean {
-        return !(endCol < other.startCol || startCol > other.endCol)
-    }
-
-    /**
-     * 다른 repeat 영역과 행 범위가 겹치는지 확인
-     */
-    fun overlapsRows(other: RepeatRegionSpec): Boolean {
-        return !(endRow < other.startRow || startRow > other.endRow)
-    }
-
-    /**
-     * 다른 repeat 영역과 2D 공간(행×열)에서 겹치는지 확인
-     * (방향에 관계없이 행×열 범위가 겹치면 true)
-     */
-    fun overlaps(other: RepeatRegionSpec): Boolean {
-        return overlapsRows(other) && overlapsColumns(other)
-    }
-}
+    val emptyRange: EmptyRangeSpec? = null,           // 컬렉션이 비어있을 때 표시할 범위
+    val emptyRangeContent: EmptyRangeContent? = null   // 컬렉션이 비어있을 때 표시할 내용 (미리 읽음)
+)
 
 /**
  * 열 그룹 - 열 범위가 겹치는 repeat 영역들의 모음
@@ -268,8 +221,7 @@ data class RepeatRegionSpec(
  */
 data class ColumnGroup(
     val groupId: Int,
-    val startCol: Int,
-    val endCol: Int,
+    val colRange: ColRange,
     val repeatRegions: List<RepeatRegionSpec>
 ) {
     companion object {
@@ -289,7 +241,7 @@ data class ColumnGroup(
             for (region in downRepeats) {
                 // 기존 그룹 중 열 범위가 겹치는 그룹 찾기
                 val overlappingGroups = groups.filter { group ->
-                    group.any { it.overlapsColumns(region) }
+                    group.any { it.area.overlapsColumns(region.area) }
                 }
 
                 when (overlappingGroups.size) {
@@ -312,9 +264,9 @@ data class ColumnGroup(
             }
 
             return groups.mapIndexed { index, regionsInGroup ->
-                val minCol = regionsInGroup.minOf { it.startCol }
-                val maxCol = regionsInGroup.maxOf { it.endCol }
-                ColumnGroup(index, minCol, maxCol, regionsInGroup.toList())
+                val minCol = regionsInGroup.minOf { it.area.start.col }
+                val maxCol = regionsInGroup.maxOf { it.area.end.col }
+                ColumnGroup(index, ColRange(minCol, maxCol), regionsInGroup.toList())
             }
         }
     }
@@ -380,23 +332,19 @@ data class ImageSizeSpec(
  * 빈 컬렉션일 때 표시할 범위 명세
  *
  * @property sheetName 시트 이름 (null이면 같은 시트)
- * @property startRow 시작 행 (0-based)
- * @property endRow 종료 행 (0-based)
- * @property startCol 시작 열 (0-based)
- * @property endCol 종료 열 (0-based)
+ * @property rowRange 행 범위 (0-based)
+ * @property colRange 열 범위 (0-based)
  */
 data class EmptyRangeSpec(
     val sheetName: String?,
-    val startRow: Int,
-    val endRow: Int,
-    val startCol: Int,
-    val endCol: Int
+    val rowRange: RowRange,
+    val colRange: ColRange
 )
 
 /**
  * 빈 컬렉션일 때 표시할 셀 내용 (미리 읽어둔 스냅샷)
  *
- * @property cells 행/열 순서로 저장된 셀 스냅샷 (rows[rowIndex][colIndex])
+ * @property cells 행/열 순서로 저장된 셀 스냅샷 (행 인덱스 → 열 인덱스 순)
  * @property mergedRegions 병합 영역 목록 (상대 좌표: emptyRange 시작 기준)
  * @property rowHeights 행 높이 목록
  * @property conditionalFormattings 조건부 서식 목록 (상대 좌표: emptyRange 시작 기준)

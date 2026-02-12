@@ -1,4 +1,4 @@
-> **[한국어](./README.ko.md)** | English
+> **English** | [한국어](./README.ko.md)
 
 # TBEG (Template Based Excel Generator)
 
@@ -21,7 +21,7 @@ A library that generates reports by binding data to Excel templates.
 
 ```kotlin
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.1.0")
+    implementation("io.github.jogakdal:tbeg:1.1.1")
 }
 ```
 
@@ -29,7 +29,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.1.0'
+    implementation 'io.github.jogakdal:tbeg:1.1.1'
 }
 ```
 
@@ -39,7 +39,7 @@ dependencies {
 <dependency>
     <groupId>io.github.jogakdal</groupId>
     <artifactId>tbeg</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
 </dependency>
 ```
 
@@ -121,13 +121,13 @@ A mode that improves memory efficiency and processing speed. The default value (
 
 **Test environment**: Java 21, macOS, 3 columns repeat + SUM formula
 
-| Data Size  | disabled | enabled | Speed Improvement |
-|------------|----------|---------|-------------------|
-| 1,000 rows  | 172ms    | 147ms   | 1.2x              |
-| 10,000 rows | 1,801ms  | 663ms   | **2.7x**          |
-| 30,000 rows | -        | 1,057ms | -                 |
-| 50,000 rows | -        | 1,202ms | -                 |
-| 100,000 rows| -        | 3,154ms | -                 |
+| Data Size    | disabled | enabled | Speed Improvement |
+|--------------|----------|---------|-------------------|
+| 1,000 rows   | 179ms    | 146ms   | 1.2x              |
+| 10,000 rows  | 1,887ms  | 519ms   | **3.6x**          |
+| 30,000 rows  | -        | 1,104ms | -                 |
+| 50,000 rows  | -        | 1,269ms | -                 |
+| 100,000 rows | -        | 2,599ms | -                 |
 
 ### Comparison with Other Libraries (30,000 rows)
 
@@ -136,26 +136,14 @@ A mode that improves memory efficiency and processing speed. The default value (
 | **TBEG**   | **1.1s**  | Streaming mode                                              |
 | JXLS       | 5.2s      | [Benchmark source](https://github.com/jxlsteam/jxls/discussions/203) |
 
+> [!TIP]
 > Run benchmark: `./gradlew :tbeg:runBenchmark`
 
-## Configuration (application.yml)
-
-```yaml
-tbeg:
-  streaming-mode: enabled   # enabled, disabled
-  file-naming-mode: timestamp
-  preserve-template-layout: true
-```
-
-## Architecture
-
-TBEG uses a pipeline architecture that processes in the following order: chart extraction → pivot extraction → template rendering → number formatting → XML variable substitution → pivot recreation → chart restoration → metadata. It automatically selects between XSSF/SXSSF rendering strategies.
-
-For detailed project structure and architecture, see the [Developer Guide](./DEVELOPMENT.md).
+For details on configuration options, see the [Configuration Options Reference](./manual/en/reference/configuration.md).
 
 ## Documentation
 
-For detailed documentation, see the links below:
+**For detailed documentation, see the [TBEG Manual](./manual/en/index.md).**
 
 - [User Guide](./manual/en/user-guide.md)
 - [Template Syntax Reference](./manual/en/reference/template-syntax.md)
@@ -164,6 +152,8 @@ For detailed documentation, see the links below:
 - [Basic Examples](./manual/en/examples/basic-examples.md)
 - [Advanced Examples](./manual/en/examples/advanced-examples.md)
 - [Spring Boot Examples](./manual/en/examples/spring-boot-examples.md)
+- [Best Practices](./manual/en/best-practices.md)
+- [Troubleshooting](./manual/en/troubleshooting.md)
 - [Developer Guide](./manual/en/developer-guide.md)
 
 ## Run Samples

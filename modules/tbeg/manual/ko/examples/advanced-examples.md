@@ -16,6 +16,10 @@
 8. [오른쪽 방향 반복](#8-오른쪽-방향-반복)
 9. [빈 컬렉션 처리](#9-빈-컬렉션-처리)
 
+> [!NOTE]
+> 이 문서의 예제는 `resources/templates/` 디렉토리에서 템플릿을 로드합니다.
+> 파일 시스템에서 직접 읽으려면 `File("template.xlsx").inputStream()`을 사용하세요.
+
 ---
 
 ## 1. DataProvider 활용
@@ -128,10 +132,8 @@ val provider = simpleDataProvider {
 
 // 3. Excel 생성 (이 시점에 Lambda가 호출되어 데이터 로드)
 ExcelGenerator().use { generator ->
-    // resources/templates/ 디렉토리에서 템플릿 로드
     val template = javaClass.getResourceAsStream("/templates/template.xlsx")
         ?: throw IllegalStateException("템플릿을 찾을 수 없습니다")
-    // 파일에서 직접 읽는 경우: val template = File("template.xlsx").inputStream()
 
     val result = generator.generate(template, provider)
     File("output.xlsx").writeBytes(result)
@@ -150,7 +152,8 @@ ExcelGenerator().use { generator ->
 - 데이터를 2번 순회할 필요 없음
 - DB의 `SELECT COUNT(*)` 쿼리는 인덱스만 사용하므로 매우 빠름
 
-> **참고**: count를 제공하지 않아도 동작에는 문제가 없습니다. 다만 TBEG가 전체 행 수를 파악하기 위해 컬렉션을 먼저 순회해야 하므로, 이중 순회로 인한 성능 저하가 발생할 수 있습니다.
+> [!NOTE]
+> count를 제공하지 않아도 동작에는 문제가 없습니다. 다만 TBEG가 전체 행 수를 파악하기 위해 컬렉션을 먼저 순회해야 하므로, 이중 순회로 인한 성능 저하가 발생할 수 있습니다.
 
 #### 이미지 포함
 
@@ -363,7 +366,8 @@ class ReportService(
 }
 ```
 
-> **참고**: `@Transactional` 범위 내에서 Stream을 사용해야 합니다. 트랜잭션이 종료되면 DB 연결이 닫혀 Stream도 무효화됩니다.
+> [!WARNING]
+> `@Transactional` 범위 내에서 Stream을 사용해야 합니다. 트랜잭션이 종료되면 DB 연결이 닫혀 Stream도 무효화됩니다.
 
 #### Java 구현 예제
 
@@ -640,7 +644,8 @@ fun generateReport(departmentId: Long): ByteArray {
 }
 ```
 
-> **주의**: `@Transactional` 범위 내에서 Cursor를 사용해야 합니다. 트랜잭션이 종료되면 Cursor도 무효화됩니다.
+> [!WARNING]
+> `@Transactional` 범위 내에서 Cursor를 사용해야 합니다. 트랜잭션이 종료되면 Cursor도 무효화됩니다.
 
 ---
 
@@ -746,10 +751,8 @@ fun main() {
     }
 
     ExcelGenerator().use { generator ->
-        // resources/templates/ 디렉토리에서 템플릿 로드
         val template = object {}.javaClass.getResourceAsStream("/templates/template.xlsx")
             ?: throw IllegalStateException("템플릿을 찾을 수 없습니다")
-        // 파일에서 직접 읽는 경우: val template = File("template.xlsx").inputStream()
 
         val result = generator.generate(template, provider)
         File("api_report.xlsx").writeBytes(result)
@@ -757,7 +760,8 @@ fun main() {
 }
 ```
 
-> **참고**: `PageableList`와 `StandardResponse`는 `standard-api-response` 라이브러리에서 제공하는 타입입니다. 마이크로서비스 간 표준 API 응답 형식을 사용하는 경우 이 패턴을 활용할 수 있습니다.
+> [!NOTE]
+> `PageableList`와 `StandardResponse`는 `standard-api-response` 라이브러리에서 제공하는 타입입니다. 마이크로서비스 간 표준 API 응답 형식을 사용하는 경우 이 패턴을 활용할 수 있습니다.
 
 ---
 
@@ -778,10 +782,8 @@ fun main() = runBlocking {
     }
 
     ExcelGenerator().use { generator ->
-        // resources/templates/ 디렉토리에서 템플릿 로드
         val template = object {}.javaClass.getResourceAsStream("/templates/template.xlsx")
             ?: throw IllegalStateException("템플릿을 찾을 수 없습니다")
-        // 파일에서 직접 읽는 경우: val template = File("template.xlsx").inputStream()
 
         // 비동기 생성
         val path = generator.generateToFileAsync(
@@ -815,10 +817,8 @@ public class AsyncWithFuture {
             .items("data", generateData())
             .build();
 
-        // resources/templates/ 디렉토리에서 템플릿 로드
         try (ExcelGenerator generator = new ExcelGenerator();
              InputStream template = AsyncWithFuture.class.getResourceAsStream("/templates/template.xlsx")) {
-            // 파일에서 직접 읽는 경우: new FileInputStream("template.xlsx")
 
             CompletableFuture<Path> future = generator.generateToFileFuture(
                 template,
@@ -869,10 +869,8 @@ fun main() {
     }
 
     ExcelGenerator().use { generator ->
-        // resources/templates/ 디렉토리에서 템플릿 로드
         val template = object {}.javaClass.getResourceAsStream("/templates/template.xlsx")
             ?: throw IllegalStateException("템플릿을 찾을 수 없습니다")
-        // 파일에서 직접 읽는 경우: val template = File("template.xlsx").inputStream()
 
         val job = generator.submitToFile(
             template = template,
@@ -943,10 +941,8 @@ fun main() {
     )
 
     ExcelGenerator().use { generator ->
-        // resources/templates/ 디렉토리에서 템플릿 로드
         val template = object {}.javaClass.getResourceAsStream("/templates/formula_template.xlsx")
             ?: throw IllegalStateException("템플릿을 찾을 수 없습니다")
-        // 파일에서 직접 읽는 경우: val template = File("formula_template.xlsx").inputStream()
 
         val bytes = generator.generate(template, data)
         File("formula_output.xlsx").writeBytes(bytes)
@@ -983,10 +979,8 @@ fun main() {
     )
 
     ExcelGenerator().use { generator ->
-        // resources/templates/ 디렉토리에서 템플릿 로드
         val template = object {}.javaClass.getResourceAsStream("/templates/link_template.xlsx")
             ?: throw IllegalStateException("템플릿을 찾을 수 없습니다")
-        // 파일에서 직접 읽는 경우: val template = File("link_template.xlsx").inputStream()
 
         val bytes = generator.generate(template, data)
         File("link_output.xlsx").writeBytes(bytes)
@@ -1011,8 +1005,9 @@ fun main() {
 
 |   | A                                  | B               | C             |
 |---|------------------------------------|-----------------|---------------|
-| 1 | ${repeat(employees, A2:C2, emp)}   |                 |               |
-| 2 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
+| 1 | ${repeat(employees, A3:C3, emp)}   |                 |               |
+| 2 | 이름                                 | 직급              | 연봉            |
+| 3 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
 
 ### Kotlin 코드
 
@@ -1034,10 +1029,8 @@ fun main() {
     )
 
     ExcelGenerator().use { generator ->
-        // resources/templates/ 디렉토리에서 템플릿 로드
         val template = object {}.javaClass.getResourceAsStream("/templates/multi_sheet_template.xlsx")
             ?: throw IllegalStateException("템플릿을 찾을 수 없습니다")
-        // 파일에서 직접 읽는 경우: val template = File("multi_sheet_template.xlsx").inputStream()
 
         val bytes = generator.generate(template, data)
         File("multi_sheet_output.xlsx").writeBytes(bytes)
@@ -1082,10 +1075,8 @@ fun main() {
     }
 
     ExcelGenerator(config).use { generator ->
-        // resources/templates/ 디렉토리에서 템플릿 로드
         val template = object {}.javaClass.getResourceAsStream("/templates/template.xlsx")
             ?: throw IllegalStateException("템플릿을 찾을 수 없습니다")
-        // 파일에서 직접 읽는 경우: val template = File("template.xlsx").inputStream()
 
         val path = generator.generateToFile(
             template = template,
@@ -1135,10 +1126,8 @@ fun main() {
     )
 
     ExcelGenerator().use { generator ->
-        // resources/templates/ 디렉토리에서 템플릿 로드
         val template = object {}.javaClass.getResourceAsStream("/templates/multi_repeat.xlsx")
             ?: throw IllegalStateException("템플릿을 찾을 수 없습니다")
-        // 파일에서 직접 읽는 경우: val template = File("multi_repeat.xlsx").inputStream()
 
         val bytes = generator.generate(template, data)
         File("output.xlsx").writeBytes(bytes)
@@ -1182,10 +1171,8 @@ fun main() {
     }
 
     ExcelGenerator().use { generator ->
-        // resources/templates/ 디렉토리에서 템플릿 로드
         val template = object {}.javaClass.getResourceAsStream("/templates/multi_repeat.xlsx")
             ?: throw IllegalStateException("템플릿을 찾을 수 없습니다")
-        // 파일에서 직접 읽는 경우: val template = File("multi_repeat.xlsx").inputStream()
 
         val bytes = generator.generate(template, provider)
         File("output.xlsx").writeBytes(bytes)
@@ -1203,9 +1190,11 @@ fun main() {
 | 4 | 한용호  | 6,500 |   | IT전략기획팀  | 30,000 |
 | 5 | 홍용호  | 4,500 |   |          |        |
 
-> **참고**: 각 repeat 영역은 독립적으로 확장됩니다. 위 예시에서 직원은 3명, 부서는 2개이므로 각각 다른 행 수만큼 확장됩니다.
+> [!NOTE]
+> 각 repeat 영역은 독립적으로 확장됩니다. 위 예시에서 직원은 3명, 부서는 2개이므로 각각 다른 행 수만큼 확장됩니다.
 
-> **주의**: 반복 영역은 2D 공간에서 겹치면 안 됩니다.
+> [!IMPORTANT]
+> 반복 영역은 2D 공간에서 겹치면 안 됩니다.
 
 ---
 
@@ -1236,10 +1225,8 @@ fun main() {
     )
 
     ExcelGenerator().use { generator ->
-        // resources/templates/ 디렉토리에서 템플릿 로드
         val template = object {}.javaClass.getResourceAsStream("/templates/right_repeat.xlsx")
             ?: throw IllegalStateException("템플릿을 찾을 수 없습니다")
-        // 파일에서 직접 읽는 경우: val template = File("right_repeat.xlsx").inputStream()
 
         val bytes = generator.generate(template, data)
         File("output.xlsx").writeBytes(bytes)
@@ -1335,7 +1322,8 @@ ${repeat(collection=employees, range=A4:C4, var=emp, direction=DOWN, empty=A7:C7
 =TBEG_REPEAT(collection=employees, range=A4:C4, var=emp, direction=DOWN, empty=A7:C7)
 ```
 
-> **참고**: `empty` 범위는 반복 영역과 다른 위치에 있어야 합니다. 같은 시트의 다른 영역 또는 다른 시트에서 참조할 수 있습니다.
+> [!NOTE]
+> `empty` 범위는 반복 영역과 다른 위치에 있어야 합니다. 같은 시트의 다른 영역 또는 다른 시트에서 참조할 수 있습니다.
 
 ---
 

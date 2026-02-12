@@ -1,5 +1,7 @@
 package io.github.jogakdal.tbeg.engine.rendering
 
+import io.github.jogakdal.tbeg.engine.core.CollectionSizes
+
 /**
  * 템플릿 렌더링 전략 인터페이스.
  *
@@ -53,5 +55,5 @@ internal data class RenderingContext(
     val evaluateText: (String, Map<String, Any>) -> String,
     val resolveFieldPath: (Any?, String) -> Any?,
     val streamingDataSource: StreamingDataSource? = null,
-    val collectionSizes: Map<String, Int> = emptyMap()
+    val collectionSizes: CollectionSizes = CollectionSizes.EMPTY
 )
