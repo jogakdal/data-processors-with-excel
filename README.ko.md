@@ -236,6 +236,7 @@ tbeg:
 상세 문서는 아래 링크를 참고하세요:
 
 - [TBEG 모듈 README](modules/tbeg/README.ko.md)
+- [매뉴얼 목차](modules/tbeg/manual/ko/index.md)
 - [사용자 가이드](modules/tbeg/manual/ko/user-guide.md)
 - [템플릿 문법 레퍼런스](modules/tbeg/manual/ko/reference/template-syntax.md)
 - [API 레퍼런스](modules/tbeg/manual/ko/reference/api-reference.md)
@@ -243,6 +244,9 @@ tbeg:
 - [기본 예제](modules/tbeg/manual/ko/examples/basic-examples.md)
 - [고급 예제](modules/tbeg/manual/ko/examples/advanced-examples.md)
 - [Spring Boot 예제](modules/tbeg/manual/ko/examples/spring-boot-examples.md)
+- [모범 사례](modules/tbeg/manual/ko/best-practices.md)
+- [문제 해결](modules/tbeg/manual/ko/troubleshooting.md)
+- [마이그레이션 가이드](modules/tbeg/manual/ko/migration-guide.md)
 
 ## 요구사항
 

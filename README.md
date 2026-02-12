@@ -236,6 +236,7 @@ tbeg:
 For detailed documentation, see the links below:
 
 - [TBEG Module README](modules/tbeg/README.md)
+- [Manual Index](modules/tbeg/manual/en/index.md)
 - [User Guide](modules/tbeg/manual/en/user-guide.md)
 - [Template Syntax Reference](modules/tbeg/manual/en/reference/template-syntax.md)
 - [API Reference](modules/tbeg/manual/en/reference/api-reference.md)
@@ -243,6 +244,9 @@ For detailed documentation, see the links below:
 - [Basic Examples](modules/tbeg/manual/en/examples/basic-examples.md)
 - [Advanced Examples](modules/tbeg/manual/en/examples/advanced-examples.md)
 - [Spring Boot Examples](modules/tbeg/manual/en/examples/spring-boot-examples.md)
+- [Best Practices](modules/tbeg/manual/en/best-practices.md)
+- [Troubleshooting](modules/tbeg/manual/en/troubleshooting.md)
+- [Migration Guide](modules/tbeg/manual/en/migration-guide.md)
 
 ## Requirements
 
