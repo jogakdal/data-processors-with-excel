@@ -17,13 +17,8 @@
 
 ```kotlin
 // build.gradle.kts
-
-repositories {
-    mavenCentral()
-}
-
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.1.1")
+    implementation("io.github.jogakdal:tbeg:1.1.2")
 }
 ```
 
@@ -31,28 +26,19 @@ dependencies {
 
 ```groovy
 // build.gradle
-
-repositories {
-    mavenCentral()
-}
-
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.1.1'
+    implementation 'io.github.jogakdal:tbeg:1.1.2'
 }
 ```
 
 #### Maven
 
 ```xml
-<!-- pom.xml -->
-
-<dependencies>
-    <dependency>
-        <groupId>io.github.jogakdal</groupId>
-        <artifactId>tbeg</artifactId>
-        <version>1.1.1</version>
-    </dependency>
-</dependencies>
+<dependency>
+    <groupId>io.github.jogakdal</groupId>
+    <artifactId>tbeg</artifactId>
+    <version>1.1.2</version>
+</dependency>
 ```
 
 ### 1.2 첫 번째 Excel 생성

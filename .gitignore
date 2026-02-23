@@ -24,6 +24,7 @@
 
 ### Sync ###
 .last_sync_commit
+.upstream_path
 
 ### Claude Code ###
 .claude

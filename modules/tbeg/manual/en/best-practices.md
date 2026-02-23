@@ -233,10 +233,10 @@ fun `직원 보고서 생성 테스트`() {
         val bytes = generator.generate(template, data)
 
         // Verify results
-        val workbook = XSSFWorkbook(ByteArrayInputStream(bytes))
-        val sheet = workbook.getSheetAt(0)
-        assert(sheet.getRow(1).getCell(0).stringCellValue == "황용호")
-        workbook.close()
+        XSSFWorkbook(ByteArrayInputStream(bytes)).use { workbook ->
+            val sheet = workbook.getSheetAt(0)
+            assertEquals("황용호", sheet.getRow(1).getCell(0).stringCellValue)
+        }
     }
 }
 ```

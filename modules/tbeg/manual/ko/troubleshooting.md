@@ -63,8 +63,8 @@
 
 ```
 MissingTemplateDataException: 템플릿에 필요한 데이터가 누락되었습니다.
-  누락된 변수: [title, author]
-  누락된 컬렉션: [employees]
+  - 변수: title, author
+  - 컬렉션: employees
 ```
 
 **해결**: 예외 메시지에 표시된 누락 항목을 DataProvider에 추가하세요.

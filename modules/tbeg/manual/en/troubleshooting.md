@@ -65,8 +65,8 @@ When `missingDataBehavior = THROW`, this exception is thrown if data required by
 
 ```
 MissingTemplateDataException: 템플릿에 필요한 데이터가 누락되었습니다.
-  누락된 변수: [title, author]
-  누락된 컬렉션: [employees]
+  - 변수: title, author
+  - 컬렉션: employees
 ```
 
 **Resolution**: Add the missing items listed in the exception message to your DataProvider.

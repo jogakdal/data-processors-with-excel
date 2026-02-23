@@ -80,5 +80,5 @@ dependencies {
 
 ## 다음 단계
 
-- [변경 이력](../CHANGELOG.ko.md) - 전체 버전별 변경 내역
+- [변경 이력](../CHANGELOG.md) - 전체 버전별 변경 내역
 - [사용자 가이드](./user-guide.md) - TBEG 사용법
