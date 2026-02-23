@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 This file is maintained in this project only and is not affected by upstream sync.
 
+## [1.1.2] - 2026-02-23
+
+### Bug Fixes
+- Non-repeat area formula handling improvement in XSSF mode
+- Non-repeat area static row flag fix in SXSSF mode
+- Cross-sheet duplicate marker grouping fix: group by target sheet instead of marker's sheet
+
+### Tests
+- Added `NonRepeatFormulaCellTest`
+
 ## [1.1.1] - 2026-02-12
 
 ### Bug Fixes
