@@ -1,5 +1,3 @@
-> 한국어 | **[English](./README.md)**
-
 # TBEG (Template Based Excel Generator)
 
 Excel 템플릿에 데이터를 바인딩하여 보고서를 생성하는 라이브러리입니다.
@@ -17,29 +15,26 @@ Excel 템플릿에 데이터를 바인딩하여 보고서를 생성하는 라이
 
 ## 의존성 추가
 
-### Gradle (Kotlin DSL)
-
 ```kotlin
+// build.gradle.kts
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.1.1")
+    implementation("io.github.jogakdal:tbeg:1.1.2")
 }
 ```
-
-### Gradle (Groovy DSL)
 
 ```groovy
+// build.gradle (Groovy DSL)
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.1.1'
+    implementation 'io.github.jogakdal:tbeg:1.1.2'
 }
 ```
 
-### Maven
-
 ```xml
+<!-- Maven -->
 <dependency>
     <groupId>io.github.jogakdal</groupId>
     <artifactId>tbeg</artifactId>
-    <version>1.1.1</version>
+    <version>1.1.2</version>
 </dependency>
 ```
 

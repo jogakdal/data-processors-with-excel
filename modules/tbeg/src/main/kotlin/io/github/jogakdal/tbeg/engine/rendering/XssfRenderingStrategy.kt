@@ -662,13 +662,17 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
             val originalRow = sheet.getRow(region.area.start.row + templateOffset) ?: continue
             for (cellSpec in nonRepeatCellSpecs) {
                 val cell = originalRow.getCell(cellSpec.columnIndex) ?: continue
-                processCellContentXssf(
-                    cell, cellSpec.content, data, sheetIndex,
-                    imageLocations, context,
-                    rowOffset = currentOffset + totalRepeatOffset,
-                    repeatItemIndex = 0,
-                    calculator = calculator
-                )
+                if (cellSpec.content is CellContent.Formula) {
+                    processFormulaXssf(cell, cellSpec.content, data, calculator, blueprint.repeatRegions)
+                } else {
+                    processCellContentXssf(
+                        cell, cellSpec.content, data, sheetIndex,
+                        imageLocations, context,
+                        rowOffset = currentOffset + totalRepeatOffset,
+                        repeatItemIndex = 0,
+                        calculator = calculator
+                    )
+                }
             }
         }
     }

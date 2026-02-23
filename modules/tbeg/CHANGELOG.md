@@ -2,6 +2,14 @@
 
 # TBEG Changelog
 
+## 1.1.2
+
+### Bug Fixes
+
+- **Non-repeat area formula handling improvement**: Fixed an issue where formula cells in non-repeat areas were not processed correctly in XSSF mode
+- **Non-repeat area static row flag fix**: Fixed an issue where the `isStaticRow` flag for non-repeat area cells was not set correctly in SXSSF mode
+- **Cross-sheet duplicate marker grouping fix**: Fixed duplicate repeat marker detection to group by the target sheet rather than the sheet where the marker is located
+
 ## 1.1.1
 
 ### New Features

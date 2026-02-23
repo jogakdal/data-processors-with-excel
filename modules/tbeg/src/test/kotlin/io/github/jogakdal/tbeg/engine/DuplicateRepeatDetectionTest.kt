@@ -140,9 +140,9 @@ class DuplicateRepeatDetectionTest {
             val sheet1Regions = spec.sheets[0].repeatRegions
             val sheet2Regions = spec.sheets[1].repeatRegions
 
-            assertEquals(0, sheet1Regions.size, "Sheet1의 마커(먼저 발견)는 제거되어야 한다")
-            assertEquals(1, sheet2Regions.size, "Sheet2의 마커(나중 발견)만 유지되어야 한다")
-            assertEquals("e2", sheet2Regions[0].variable)
+            assertEquals(1, sheet1Regions.size, "대상 시트(Sheet1)에 repeat이 매핑되어야 한다")
+            assertEquals(0, sheet2Regions.size, "Sheet2는 마커만 있고 대상 범위가 없다")
+            assertEquals("e2", sheet1Regions[0].variable, "마지막 마커(e2)만 유지되어야 한다")
         }
 
         @Test
@@ -191,7 +191,7 @@ class DuplicateRepeatDetectionTest {
             assertEquals(1, totalRegions, "전체 시트에서 1개만 남아야 한다")
 
             val survivingSheet = spec.sheets.first { it.repeatRegions.isNotEmpty() }
-            assertEquals("Sheet3", survivingSheet.sheetName, "마지막 시트(Sheet3)의 마커가 유지되어야 한다")
+            assertEquals("Sheet1", survivingSheet.sheetName, "대상 시트(Sheet1)에 repeat이 매핑되어야 한다")
             assertEquals("e3", survivingSheet.repeatRegions[0].variable)
         }
     }

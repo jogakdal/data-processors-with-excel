@@ -378,7 +378,7 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
                             content = cellSpec.content,
                             height = currentRowBp.height,
                             templateRowIndex = currentRowBp.templateRowIndex,
-                            isStaticRow = false,
+                            isStaticRow = true,
                             itemData = ctx.data
                         )
                     )
@@ -574,7 +574,7 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
                     .forEach { cellSpec ->
                         val cell = row.createCellWithStyle(cellSpec.columnIndex, cellSpec.styleIndex)
                         processCellContentSxssfWithCalculator(
-                            ctx, cell, cellSpec.content, ctx.data, RepeatInfo.NONE, false, cellSpec.columnIndex, actualRow
+                            ctx, cell, cellSpec.content, ctx.data, RepeatInfo.NONE, true, cellSpec.columnIndex, actualRow
                         )
                     }
             }
@@ -612,7 +612,7 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
                     val cell = row.createCellWithStyle(cellSpec.columnIndex, cellSpec.styleIndex)
                     processCellContentSxssfWithCalculator(
                         ctx, cell, cellSpec.content, ctx.data, RepeatInfo.NONE,
-                        false, cellSpec.columnIndex, actualRow
+                        true, cellSpec.columnIndex, actualRow
                     )
                 }
         }

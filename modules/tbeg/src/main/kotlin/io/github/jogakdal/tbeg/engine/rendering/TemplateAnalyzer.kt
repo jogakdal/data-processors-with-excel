@@ -260,7 +260,7 @@ class TemplateAnalyzer {
      * 같은 컬렉션과 같은 대상 범위(시트+영역)를 가진 중복 repeat 마커를 감지하여
      * 경고 로그 출력 후 마지막 마커만 유지한다.
      *
-     * @return 마커가 위치한 시트 이름 → 중복 제거된 RepeatRegionSpec 리스트
+     * @return 대상 시트 이름 → 중복 제거된 RepeatRegionSpec 리스트
      */
     private fun deduplicateRepeatRegions(
         allRegions: List<RepeatRegionWithContext>
@@ -278,7 +278,7 @@ class TemplateAnalyzer {
                 }
                 duplicates.last()
             }
-            .groupBy({ it.sourceSheetName }, { it.region })
+            .groupBy({ it.targetSheetName }, { it.region })
 
     private fun createRepeatRegionSpec(workbook: Workbook, marker: CellContent.RepeatMarker) = RepeatRegionSpec(
         collection = marker.collection,
