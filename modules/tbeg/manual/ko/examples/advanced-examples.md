@@ -15,6 +15,8 @@
 7. [다중 반복 영역](#7-다중-반복-영역)
 8. [오른쪽 방향 반복](#8-오른쪽-방향-반복)
 9. [빈 컬렉션 처리](#9-빈-컬렉션-처리)
+10. [다국어 지원 (I18N)](#10-다국어-지원-i18n)
+11. [종합 예제 — 분기 매출 실적 보고서](#11-종합-예제--분기-매출-실적-보고서)
 
 > [!NOTE]
 > 이 문서의 예제는 `resources/templates/` 디렉토리에서 템플릿을 로드합니다.
@@ -148,12 +150,12 @@ ExcelGenerator().use { generator ->
 5. 생성된 Excel 바이트 배열을 파일로 저장
 
 **count 제공을 권장하는 이유:**
-- TBEG가 미리 전체 행 수를 알 수 있어 수식 범위를 즉시 계산 가능
+- TBEG이 미리 전체 행 수를 알 수 있어 수식 범위를 즉시 계산 가능
 - 데이터를 2번 순회할 필요 없음
 - DB의 `SELECT COUNT(*)` 쿼리는 인덱스만 사용하므로 매우 빠름
 
 > [!NOTE]
-> count를 제공하지 않아도 동작에는 문제가 없습니다. 다만 TBEG가 전체 행 수를 파악하기 위해 컬렉션을 먼저 순회해야 하므로, 이중 순회로 인한 성능 저하가 발생할 수 있습니다.
+> count를 제공하지 않아도 동작에는 문제가 없습니다. 다만 TBEG이 전체 행 수를 파악하기 위해 컬렉션을 먼저 순회해야 하므로, 이중 순회로 인한 성능 저하가 발생할 수 있습니다.
 
 #### 이미지 포함
 
@@ -651,21 +653,21 @@ fun generateReport(departmentId: Long): ByteArray {
 
 ### 1.5 외부 API 연동
 
-마이크로서비스 아키텍처에서 다른 서비스의 API를 호출하여 데이터를 **분할**하여 가져온 후 Excel로 변환하는 경우입니다.
+마이크로서비스 아키텍처에서 다른 서비스의 API를 호출하여 데이터를 **페이지 단위로** 가져온 후 Excel로 변환하는 경우입니다.
 
-#### PageableList 기반 Iterator
+#### Spring Data Page 기반 Iterator
 
-휴넷의 `standard-api-response` 라이브러리에서 제공하는 `PageableList` 타입을 활용합니다.
+Spring Data의 `Page<T>` 타입을 활용하여 페이징 API 응답을 Iterator로 변환합니다.
 
 ```kotlin
-import com.hunet.common.stdapi.response.PageableList
+import org.springframework.data.domain.Page
 
-class PageableListIterator<T>(
+class PagedApiIterator<T>(
     private val pageSize: Int = 100,
-    private val fetcher: (page: Int, size: Int) -> PageableList<T>
+    private val fetcher: (page: Int, size: Int) -> Page<T>
 ) : Iterator<T> {
 
-    private var currentPage = 1
+    private var currentPage = 0
     private var currentIterator: Iterator<T> = emptyList<T>().iterator()
     private var hasMorePages = true
 
@@ -675,8 +677,8 @@ class PageableListIterator<T>(
 
         // 다음 페이지 로드 (API 호출)
         val result = fetcher(currentPage++, pageSize)
-        currentIterator = result.items.list.iterator()
-        hasMorePages = result.page.current < result.page.total
+        currentIterator = result.content.iterator()
+        hasMorePages = result.hasNext()
 
         return currentIterator.hasNext()
     }
@@ -690,7 +692,9 @@ class PageableListIterator<T>(
 ```kotlin
 import io.github.jogakdal.tbeg.ExcelGenerator
 import io.github.jogakdal.tbeg.simpleDataProvider
-import com.hunet.common.stdapi.response.PageableList
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageImpl
+import org.springframework.data.domain.PageRequest
 import java.io.File
 
 data class EmployeeDto(val name: String, val salary: Int)
@@ -702,49 +706,44 @@ data class EmployeeDto(val name: String, val salary: Int)
 //     fun getEmployees(
 //         @RequestParam("page") page: Int,
 //         @RequestParam("size") size: Int
-//     ): StandardResponse<PageableList<EmployeeDto>>
+//     ): Page<EmployeeDto>
 // }
 
 // 다른 마이크로서비스의 API를 호출하여 데이터를 가져옴
-fun fetchEmployeesFromApi(page: Int, size: Int): PageableList<EmployeeDto> {
+fun fetchEmployeesFromApi(page: Int, size: Int): Page<EmployeeDto> {
     // Feign Client 사용 시:
-    // return employeeApiClient.getEmployees(page, size).payload
-    //     ?: throw Exception("API 호출 실패")
+    // return employeeApiClient.getEmployees(page, size)
 
     // RestTemplate 사용 시:
     // return restTemplate.exchange(
     //     "/api/employees?page=$page&size=$size",
     //     HttpMethod.GET,
     //     null,
-    //     object : ParameterizedTypeReference<StandardResponse<PageableList<EmployeeDto>>>() {}
-    // ).body?.payload ?: throw Exception("API 호출 실패")
+    //     object : ParameterizedTypeReference<RestPageImpl<EmployeeDto>>() {}
+    // ).body ?: throw Exception("API 호출 실패")
 
     // WebClient 사용 시:
     // return webClient.get()
     //     .uri("/api/employees?page=$page&size=$size")
     //     .retrieve()
-    //     .bodyToMono<StandardResponse<PageableList<EmployeeDto>>>()
-    //     .block()?.payload ?: throw Exception("API 호출 실패")
+    //     .bodyToMono<RestPageImpl<EmployeeDto>>()
+    //     .block() ?: throw Exception("API 호출 실패")
 
     // 예시용 더미 응답
-    return PageableList.build(
-        items = listOf(EmployeeDto("황용호", 8000), EmployeeDto("한용호", 6500)),
-        totalItems = 100,
-        pageSize = size.toLong(),
-        currentPage = page.toLong()
-    )
+    val content = listOf(EmployeeDto("황용호", 8000), EmployeeDto("한용호", 6500))
+    return PageImpl(content, PageRequest.of(page, size), 100)
 }
 
 fun main() {
-    // 먼저 totalItems 조회 (첫 페이지 호출 또는 별도 count API)
-    val firstPage = fetchEmployeesFromApi(1, 1)
-    val totalCount = firstPage.items.total.toInt()
+    // 먼저 totalElements 조회 (첫 페이지 호출 또는 별도 count API)
+    val firstPage = fetchEmployeesFromApi(0, 1)
+    val totalCount = firstPage.totalElements.toInt()
 
     val provider = simpleDataProvider {
         value("title", "API 데이터 보고서")
 
         items("employees", totalCount) {
-            PageableListIterator(pageSize = 50) { page, size ->
+            PagedApiIterator(pageSize = 50) { page, size ->
                 fetchEmployeesFromApi(page, size)
             }
         }
@@ -761,7 +760,7 @@ fun main() {
 ```
 
 > [!NOTE]
-> `PageableList`와 `StandardResponse`는 `standard-api-response` 라이브러리에서 제공하는 타입입니다. 마이크로서비스 간 표준 API 응답 형식을 사용하는 경우 이 패턴을 활용할 수 있습니다.
+> Spring Data의 `Page<T>`는 0부터 시작하는 페이지 번호를 사용합니다. REST API에서 `Page`를 역직렬화할 때 `PageImpl`은 기본 생성자가 없으므로, `RestPageImpl` 등 커스텀 클래스를 사용하거나 `@JsonCreator`를 정의해야 합니다.
 
 ---
 
@@ -1324,6 +1323,202 @@ ${repeat(collection=employees, range=A4:C4, var=emp, direction=DOWN, empty=A7:C7
 
 > [!NOTE]
 > `empty` 범위는 반복 영역과 다른 위치에 있어야 합니다. 같은 시트의 다른 영역 또는 다른 시트에서 참조할 수 있습니다.
+
+---
+
+## 10. 다국어 지원 (I18N)
+
+TBEG의 변수 치환을 활용하면 별도의 I18N 전용 기능 없이 다국어 보고서를 생성할 수 있습니다.
+
+### 템플릿 (i18n_template.xlsx)
+
+|   | A                                | B               | C             |
+|---|----------------------------------|-----------------|---------------|
+| 1 | ${label.title}                   |                 |               |
+| 2 | ${repeat(employees, A4:C4, emp)} |                 |               |
+| 3 | ${label.name}                    | ${label.position} | ${label.salary} |
+| 4 | ${emp.name}                      | ${emp.position} | ${emp.salary} |
+
+하나의 템플릿으로 모든 언어를 지원합니다. 고정 텍스트 대신 `${label.*}` 변수를 사용합니다.
+
+### 리소스 번들 준비
+
+**messages_ko.properties**
+```properties
+report.title=직원 현황 보고서
+label.name=이름
+label.position=직급
+label.salary=연봉
+```
+
+**messages_en.properties**
+```properties
+report.title=Employee Report
+label.name=Name
+label.position=Position
+label.salary=Salary
+```
+
+### Kotlin 코드 (ResourceBundle)
+
+```kotlin
+import io.github.jogakdal.tbeg.ExcelGenerator
+import java.util.Locale
+import java.util.ResourceBundle
+
+data class Employee(val name: String, val position: String, val salary: Int)
+
+fun main() {
+    val locale = Locale.KOREAN  // 또는 Locale.ENGLISH
+    val bundle = ResourceBundle.getBundle("messages", locale)
+
+    val data = mapOf(
+        "label" to mapOf(
+            "title" to bundle.getString("report.title"),
+            "name" to bundle.getString("label.name"),
+            "position" to bundle.getString("label.position"),
+            "salary" to bundle.getString("label.salary")
+        ),
+        "employees" to listOf(
+            Employee("황용호", "부장", 8000),
+            Employee("한용호", "과장", 6500)
+        )
+    )
+
+    ExcelGenerator().use { generator ->
+        val template = object {}.javaClass.getResourceAsStream("/templates/i18n_template.xlsx")
+            ?: throw IllegalStateException("템플릿을 찾을 수 없습니다")
+
+        val bytes = generator.generate(template, data)
+        File("report_${locale.language}.xlsx").writeBytes(bytes)
+    }
+}
+```
+
+### Kotlin 코드 (Spring MessageSource)
+
+```kotlin
+import io.github.jogakdal.tbeg.simpleDataProvider
+import org.springframework.context.MessageSource
+import java.util.Locale
+
+fun buildI18nProvider(messageSource: MessageSource, locale: Locale) = simpleDataProvider {
+    // 라벨 변수를 MessageSource에서 일괄 로드
+    val keys = listOf("report.title", "label.name", "label.position", "label.salary")
+    value("label", keys.associate { key ->
+        key.substringAfter(".") to messageSource.getMessage(key, null, locale)
+    })
+
+    items("employees") {
+        // DB 조회 등
+        emptyList<Any>().iterator()
+    }
+}
+```
+
+### 결과 (한국어)
+
+|   | A         | B    | C     |
+|---|-----------|------|-------|
+| 1 | 직원 현황 보고서 |      |       |
+| 2 |           |      |       |
+| 3 | 이름        | 직급   | 연봉    |
+| 4 | 황용호       | 부장   | 8,000 |
+| 5 | 한용호       | 과장   | 6,500 |
+
+### 결과 (영어)
+
+|   | A               | B        | C      |
+|---|-----------------|----------|--------|
+| 1 | Employee Report |          |        |
+| 2 |                 |          |        |
+| 3 | Name            | Position | Salary |
+| 4 | 황용호             | 부장       | 8,000  |
+| 5 | 한용호             | 과장       | 6,500  |
+
+> [!TIP]
+> TBEG은 I18N을 위한 별도 문법을 제공하지 않습니다. Java/Spring의 `ResourceBundle`이나 `MessageSource`로 번역을 처리하고, 그 결과를 변수로 전달하면 됩니다. 하나의 템플릿으로 모든 언어를 지원할 수 있습니다.
+
+---
+
+## 11. 종합 예제 — 분기 매출 실적 보고서
+
+변수 치환, 이미지 삽입, 반복 데이터 확장, 수식 자동 조정, 조건부 서식 복제, 차트 데이터 반영을 하나의 보고서에서 활용하는 예제입니다.
+
+### 템플릿
+
+> [!TIP]
+> [템플릿 다운로드 (rich_sample_template.xlsx)](../../src/test/resources/templates/rich_sample_template.xlsx)
+
+![템플릿](../../src/main/resources/sample/screenshot_template.png)
+
+템플릿 구성:
+- **변수 마커**: `${reportTitle}`, `${period}`, `${author}`, `${reportDate}`
+- **이미지 마커**: `${image(logo)}`, `${image(ci)}`
+- **반복 마커**: `${repeat(depts, B7:G7, d)}` (부서별 실적), `${repeat(products, I7:K7, p)}` (제품 카테고리)
+- **수식**: SUM, AVERAGE (합계/평균 행), 셀 간 계산 (Profit = Revenue - Cost, Achievement = Revenue / Target)
+- **조건부 서식**: Achievement ≥ 100% → 초록, < 100% → 빨강 / Share ≥ 30% → 초록, < 30% → 빨강
+- **차트**: 부서별 Revenue/Cost/Profit 막대 차트, 제품 카테고리 파이 차트
+
+### 코드
+
+```kotlin
+import io.github.jogakdal.tbeg.ExcelGenerator
+import io.github.jogakdal.tbeg.simpleDataProvider
+import java.io.File
+import java.nio.file.Path
+import java.time.LocalDate
+
+data class DeptResult(val deptName: String, val revenue: Long, val cost: Long, val target: Long)
+data class ProductCategory(val category: String, val revenue: Long)
+
+fun main() {
+    val data = simpleDataProvider {
+        value("reportTitle", "Q1 2026 Sales Performance Report")
+        value("period", "Jan 2026 ~ Mar 2026")
+        value("author", "Yongho Hwang")
+        value("reportDate", LocalDate.now().toString())
+        image("logo", File("hunet_logo.png").readBytes())
+        image("ci", File("hunet_ci.png").readBytes())
+
+        items("depts") {
+            listOf(
+                DeptResult("Common Platform", 52000, 31000, 50000),
+                DeptResult("IT Strategy",     38000, 22000, 40000),
+                DeptResult("HR Management",   28000, 19000, 30000),
+                DeptResult("Education Biz",   95000, 61000, 90000),
+                DeptResult("Content Dev",     42000, 28000, 45000),
+            ).iterator()
+        }
+
+        items("products") {
+            listOf(
+                ProductCategory("Online Courses", 128000),
+                ProductCategory("Consulting", 67000),
+                ProductCategory("Certification", 45000),
+                ProductCategory("Contents License", 15000),
+            ).iterator()
+        }
+    }
+
+    ExcelGenerator().use { generator ->
+        val template = File("rich_sample_template.xlsx").inputStream()
+        generator.generateToFile(template, data, Path.of("output"), "quarterly_report")
+    }
+}
+```
+
+### 결과
+
+![결과](../../src/main/resources/sample/screenshot_result.png)
+
+TBEG이 자동으로 처리한 항목:
+- **변수 치환** — 제목, 기간, 작성자, 날짜
+- **이미지 삽입** — 로고, CI
+- **반복 데이터 확장** — 부서 5행, 제품 4행으로 확장
+- **수식 범위 자동 조정** — `SUM(C7:C7)` → `SUM(C7:C11)`, `AVERAGE(C7:C7)` → `AVERAGE(C7:C11)`
+- **조건부 서식 복제** — 달성률/점유율 색상이 모든 행에 적용
+- **차트 데이터 범위 반영** — 차트가 확장된 데이터 범위를 참조
 
 ---
 

@@ -19,13 +19,8 @@
 
 ```kotlin
 // build.gradle.kts
-
-repositories {
-    mavenCentral()
-}
-
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.1.2")
+    implementation("io.github.jogakdal:tbeg:1.1.3")
 }
 ```
 
@@ -33,28 +28,19 @@ dependencies {
 
 ```groovy
 // build.gradle
-
-repositories {
-    mavenCentral()
-}
-
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.1.2'
+    implementation 'io.github.jogakdal:tbeg:1.1.3'
 }
 ```
 
 #### Maven
 
 ```xml
-<!-- pom.xml -->
-
-<dependencies>
-    <dependency>
-        <groupId>io.github.jogakdal</groupId>
-        <artifactId>tbeg</artifactId>
-        <version>1.1.2</version>
-    </dependency>
-</dependencies>
+<dependency>
+    <groupId>io.github.jogakdal</groupId>
+    <artifactId>tbeg</artifactId>
+    <version>1.1.3</version>
+</dependency>
 ```
 
 ### 1.2 Creating Your First Excel File
@@ -115,6 +101,8 @@ public class QuickStart {
 ---
 
 ## 2. Core Concepts
+
+TBEG provides dynamic data binding (variable substitution, data repetition, image insertion) — things Excel cannot do on its own. Formulas, conditional formatting, charts, and other Excel features are used as-is, and TBEG automatically adjusts them to work correctly even after data expansion.
 
 ### 2.1 Template Syntax
 

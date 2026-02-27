@@ -10,36 +10,125 @@ A library that generates reports by binding data to Excel templates.
 - **Repeat data processing**: Expand list data into rows/columns with `${repeat(...)}` syntax
 - **Variable substitution**: Bind values to cells, charts, shapes, headers/footers, formula arguments, etc. with `${variableName}` syntax
 - **Image insertion**: Insert dynamic images into template cells
+- **Formula auto-adjustment**: Automatically update formula ranges (SUM, AVERAGE, etc.) when data expands
+- **Conditional formatting duplication**: Automatically apply the original conditional formatting to repeated rows
+- **Chart data reflection**: Automatically reflect expanded data ranges in charts
 - **File encryption**: Set open password for generated Excel files
 - **Document metadata**: Set document properties such as title, author, keywords, etc.
 - **Asynchronous processing**: Process large data in the background
 - **Lazy loading**: Memory-efficient data processing via DataProvider
 
-## Add Dependency
+## Why TBEG
 
-### Gradle (Kotlin DSL)
+Building Excel reports directly with Apache POI requires dozens of lines of code.
 
 ```kotlin
-dependencies {
-    implementation("io.github.jogakdal:tbeg:1.1.2")
+// Using Apache POI directly
+val workbook = XSSFWorkbook()
+val sheet = workbook.createSheet("직원 현황")
+val headerRow = sheet.createRow(0)
+headerRow.createCell(0).setCellValue("이름")
+headerRow.createCell(1).setCellValue("직급")
+headerRow.createCell(2).setCellValue("연봉")
+
+employees.forEachIndexed { index, emp ->
+    val row = sheet.createRow(index + 1)
+    row.createCell(0).setCellValue(emp.name)
+    row.createCell(1).setCellValue(emp.position)
+    row.createCell(2).setCellValue(emp.salary.toDouble())
+}
+
+// Column widths, styles, formulas, charts... it never ends
+```
+
+With TBEG, you can **use the Excel template designed by your designer as-is** and simply bind data to it.
+
+```kotlin
+// Using TBEG
+val data = mapOf(
+    "title" to "직원 현황",
+    "employees" to employeeList
+)
+
+ExcelGenerator().use { generator ->
+    val bytes = generator.generate(template, data)
+    File("output.xlsx").writeBytes(bytes)
 }
 ```
 
-### Gradle (Groovy DSL)
+Formatting, charts, formulas, and conditional formatting are **all managed in the template**. Your code focuses solely on data binding.
+
+> [!TIP]
+> **Design philosophy**: We don't reinvent what Excel already does well.
+> Aggregation with `=SUM()`, conditional highlighting with conditional formatting, visualization with charts — use the familiar Excel features as they are.
+> TBEG adds dynamic data binding on top of this, and adjusts these features to work as intended even when data expands.
+
+## At a Glance
+
+**Template**
+
+![Template](./src/main/resources/sample/screenshot_template.png)
+
+**Code**
+
+```kotlin
+val data = simpleDataProvider {
+    value("reportTitle", "Q1 2026 Sales Performance Report")
+    value("period", "Jan 2026 ~ Mar 2026")
+    value("author", "Yongho Hwang")
+    value("reportDate", LocalDate.now().toString())
+    image("logo", logoBytes)
+    image("ci", ciBytes)
+    items("depts") { deptList.iterator() }
+    items("products") { productList.iterator() }
+}
+
+ExcelGenerator().use { generator ->
+    generator.generateToFile(template, data, outputDir, "quarterly_report")
+}
+```
+
+**Result**
+
+![Result](./src/main/resources/sample/screenshot_result.png)
+
+Variable substitution, image insertion, repeat data expansion, formula range adjustment, conditional formatting duplication, and chart data reflection — TBEG handles all of this automatically.
+
+> For the full code and template download, see the [Comprehensive Example](./manual/en/examples/advanced-examples.md#11-comprehensive-example--quarterly-sales-performance-report).
+
+## When to Use TBEG
+
+| Scenario | Suitability |
+|----------|-------------|
+| Generating standardized reports/statements | Suitable |
+| Filling data into Excel forms provided by a designer | Suitable |
+| Reports requiring complex formatting (conditional formatting, charts, pivot tables) | Suitable |
+| Processing large datasets with tens to hundreds of thousands of rows | Suitable |
+| Excel with dynamically changing column structures | Not suitable |
+| Reading/parsing Excel files | Not suitable (TBEG is generation-only) |
+
+## Add Dependency
+
+```kotlin
+// build.gradle.kts
+dependencies {
+    implementation("io.github.jogakdal:tbeg:1.1.3")
+}
+```
 
 ```groovy
+// Gradle (Groovy DSL)
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.1.2'
+    implementation 'io.github.jogakdal:tbeg:1.1.3'
 }
 ```
 
-### Maven
-
 ```xml
+<!-- Maven -->
 <dependency>
     <groupId>io.github.jogakdal</groupId>
     <artifactId>tbeg</artifactId>
-    <version>1.1.2</version>
+    <version>1.1.3</version>
 </dependency>
 ```
 
@@ -90,23 +179,15 @@ In a Spring Boot environment, `ExcelGenerator` is automatically registered as a 
 
 ## Template Syntax
 
-### Variable Substitution
-```
-${title}
-${employee.name}
-```
+| Syntax | Description | Example |
+|--------|-------------|---------|
+| `${variableName}` | Variable substitution | `${title}` |
+| `${item.field}` | Repeat item field | `${emp.name}` |
+| `${repeat(collection, range, variable)}` | Repeat processing | `${repeat(items, A2:C2, item)}` |
+| `${image(name)}` | Image insertion | `${image(logo)}` |
+| `${size(collection)}` | Collection size | `${size(items)}` |
 
-### Repeat Data
-```
-${repeat(employees, A3:C3, emp, DOWN)}
-```
-
-### Image
-```
-${image(logo)}
-${image(logo, B5)}
-${image(logo, B5, 100:50)}
-```
+For detailed syntax, see the [Template Syntax Reference](./manual/en/reference/template-syntax.md).
 
 ## Streaming Mode
 

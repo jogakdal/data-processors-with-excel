@@ -1,5 +1,39 @@
 # TBEG Changelog
 
+## 1.1.3
+
+### 새 기능
+
+- **차트 데이터 범위 자동 조정**: repeat으로 데이터가 확장될 때 차트의 데이터 범위가 자동으로 갱신됩니다
+- **이미지 정렬 개선**: 이미지 삽입 시 셀 내 정렬이 개선되었습니다
+
+### 버그 수정
+
+- **차트 복원 처리 수정**: 차트가 포함된 템플릿에서 데이터 확장 후 차트가 올바르게 복원되지 않던 문제가 수정되었습니다
+- **수식 범위 조정 수정**: 특정 조건에서 수식의 셀 범위가 올바르게 확장되지 않던 문제가 수정되었습니다
+- **이미지 삽입 위치 수정**: 이미지가 지정된 셀 위치에 정확하게 배치되지 않던 문제가 수정되었습니다
+- **차트 범위 조정 수정 (RIGHT 방향)**: RIGHT repeat에서 단일 셀 범위 확장 시 행 범위를 검증하지 않아 관련 없는 repeat 영역까지 확장되던 문제가 수정되었습니다
+- **차트 범위 조정 수정 (다중 RIGHT repeat)**: 같은 시트에 여러 RIGHT repeat이 있을 때 차트의 열 범위가 누적 확장되지 않던 문제가 수정되었습니다
+
+### 문서
+
+- **README 개선**: POI 비교 코드, 주요 기능 보강, 적합성 표, 템플릿 문법 표 추가
+- **매뉴얼 강화**: 종합 예제(Rich Sample), 스크린샷 기반 소개 섹션 추가
+- **타 라이브러리 비교 문서 추가**: JXLS, EasyExcel 등과의 기능/성능 비교
+
+<details>
+<summary>내부 개선</summary>
+
+- `ChartRangeAdjuster` 신규 추가
+- `ChartProcessor` 리팩토링
+- `ImageInserter` 리팩토링
+- `FormulaAdjuster` 확장
+- SXSSF/XSSF 렌더링 전략 개선
+- Rich Sample 추가 (분기 매출 실적 보고서 데모)
+- 단위/통합 테스트 추가: `ChartRangeAdjusterTest`, `ChartRepeatIntegrationTest`, `DrawingXmlMergeTest`, `FormulaAdjusterTest`, `ImageInserterAlignmentTest`
+
+</details>
+
 ## 1.1.2
 
 ### 버그 수정

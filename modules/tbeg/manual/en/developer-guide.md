@@ -86,6 +86,16 @@ Template + Data
   Generated Excel
 ```
 
+### 1.3 Design Principles
+
+TBEG's core philosophy is **Excel-native features first**.
+
+- Features that Excel already does well (aggregation, conditional formatting, charts, etc.) are not reimplemented
+- TBEG provides **dynamic data binding** (variable substitution, repeat expansion, image insertion) — things Excel cannot do on its own
+- After data expansion, TBEG **preserves and adjusts** Excel-native features so they work as intended (formula range expansion, conditional formatting duplication, chart data range adjustment)
+
+This principle serves as the foundation for all implementation decisions including the pipeline, rendering strategies, and position calculations.
+
 ---
 
 ## 2. Pipeline Pattern

@@ -15,7 +15,9 @@
 
 ---
 
-TBEG replaces markers (`${...}`, `=TBEG_...()`) in a template with data. Successfully processed markers do not appear in the output file.
+TBEG's template syntax provides dynamic data binding capabilities that Excel cannot do on its own. Excel features such as formulas, conditional formatting, and charts are preserved as-is and automatically adjusted to work correctly after data expansion.
+
+Markers (`${...}`, `=TBEG_...()`) are replaced with data, and successfully processed markers do not appear in the output file.
 
 ---
 

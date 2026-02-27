@@ -24,7 +24,7 @@ A JVM library that generates reports by binding data to Excel templates. Works s
 
 ```kotlin
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.1.2")
+    implementation("io.github.jogakdal:tbeg:1.1.3")
 }
 ```
 
@@ -32,7 +32,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.1.2'
+    implementation 'io.github.jogakdal:tbeg:1.1.3'
 }
 ```
 
@@ -42,7 +42,7 @@ dependencies {
 <dependency>
     <groupId>io.github.jogakdal</groupId>
     <artifactId>tbeg</artifactId>
-    <version>1.1.2</version>
+    <version>1.1.3</version>
 </dependency>
 ```
 

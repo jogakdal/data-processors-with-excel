@@ -32,9 +32,8 @@ internal class TemplateRenderProcessor : ExcelProcessor {
 
     override fun process(context: ProcessingContext): ProcessingContext {
         // 템플릿 분석하여 필요한 데이터 이름 추출
-        val analyzer = TemplateAnalyzer()
         val blueprint = XSSFWorkbook(ByteArrayInputStream(context.resultBytes)).use { workbook ->
-            analyzer.analyzeFromWorkbook(workbook)
+            TemplateAnalyzer().analyzeFromWorkbook(workbook)
         }
         val requiredNames = blueprint.extractRequiredNames()
         context.requiredNames = requiredNames
@@ -43,13 +42,9 @@ internal class TemplateRenderProcessor : ExcelProcessor {
         validateMissingData(context, requiredNames)
 
         // processedRowCount 계산 (필요한 컬렉션만 조회)
-        var totalRows = 0
-        requiredNames.collections.forEach { name ->
-            context.dataProvider.getItems(name)?.let { iterator ->
-                totalRows += iterator.asSequence().count()
-            }
+        context.processedRowCount = requiredNames.collections.sumOf { name ->
+            context.dataProvider.getItems(name)?.asSequence()?.count() ?: 0
         }
-        context.processedRowCount = totalRows
 
         // 템플릿 렌더링
         val engine = TemplateRenderingEngine(context.config.streamingMode)
@@ -58,6 +53,10 @@ internal class TemplateRenderProcessor : ExcelProcessor {
             context.dataProvider,
             requiredNames
         )
+
+        // SXSSF 차트 범위 조정을 위한 repeat 확장 정보 전달
+        context.repeatExpansionInfos = engine.lastRepeatExpansionInfos
+
         return context
     }
 

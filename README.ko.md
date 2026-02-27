@@ -24,7 +24,7 @@ Excel 템플릿에 데이터를 바인딩하여 보고서를 생성하는 JVM �
 
 ```kotlin
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.1.2")
+    implementation("io.github.jogakdal:tbeg:1.1.3")
 }
 ```
 
@@ -32,7 +32,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.1.2'
+    implementation 'io.github.jogakdal:tbeg:1.1.3'
 }
 ```
 
@@ -42,7 +42,7 @@ dependencies {
 <dependency>
     <groupId>io.github.jogakdal</groupId>
     <artifactId>tbeg</artifactId>
-    <version>1.1.2</version>
+    <version>1.1.3</version>
 </dependency>
 ```
 

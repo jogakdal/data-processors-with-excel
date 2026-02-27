@@ -25,7 +25,7 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.1.2")
+    implementation("io.github.jogakdal:tbeg:1.1.3")
 }
 ```
 

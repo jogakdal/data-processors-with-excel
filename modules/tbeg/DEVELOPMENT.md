@@ -403,10 +403,25 @@ parser/
 
 ## Implementation Principles
 
+### 0. Core Design Philosophy: Excel-Native Features First
+
+TBEG **does not re-implement what Excel already does well.** Aggregation, conditional formatting, chart rendering, and similar capabilities leverage Excel's native features as-is. TBEG's role is twofold:
+
+1. Provide **dynamic data binding** that Excel cannot perform on its own -- variable substitution, repeat expansion, image insertion
+2. **Preserve and adjust** Excel-native features so they continue to work as intended after data expansion -- formula range expansion, conditional formatting duplication, chart data range adjustment
+
+This philosophy underpins every implementation principle below:
+- **Rendering principles**: Template formatting is fully preserved because TBEG respects the formatting Excel has already finalized.
+- **Formula handling**: Formulas are not recalculated; only their reference ranges are adjusted, because computation itself is Excel's responsibility.
+- **Charts/Pivots**: They are preserved from the template rather than created anew, for the same reason.
+
+When designing a new feature, first ask: "Can this be solved with an Excel-native feature?" If so, rather than implementing it in TBEG, guide the user to leverage that Excel feature in the template, and focus TBEG's effort on ensuring that feature works correctly after data expansion.
+
 ### 1. Rendering Principles
 
 #### 1.1 Full Preservation of Template Formatting
 All formatting defined in the template (alignment, font, color, borders, fill, row height, etc.) must be identically applied in the generated Excel file.
+**Cells without values must also be preserved if they have styles.** Take care not to drop styles from `CellType.BLANK` cells during row copying and shifting in repeat expansion.
 
 #### 1.2 Repeat Row Style Principle
 All rows expanded by repeat follow the style (height, formatting) of the **repeat template row**.
@@ -561,6 +576,22 @@ Example: =SUM(C6) -> =SUM(C6:C105) (when expanded by 100 items)
 - `expandToRangeWithCalculator()` receives other sheet's expansion info via the `otherSheetExpansions` parameter
 - `SheetExpansionInfo` includes per-sheet `expansions` and `collectionSizes`
 - Sheet name extraction: `Sheet1!` -> `"Sheet1"`, `'Sheet Name'!` -> `"Sheet Name"`
+
+**Reference shifting outside repeat regions (SXSSF):**
+
+When a formula **inside** a repeat region references a cell **outside** the region, the reference is handled identically regardless of the presence of `$`:
+- Not shifted during the copy step (`adjustForRepeatIndex`)
+- Only shifted by row insertion (`adjustRefsOutsideRepeat`)
+
+The processing order matters: `adjustRefsOutsideRepeat` -> `adjustForRepeatIndex`.
+The shift is applied first so that inside/outside determination can be made accurately against the original formula.
+
+```
+Example: =J7/J8 (J8 is a Total row outside the repeat region; 3 rows expanded)
+K7 (index 0): J7/J11   <- J8 -> J11 (shifted), J7 unchanged
+K8 (index 1): J8/J11   <- J7 -> J8 (copy offset), J11 unchanged
+K9 (index 2): J9/J11   <- J7 -> J9 (copy offset), J11 unchanged
+```
 
 #### 3.2 Static Element Position Shifting
 Static elements (formulas, merged cells, conditional formatting, etc.) affected by repeat expansion are shifted by the expansion amount.
