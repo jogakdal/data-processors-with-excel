@@ -25,11 +25,11 @@ Building Excel reports directly with Apache POI requires dozens of lines of code
 ```kotlin
 // Using Apache POI directly
 val workbook = XSSFWorkbook()
-val sheet = workbook.createSheet("직원 현황")
+val sheet = workbook.createSheet("Employee Status")
 val headerRow = sheet.createRow(0)
-headerRow.createCell(0).setCellValue("이름")
-headerRow.createCell(1).setCellValue("직급")
-headerRow.createCell(2).setCellValue("연봉")
+headerRow.createCell(0).setCellValue("Name")
+headerRow.createCell(1).setCellValue("Position")
+headerRow.createCell(2).setCellValue("Salary")
 
 employees.forEachIndexed { index, emp ->
     val row = sheet.createRow(index + 1)
@@ -46,7 +46,7 @@ With TBEG, you can **use the Excel template designed by your designer as-is** an
 ```kotlin
 // Using TBEG
 val data = mapOf(
-    "title" to "직원 현황",
+    "title" to "Employee Status",
     "employees" to employeeList
 )
 
@@ -144,10 +144,10 @@ data class Employee(val name: String, val position: String, val salary: Int)
 
 fun main() {
     val data = mapOf(
-        "title" to "직원 현황",
+        "title" to "Employee Status",
         "employees" to listOf(
-            Employee("황용호", "부장", 8000),
-            Employee("한용호", "과장", 6500)
+            Employee("Yongho Hwang", "Director", 8000),
+            Employee("Yongho Han", "Manager", 6500)
         )
     )
 
@@ -169,7 +169,7 @@ class ReportService(
 ) {
     fun generateReport(): ByteArray {
         val template = resourceLoader.getResource("classpath:templates/report.xlsx")
-        val data = mapOf("title" to "보고서", "items" to listOf(...))
+        val data = mapOf("title" to "Report", "items" to listOf(...))
         return excelGenerator.generate(template.inputStream, data)
     }
 }
