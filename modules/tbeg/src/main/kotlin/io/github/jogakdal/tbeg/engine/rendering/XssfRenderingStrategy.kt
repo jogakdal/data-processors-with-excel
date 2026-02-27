@@ -122,6 +122,8 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
 
         // 반복 영역 확장 (뒤에서부터 처리하여 인덱스 꼬임 방지)
         val rowOffsets = mutableMapOf<Int, Int>()
+        // 차트 범위 조정에 사용할 repeat 확장 정보 수집
+        val chartExpansions = mutableListOf<ChartRangeAdjuster.RepeatExpansionInfo>()
 
         for (region in repeatRegions.reversed()) {
             val rawItems = data[region.collection] as? Collection<*> ?: continue
@@ -154,7 +156,17 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
                     )
                 }
             }
+
+            // 차트 범위 조정용 확장 정보 수집
+            with(ChartRangeAdjuster) {
+                chartExpansions.add(region.toExpansionInfo(rawItems.size))
+            }
         }
+
+        // 차트 데이터 범위를 repeat 확장에 맞게 조정 (templateStartRow 순으로 정렬)
+        val sortedExpansions = chartExpansions.sortedBy { it.templateStartRow }
+        ChartRangeAdjuster.adjustChartsInSheet(sheet, sheet.sheetName, sortedExpansions)
+        ChartRangeAdjuster.adjustAnchorsInSheet(sheet, sortedExpansions)
 
         substituteVariablesXssfWithCalculator(
             sheet, blueprint, data, rowOffsets, imageLocations, context,
@@ -229,11 +241,16 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
                     for (colIdx in colStart..minOf(colEnd, templateRow.lastCellNum.toInt())) {
                         val templateCell = templateRow.getCell(colIdx) ?: continue
                         if (colIdx !in region.area.colRange) continue
-                        if (templateCell.cellType == CellType.BLANK) continue
 
                         val newCell = newRow.createCell(colIdx)
                         newCell.cellStyle = templateCell.cellStyle
-                        copyCellValue(templateCell, newCell)
+                        if (templateCell.cellType != CellType.BLANK) {
+                            copyCellValue(
+                                templateCell, newCell,
+                                formulaRowShift = itemIdx * region.area.rowRange.count,
+                                repeatArea = region.area
+                            )
+                        }
                     }
                 }
             }
@@ -274,15 +291,11 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
             for (colIdx in startCol..minOf(endCol, sourceRow.lastCellNum.toInt())) {
                 val sourceCell = sourceRow.getCell(colIdx) ?: continue
 
-                // BLANK 셀은 타겟에 생성하지 않고 원본만 제거
-                if (sourceCell.cellType == CellType.BLANK) {
-                    sourceRow.removeCell(sourceCell)
-                    continue
-                }
-
                 val targetCell = targetRow.createCell(colIdx)
                 targetCell.cellStyle = sourceCell.cellStyle
-                copyCellValue(sourceCell, targetCell)
+                if (sourceCell.cellType != CellType.BLANK) {
+                    copyCellValue(sourceCell, targetCell)
+                }
 
                 // 원래 위치의 셀 비우기
                 sourceRow.removeCell(sourceCell)
@@ -292,17 +305,26 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
 
     /**
      * 셀 값 복사 (타입에 따라)
+     *
+     * @param formulaRowShift repeat 확장 시 수식 행 참조 시프트량 (0이면 조정 없음)
+     * @param repeatArea repeat 영역 (0-based). null이 아니면 영역 밖 참조를 복사 이동에서 제외
      */
-    private fun copyCellValue(source: Cell, target: Cell) = when (source.cellType) {
+    private fun copyCellValue(source: Cell, target: Cell, formulaRowShift: Int = 0, repeatArea: CellArea? = null) =
+        when (source.cellType) {
         CellType.STRING -> target.setCellValue(source.stringCellValue)
         CellType.NUMERIC -> target.setCellValue(source.numericCellValue)
         CellType.BOOLEAN -> target.setCellValue(source.booleanCellValue)
-        CellType.FORMULA -> runCatching {
-            target.cellFormula = source.cellFormula
-        }.onFailure {
-            // TBEG 마커 수식(예: TBEG_SIZE(collection))은 Named Range 검증 실패 가능
-            // 문자열로 임시 저장 (나중에 템플릿 처리 시 실제 값으로 치환됨)
-            target.setCellValue("=${source.cellFormula}")
+        CellType.FORMULA -> {
+            val formula = if (formulaRowShift > 0)
+                FormulaAdjuster.adjustForRepeatIndex(source.cellFormula, formulaRowShift, repeatArea)
+            else source.cellFormula
+            runCatching {
+                target.cellFormula = formula
+            }.onFailure {
+                // TBEG 마커 수식(예: TBEG_SIZE(collection))은 Named Range 검증 실패 가능
+                // 문자열로 임시 저장 (나중에 템플릿 처리 시 실제 값으로 치환됨)
+                target.setCellValue("=$formula")
+            }
         }
         else -> {} // BLANK 셀은 생성하지 않음 (호출 전에 체크됨)
     }
@@ -443,7 +465,15 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
                                     allRepeatColRanges, isFirstRepeatInRow
                                 )
 
-                                val addedOffset = rowOffsets[region.area.start.row] ?: 0
+                                // 열 그룹이 있으면 해당 region의 실제 expansion을 사용
+                                // (rowOffsets는 같은 시작 행의 마지막 region 값으로 덮어써지므로 부정확)
+                                val addedOffset = if (columnGroup != null) {
+                                    calculator.getExpansionForRegion(
+                                        region.collection, region.area.start.row, region.area.start.col
+                                    )?.rowExpansion ?: 0
+                                } else {
+                                    rowOffsets[region.area.start.row] ?: 0
+                                }
                                 if (columnGroup != null) {
                                     columnGroupCurrentOffsets[columnGroup.groupId] =
                                         (columnGroupCurrentOffsets[columnGroup.groupId] ?: 0) + addedOffset
@@ -555,6 +585,7 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
 
         runCatching { cell.cellFormula = formula }
             .onFailure { runCatching { cell.cellFormula = content.formula } }
+        sanitizeCellXml(cell)
     }
 
     /**
@@ -617,13 +648,41 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
 
                 for (cellSpec in repeatCellSpecs) {
                     val cell = row.getCell(cellSpec.columnIndex) ?: continue
-                    processCellContentXssf(
-                        cell, cellSpec.content, itemData, sheetIndex,
-                        imageLocations, context,
-                        rowOffset = currentOffset + totalRepeatOffset,
-                        repeatItemIndex = itemIdx,
-                        calculator = calculator
-                    )
+                    when (val content = cellSpec.content) {
+                        is CellContent.Formula -> {
+                            // 원본 blueprint 수식 기반으로 영역 밖 시프트 + 복사 이동 적용
+                            // shiftRowsInColumnRange는 POI 자동 수식 조정이 없으므로 직접 처리
+                            var formula = content.formula
+                            formula = FormulaAdjuster.adjustRefsOutsideRepeat(
+                                formula, region.area, calculator
+                            )
+                            if (itemIdx > 0) {
+                                formula = FormulaAdjuster.adjustForRepeatIndex(
+                                    formula, itemIdx, region.area
+                                )
+                            }
+                            runCatching { cell.cellFormula = formula }
+                        }
+                        is CellContent.FormulaWithVariables -> {
+                            var formula = context.evaluateText(content.formula, itemData)
+                            formula = FormulaAdjuster.adjustRefsOutsideRepeat(
+                                formula, region.area, calculator
+                            )
+                            if (itemIdx > 0) {
+                                formula = FormulaAdjuster.adjustForRepeatIndex(
+                                    formula, itemIdx, region.area
+                                )
+                            }
+                            cell.cellFormula = formula
+                        }
+                        else -> processCellContentXssf(
+                            cell, content, itemData, sheetIndex,
+                            imageLocations, context,
+                            rowOffset = currentOffset + totalRepeatOffset,
+                            repeatItemIndex = itemIdx,
+                            calculator = calculator
+                        )
+                    }
                 }
             }
         }
@@ -802,7 +861,9 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
                 position = adjustedPosition,
                 markerRowIndex = cell.rowIndex,
                 markerColIndex = cell.columnIndex,
-                sizeSpec = content.sizeSpec
+                sizeSpec = content.sizeSpec,
+                hAlign = cell.cellStyle?.alignment ?: HorizontalAlignment.GENERAL,
+                vAlign = cell.cellStyle?.verticalAlignment ?: VerticalAlignment.TOP
             )
         )
         cell.setBlank()
@@ -1007,6 +1068,7 @@ internal class XssfRenderingStrategy : AbstractRenderingStrategy() {
             CellType.BLANK, CellType._NONE -> cell.setBlank()
             else -> {}
         }
+        sanitizeCellXml(cell)
     }
 
     // 숫자 형식 스타일 캐시 (emptyRange 숫자 셀용)

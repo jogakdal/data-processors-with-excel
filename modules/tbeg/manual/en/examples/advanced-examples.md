@@ -17,6 +17,8 @@
 7. [Multiple Repeat Regions](#7-multiple-repeat-regions)
 8. [Rightward Repeat](#8-rightward-repeat)
 9. [Empty Collection Handling](#9-empty-collection-handling)
+10. [Internationalization (I18N)](#10-internationalization-i18n)
+11. [Comprehensive Example — Quarterly Sales Performance Report](#11-comprehensive-example--quarterly-sales-performance-report)
 
 > [!NOTE]
 > The examples in this document load templates from the `resources/templates/` directory.
@@ -657,17 +659,19 @@ fun generateReport(departmentId: Long): ByteArray {
 
 In a microservice architecture, this pattern fetches data from another service's API in **paginated** chunks and converts it to Excel.
 
-#### PageableList-Based Iterator
+#### Spring Data Page-Based Iterator
 
-This leverages the `PageableList` type provided by the `standard-api-response` library.
+This leverages Spring Data's `Page<T>` type to convert paginated API responses into an Iterator.
 
 ```kotlin
-class PageableListIterator<T>(
+import org.springframework.data.domain.Page
+
+class PagedApiIterator<T>(
     private val pageSize: Int = 100,
-    private val fetcher: (page: Int, size: Int) -> PageableList<T>
+    private val fetcher: (page: Int, size: Int) -> Page<T>
 ) : Iterator<T> {
 
-    private var currentPage = 1
+    private var currentPage = 0
     private var currentIterator: Iterator<T> = emptyList<T>().iterator()
     private var hasMorePages = true
 
@@ -677,8 +681,8 @@ class PageableListIterator<T>(
 
         // Load next page (API call)
         val result = fetcher(currentPage++, pageSize)
-        currentIterator = result.items.list.iterator()
-        hasMorePages = result.page.current < result.page.total
+        currentIterator = result.content.iterator()
+        hasMorePages = result.hasNext()
 
         return currentIterator.hasNext()
     }
@@ -692,7 +696,9 @@ class PageableListIterator<T>(
 ```kotlin
 import io.github.jogakdal.tbeg.ExcelGenerator
 import io.github.jogakdal.tbeg.simpleDataProvider
-import com.hunet.common.stdapi.response.PageableList
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageImpl
+import org.springframework.data.domain.PageRequest
 import java.io.File
 
 data class EmployeeDto(val name: String, val salary: Int)
@@ -704,59 +710,52 @@ data class EmployeeDto(val name: String, val salary: Int)
 //     fun getEmployees(
 //         @RequestParam("page") page: Int,
 //         @RequestParam("size") size: Int
-//     ): StandardResponse<PageableList<EmployeeDto>>
+//     ): Page<EmployeeDto>
 // }
 
 // Fetch data by calling another microservice's API
-fun fetchEmployeesFromApi(page: Int, size: Int): PageableList<EmployeeDto> {
+fun fetchEmployeesFromApi(page: Int, size: Int): Page<EmployeeDto> {
     // With Feign Client:
-    // return employeeApiClient.getEmployees(page, size).payload
-    //     ?: throw Exception("API call failed")
+    // return employeeApiClient.getEmployees(page, size)
 
     // With RestTemplate:
     // return restTemplate.exchange(
     //     "/api/employees?page=$page&size=$size",
     //     HttpMethod.GET,
     //     null,
-    //     object : ParameterizedTypeReference<StandardResponse<PageableList<EmployeeDto>>>() {}
-    // ).body?.payload ?: throw Exception("API call failed")
+    //     object : ParameterizedTypeReference<RestPageImpl<EmployeeDto>>() {}
+    // ).body ?: throw Exception("API call failed")
 
     // With WebClient:
     // return webClient.get()
     //     .uri("/api/employees?page=$page&size=$size")
     //     .retrieve()
-    //     .bodyToMono<StandardResponse<PageableList<EmployeeDto>>>()
-    //     .block()?.payload ?: throw Exception("API call failed")
+    //     .bodyToMono<RestPageImpl<EmployeeDto>>()
+    //     .block() ?: throw Exception("API call failed")
 
     // Dummy response for example
-    return PageableList.build(
-        items = listOf(EmployeeDto("황용호", 8000), EmployeeDto("한용호", 6500)),
-        totalItems = 100,
-        pageSize = size.toLong(),
-        currentPage = page.toLong()
-    )
+    val content = listOf(EmployeeDto("황용호", 8000), EmployeeDto("한용호", 6500))
+    return PageImpl(content, PageRequest.of(page, size), 100)
 }
 
 fun main() {
-    // First, query totalItems (via first page call or separate count API)
-    val firstPage = fetchEmployeesFromApi(1, 1)
-    val totalCount = firstPage.items.total.toInt()
+    // First, query totalElements (via first page call or separate count API)
+    val firstPage = fetchEmployeesFromApi(0, 1)
+    val totalCount = firstPage.totalElements.toInt()
 
     val provider = simpleDataProvider {
         value("title", "API 데이터 보고서")
 
         items("employees", totalCount) {
-            PageableListIterator(pageSize = 50) { page, size ->
+            PagedApiIterator(pageSize = 50) { page, size ->
                 fetchEmployeesFromApi(page, size)
             }
         }
     }
 
     ExcelGenerator().use { generator ->
-        // Load template from resources/templates/ directory
         val template = object {}.javaClass.getResourceAsStream("/templates/template.xlsx")
             ?: throw IllegalStateException("Template not found")
-        // To read directly from file: val template = File("template.xlsx").inputStream()
 
         val result = generator.generate(template, provider)
         File("api_report.xlsx").writeBytes(result)
@@ -765,7 +764,7 @@ fun main() {
 ```
 
 > [!NOTE]
-> `PageableList` and `StandardResponse` are types from a standard API response library. You can adopt this pattern when using a standard API response format across microservices.
+> Spring Data's `Page<T>` uses zero-based page numbers. When deserializing `Page` from a REST API, `PageImpl` lacks a default constructor, so you may need a custom class like `RestPageImpl` or define a `@JsonCreator`.
 
 ---
 
@@ -1348,6 +1347,202 @@ ${repeat(collection=employees, range=A4:C4, var=emp, direction=DOWN, empty=A7:C7
 
 > [!NOTE]
 > The `empty` range must be at a different location from the repeat region. It can reference another area in the same sheet or a different sheet.
+
+---
+
+## 10. Internationalization (I18N)
+
+By leveraging TBEG's variable substitution, you can generate multilingual reports without any dedicated I18N feature.
+
+### Template (i18n_template.xlsx)
+
+|   | A                                | B               | C             |
+|---|----------------------------------|-----------------|---------------|
+| 1 | ${label.title}                   |                 |               |
+| 2 | ${repeat(employees, A4:C4, emp)} |                 |               |
+| 3 | ${label.name}                    | ${label.position} | ${label.salary} |
+| 4 | ${emp.name}                      | ${emp.position} | ${emp.salary} |
+
+A single template supports all languages. Use `${label.*}` variables instead of hard-coded text.
+
+### Preparing Resource Bundles
+
+**messages_ko.properties**
+```properties
+report.title=직원 현황 보고서
+label.name=이름
+label.position=직급
+label.salary=연봉
+```
+
+**messages_en.properties**
+```properties
+report.title=Employee Report
+label.name=Name
+label.position=Position
+label.salary=Salary
+```
+
+### Kotlin Code (ResourceBundle)
+
+```kotlin
+import io.github.jogakdal.tbeg.ExcelGenerator
+import java.util.Locale
+import java.util.ResourceBundle
+
+data class Employee(val name: String, val position: String, val salary: Int)
+
+fun main() {
+    val locale = Locale.KOREAN  // or Locale.ENGLISH
+    val bundle = ResourceBundle.getBundle("messages", locale)
+
+    val data = mapOf(
+        "label" to mapOf(
+            "title" to bundle.getString("report.title"),
+            "name" to bundle.getString("label.name"),
+            "position" to bundle.getString("label.position"),
+            "salary" to bundle.getString("label.salary")
+        ),
+        "employees" to listOf(
+            Employee("황용호", "부장", 8000),
+            Employee("한용호", "과장", 6500)
+        )
+    )
+
+    ExcelGenerator().use { generator ->
+        val template = object {}.javaClass.getResourceAsStream("/templates/i18n_template.xlsx")
+            ?: throw IllegalStateException("Template not found")
+
+        val bytes = generator.generate(template, data)
+        File("report_${locale.language}.xlsx").writeBytes(bytes)
+    }
+}
+```
+
+### Kotlin Code (Spring MessageSource)
+
+```kotlin
+import io.github.jogakdal.tbeg.simpleDataProvider
+import org.springframework.context.MessageSource
+import java.util.Locale
+
+fun buildI18nProvider(messageSource: MessageSource, locale: Locale) = simpleDataProvider {
+    // Load label variables from MessageSource in bulk
+    val keys = listOf("report.title", "label.name", "label.position", "label.salary")
+    value("label", keys.associate { key ->
+        key.substringAfter(".") to messageSource.getMessage(key, null, locale)
+    })
+
+    items("employees") {
+        // DB query, etc.
+        emptyList<Any>().iterator()
+    }
+}
+```
+
+### Result (Korean)
+
+|   | A         | B    | C     |
+|---|-----------|------|-------|
+| 1 | 직원 현황 보고서 |      |       |
+| 2 |           |      |       |
+| 3 | 이름        | 직급   | 연봉    |
+| 4 | 황용호       | 부장   | 8,000 |
+| 5 | 한용호       | 과장   | 6,500 |
+
+### Result (English)
+
+|   | A               | B        | C      |
+|---|-----------------|----------|--------|
+| 1 | Employee Report |          |        |
+| 2 |                 |          |        |
+| 3 | Name            | Position | Salary |
+| 4 | 황용호             | 부장       | 8,000  |
+| 5 | 한용호             | 과장       | 6,500  |
+
+> [!TIP]
+> TBEG does not provide dedicated I18N syntax. Instead, use Java/Spring's `ResourceBundle` or `MessageSource` to resolve translations and pass the results as variables. A single template can serve all languages.
+
+---
+
+## 11. Comprehensive Example — Quarterly Sales Performance Report
+
+This example demonstrates variable substitution, image insertion, repeat data expansion, automatic formula adjustment, conditional formatting replication, and chart data range reflection — all within a single report.
+
+### Template
+
+> [!TIP]
+> [Download template (rich_sample_template.xlsx)](../../src/test/resources/templates/rich_sample_template.xlsx)
+
+![Template](../../src/main/resources/sample/screenshot_template.png)
+
+Template structure:
+- **Variable markers**: `${reportTitle}`, `${period}`, `${author}`, `${reportDate}`
+- **Image markers**: `${image(logo)}`, `${image(ci)}`
+- **Repeat markers**: `${repeat(depts, B7:G7, d)}` (department performance), `${repeat(products, I7:K7, p)}` (product categories)
+- **Formulas**: SUM, AVERAGE (total/average rows), inter-cell calculations (Profit = Revenue - Cost, Achievement = Revenue / Target)
+- **Conditional formatting**: Achievement >= 100% -> green, < 100% -> red / Share >= 30% -> green, < 30% -> red
+- **Charts**: Department-level Revenue/Cost/Profit bar chart, product category pie chart
+
+### Code
+
+```kotlin
+import io.github.jogakdal.tbeg.ExcelGenerator
+import io.github.jogakdal.tbeg.simpleDataProvider
+import java.io.File
+import java.nio.file.Path
+import java.time.LocalDate
+
+data class DeptResult(val deptName: String, val revenue: Long, val cost: Long, val target: Long)
+data class ProductCategory(val category: String, val revenue: Long)
+
+fun main() {
+    val data = simpleDataProvider {
+        value("reportTitle", "Q1 2026 Sales Performance Report")
+        value("period", "Jan 2026 ~ Mar 2026")
+        value("author", "Yongho Hwang")
+        value("reportDate", LocalDate.now().toString())
+        image("logo", File("hunet_logo.png").readBytes())
+        image("ci", File("hunet_ci.png").readBytes())
+
+        items("depts") {
+            listOf(
+                DeptResult("Common Platform", 52000, 31000, 50000),
+                DeptResult("IT Strategy",     38000, 22000, 40000),
+                DeptResult("HR Management",   28000, 19000, 30000),
+                DeptResult("Education Biz",   95000, 61000, 90000),
+                DeptResult("Content Dev",     42000, 28000, 45000),
+            ).iterator()
+        }
+
+        items("products") {
+            listOf(
+                ProductCategory("Online Courses", 128000),
+                ProductCategory("Consulting", 67000),
+                ProductCategory("Certification", 45000),
+                ProductCategory("Contents License", 15000),
+            ).iterator()
+        }
+    }
+
+    ExcelGenerator().use { generator ->
+        val template = File("rich_sample_template.xlsx").inputStream()
+        generator.generateToFile(template, data, Path.of("output"), "quarterly_report")
+    }
+}
+```
+
+### Result
+
+![Result](../../src/main/resources/sample/screenshot_result.png)
+
+What TBEG handled automatically:
+- **Variable substitution** — title, period, author, date
+- **Image insertion** — logo, CI
+- **Repeat data expansion** — departments expanded to 5 rows, products to 4 rows
+- **Automatic formula range adjustment** — `SUM(C7:C7)` -> `SUM(C7:C11)`, `AVERAGE(C7:C7)` -> `AVERAGE(C7:C11)`
+- **Conditional formatting replication** — achievement/share colors applied to all rows
+- **Chart data range reflection** — charts reference the expanded data range
 
 ---
 

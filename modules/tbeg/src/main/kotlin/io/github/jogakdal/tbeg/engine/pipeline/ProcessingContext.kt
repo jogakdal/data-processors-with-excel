@@ -5,6 +5,7 @@ import io.github.jogakdal.tbeg.ExcelDataProvider
 import io.github.jogakdal.tbeg.TbegConfig
 import io.github.jogakdal.tbeg.engine.core.ChartProcessor
 import io.github.jogakdal.tbeg.engine.core.PivotTableProcessor
+import io.github.jogakdal.tbeg.engine.rendering.ChartRangeAdjuster
 import io.github.jogakdal.tbeg.engine.rendering.RequiredNames
 
 /**
@@ -64,5 +65,13 @@ internal class ProcessingContext(
      * TemplateRenderProcessor가 템플릿 분석 후 설정한다.
      */
     var requiredNames: RequiredNames? = null
+        internal set
+
+    /**
+     * 시트별 repeat 확장 정보 (SXSSF 차트 범위 조정용).
+     * Key: 시트 이름, Value: 해당 시트의 repeat 확장 정보 목록
+     * RenderingStrategy가 설정하고 ChartRestoreProcessor가 사용한다.
+     */
+    var repeatExpansionInfos: Map<String, List<ChartRangeAdjuster.RepeatExpansionInfo>> = emptyMap()
         internal set
 }

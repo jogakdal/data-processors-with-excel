@@ -1,6 +1,7 @@
 package io.github.jogakdal.tbeg.engine.rendering
 
 import io.github.jogakdal.tbeg.engine.core.*
+import io.github.jogakdal.tbeg.exception.TemplateProcessingException
 
 /**
  * 셀 참조 정보를 담는 데이터 클래스
@@ -212,9 +213,10 @@ object FormulaAdjuster {
      *
      * @param formula 원본 수식
      * @param repeatIndex 반복 인덱스 (0부터 시작)
+     * @param repeatArea repeat 영역 (0-based). null이 아니면 영역 밖 참조는 건너뜀 (절대/상대 무관)
      * @return 조정된 수식
      */
-    fun adjustForRepeatIndex(formula: String, repeatIndex: Int) =
+    fun adjustForRepeatIndex(formula: String, repeatIndex: Int, repeatArea: CellArea? = null) =
         if (repeatIndex == 0) formula
         else findRangePositions(formula).let { ranges ->
             CELL_REF_PATTERN.replace(formula) { match ->
@@ -225,6 +227,8 @@ object FormulaAdjuster {
                     match.toCellRef().run {
                         // 다른 시트 참조 또는 절대 행 참조면 조정하지 않음
                         if (hasSheetRef || isRowAbsolute) match.value
+                        // repeatArea가 주어지면 영역 밖 참조는 건너뜀 (복사 이동 방지)
+                        else if (repeatArea != null && (row - 1) !in repeatArea.rowRange) match.value
                         else format(newRow = row + repeatIndex)
                     }
                 }
@@ -814,6 +818,84 @@ object FormulaAdjuster {
                 }
             }
         }
+    }
+
+    // ========== repeat 영역 밖 참조 시프트 ==========
+
+    /**
+     * repeat 영역 내부 수식에서 영역 밖을 가리키는 참조에
+     * repeat 확장에 의한 행 시프트를 적용한다.
+     *
+     * Excel에서 행 삽입 시 참조가 조정되는 것과 동일한 동작.
+     * 절대/상대 여부와 무관하게 영역 밖 참조는 모두 시프트된다.
+     * adjustForRepeatIndex(복사 동작) **이전에** 호출해야 한다.
+     * (원본 수식에서 영역 안/밖을 정확히 판단하기 위함)
+     *
+     * @param formula 원본 수식 (adjustForRepeatIndex 적용 전)
+     * @param repeatArea 현재 repeat 영역 (0-based)
+     * @param calculator 위치 계산기
+     * @return 조정된 수식
+     * @throws TemplateProcessingException 범위 참조가 영역 안팎에 걸치는 경우
+     */
+    fun adjustRefsOutsideRepeat(
+        formula: String,
+        repeatArea: CellArea,
+        calculator: PositionCalculator
+    ): String {
+        // 1. 범위 참조 처리
+        var result = RANGE_CAPTURE_PATTERN.replace(formula) { match ->
+            val range = match.toRangeRef()
+
+            if (range.hasSheetRef) {
+                match.value
+            } else {
+                val startInside = (range.start.row - 1) in repeatArea.rowRange
+                val endInside = (range.end.row - 1) in repeatArea.rowRange
+
+                when {
+                    startInside && endInside -> match.value
+                    startInside != endInside -> throw TemplateProcessingException(
+                        errorType = TemplateProcessingException.ErrorType.INVALID_PARAMETER_VALUE,
+                        details = "범위 참조 '${match.value}'가 repeat 영역(행 ${repeatArea.start.row + 1}~${repeatArea.end.row + 1}) 안팎에 걸쳐 있습니다."
+                    )
+                    else -> {
+                        // 둘 다 영역 밖 → 시프트 (절대/상대 무관)
+                        val newStartRow = calculator.getFinalPosition(
+                            range.start.row - 1, toColumnIndex(range.start.col)
+                        ).row + 1
+                        val newEndRow = calculator.getFinalPosition(
+                            range.end.row - 1, toColumnIndex(range.end.col)
+                        ).row + 1
+
+                        if (newStartRow == range.start.row && newEndRow == range.end.row) match.value
+                        else range.format(newStartRow = newStartRow, newEndRow = newEndRow)
+                    }
+                }
+            }
+        }
+
+        // 2. 단일 셀 참조 처리 (범위 외부만)
+        val newRanges = findRangePositions(result)
+
+        result = CELL_REF_PATTERN.replace(result) { match ->
+            if (isPartOfRange(match, newRanges)) {
+                match.value
+            } else {
+                val ref = match.toCellRef()
+                when {
+                    ref.hasSheetRef -> match.value
+                    (ref.row - 1) in repeatArea.rowRange -> match.value  // 영역 안
+                    else -> {
+                        // 영역 밖 → getFinalPosition으로 시프트 (절대/상대 무관)
+                        val finalRow = calculator.getFinalPosition(ref.row - 1, toColumnIndex(ref.col)).row + 1
+                        if (finalRow == ref.row) match.value
+                        else ref.format(newRow = finalRow)
+                    }
+                }
+            }
+        }
+
+        return result
     }
 
     /** 다른 시트의 범위 참조를 확장 (끝 셀이 해당 시트의 repeat 영역에 포함되면 확장) */

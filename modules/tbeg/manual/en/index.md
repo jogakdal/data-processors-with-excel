@@ -4,79 +4,14 @@
 
 A template-based Excel file generation library
 
-## Overview
-
-TBEG is a library that generates Excel files such as reports and statements by binding data to Excel templates.
-
-### Key Features
-
-- **Template-Based Generation**: Bind data to Excel templates (.xlsx)
-- **Repeating Data**: Expand list data into rows or columns
-- **Image Insertion**: Insert images at designated positions in the template
-- **Large-Scale Processing**: Memory-efficient handling of large datasets via streaming mode
-- **Asynchronous Processing**: Support for Coroutines, CompletableFuture, and background jobs
-
----
-
-## Why TBEG
-
-### Is this how you create Excel reports?
-
-Building Excel files directly with Apache POI requires dozens of lines of code:
-
-```kotlin
-// Using Apache POI directly
-val workbook = XSSFWorkbook()
-val sheet = workbook.createSheet("직원 현황")
-val headerRow = sheet.createRow(0)
-headerRow.createCell(0).setCellValue("이름")
-headerRow.createCell(1).setCellValue("직급")
-headerRow.createCell(2).setCellValue("연봉")
-
-employees.forEachIndexed { index, emp ->
-    val row = sheet.createRow(index + 1)
-    row.createCell(0).setCellValue(emp.name)
-    row.createCell(1).setCellValue(emp.position)
-    row.createCell(2).setCellValue(emp.salary.toDouble())
-}
-
-// Column widths, styles, formulas, charts... it never ends
-```
-
-With TBEG, you can **use the Excel template as-is** -- designed by your designer -- and simply bind data to it:
-
-```kotlin
-// Using TBEG
-val data = mapOf(
-    "title" to "직원 현황",
-    "employees" to employeeList
-)
-
-ExcelGenerator().use { generator ->
-    val bytes = generator.generate(template, data)
-    File("output.xlsx").writeBytes(bytes)
-}
-```
-
-Formatting, charts, formulas, and conditional formatting are **all managed in the template**. Your code focuses solely on data binding.
-
-### When to use TBEG
-
-| Scenario | Suitability |
-|----------|-------------|
-| Generating standardized reports or statements | Suitable |
-| Filling data into designer-provided Excel forms | Suitable |
-| Reports requiring complex formatting (conditional formatting, charts, pivot tables) | Suitable |
-| Processing tens of thousands to hundreds of thousands of rows | Suitable |
-| Excel files with dynamically changing column structures | Not suitable |
-| Reading/parsing Excel files | Not suitable (TBEG is for generation only) |
+> For project introduction and quick start, see the [README](../README.md).
 
 ---
 
 ## Where to Start
 
 ### I'm using TBEG for the first time
-1. Try generating your first Excel file with the [Quick Start](#quick-start) below
+1. Try generating your first Excel file with the [Quick Start in README](../README.md#quick-start)
 2. Learn the core concepts in the [User Guide](./user-guide.md)
 3. Explore various usage patterns in the [Basic Examples](./examples/basic-examples.md)
 
@@ -97,50 +32,6 @@ Formatting, charts, formulas, and conditional formatting are **all managed in th
 
 ### I want to understand the internals
 1. Study the architecture and pipeline in the [Developer Guide](./developer-guide.md)
-
----
-
-## Quick Start
-
-### Add Repository and Dependency
-
-```kotlin
-// build.gradle.kts
-
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    implementation("io.github.jogakdal:tbeg:1.1.2")
-}
-```
-
-> [!TIP]
-> For detailed setup instructions, see the [User Guide](./user-guide.md#11-adding-dependencies).
-
-### Basic Usage
-
-```kotlin
-import io.github.jogakdal.tbeg.ExcelGenerator
-import java.io.File
-
-fun main() {
-    val data = mapOf(
-        "title" to "월간 보고서",
-        "items" to listOf(
-            mapOf("name" to "항목1", "value" to 100),
-            mapOf("name" to "항목2", "value" to 200)
-        )
-    )
-
-    ExcelGenerator().use { generator ->
-        val template = File("template.xlsx").inputStream()
-        val bytes = generator.generate(template, data)
-        File("output.xlsx").writeBytes(bytes)
-    }
-}
-```
 
 ---
 
@@ -167,17 +58,8 @@ fun main() {
 ### Developer Guide
 - [Developer Guide](./developer-guide.md) - Internal architecture and extension methods
 
----
-
-## Template Syntax Preview
-
-| Syntax | Description | Example |
-|--------|-------------|---------|
-| `${variable}` | Variable substitution | `${title}` |
-| `${item.field}` | Repeat item field | `${emp.name}` |
-| `${repeat(collection, range, variable)}` | Repeat processing | `${repeat(items, A2:C2, item)}` |
-| `${image(name)}` | Image insertion | `${image(logo)}` |
-| `${size(collection)}` | Collection size | `${size(items)}` |
+### Appendix
+- [Library Comparison](./appendix/library-comparison.md) - Feature comparison across Excel report libraries
 
 ---
 

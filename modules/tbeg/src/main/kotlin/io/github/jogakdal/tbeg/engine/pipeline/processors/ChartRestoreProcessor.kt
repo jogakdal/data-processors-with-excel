@@ -32,7 +32,8 @@ internal class ChartRestoreProcessor(
         context.resultBytes = chartProcessor.restore(
             context.resultBytes,
             context.chartInfo,
-            context.variableResolver
+            context.variableResolver,
+            context.repeatExpansionInfos
         )
         return context
     }

@@ -3,10 +3,14 @@ package io.github.jogakdal.tbeg.engine.rendering
 import io.github.jogakdal.tbeg.engine.core.findMergedRegion
 import io.github.jogakdal.tbeg.engine.core.parseCellRef
 import org.apache.poi.ss.usermodel.Cell
+import org.apache.poi.ss.usermodel.HorizontalAlignment
 import org.apache.poi.ss.usermodel.Sheet
+import org.apache.poi.ss.usermodel.VerticalAlignment
 import org.apache.poi.ss.usermodel.Workbook
+import org.apache.poi.xssf.usermodel.XSSFCell
 import org.apache.poi.xssf.usermodel.XSSFCellStyle
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.STCellType
 
 /**
  * XSSF/SXSSF 렌더링 전략의 공통 기능을 제공하는 추상 베이스 클래스.
@@ -179,6 +183,7 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
                 processSizeMarker(cell, content, data, context)
             }
         }
+        sanitizeCellXml(cell)
         return true
     }
 
@@ -255,7 +260,9 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
                 position = adjustedPosition,
                 markerRowIndex = cell.rowIndex,
                 markerColIndex = cell.columnIndex,
-                sizeSpec = content.sizeSpec
+                sizeSpec = content.sizeSpec,
+                hAlign = cell.cellStyle?.alignment ?: HorizontalAlignment.GENERAL,
+                vAlign = cell.cellStyle?.verticalAlignment ?: VerticalAlignment.TOP
             )
         )
         cell.setBlank()
@@ -285,7 +292,8 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
                 location.position,
                 location.markerRowIndex, location.markerColIndex,
                 location.sizeSpec,
-                markerMergedRegion
+                markerMergedRegion,
+                location.hAlign, location.vAlign
             )
         }
     }
@@ -334,6 +342,29 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
                 cloneStyleFrom(originalStyle)
                 dataFormat = if (isInteger) NUMBER_FORMAT_INTEGER else NUMBER_FORMAT_DECIMAL
             }
+        }
+    }
+
+    // ========== 셀 XML 정리 ==========
+
+    /**
+     * XSSFCell의 CTCell XML에서 OOXML 위반 요소를 제거한다.
+     *
+     * POI가 셀 타입 변경 시 이전 XML 요소를 정리하지 않아
+     * `<v>`와 `<is>`가 동시에 존재하는 문제를 수정한다.
+     * - inlineStr: `<is>`만 유효하므로 `<v>` 제거
+     * - 다른 타입(n, s, b 등): `<v>`만 유효하므로 잔존 `<is>` 제거
+     *
+     * SXSSF 셀(SXSSFCell)은 XSSFCell이 아니므로 자동 스킵된다.
+     */
+    protected fun sanitizeCellXml(cell: Cell) {
+        val ctCell = (cell as? XSSFCell)?.ctCell ?: return
+        if (!ctCell.isSetIs) return
+
+        if (ctCell.t == STCellType.INLINE_STR) {
+            if (ctCell.isSetV) ctCell.unsetV()
+        } else {
+            ctCell.unsetIs()
         }
     }
 
@@ -413,6 +444,8 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
  * @param markerRowIndex 마커 셀 행 (position이 null일 때 사용)
  * @param markerColIndex 마커 셀 열 (position이 null일 때 사용)
  * @param sizeSpec 이미지 크기 명세
+ * @param hAlign 마커 셀의 수평 정렬 (position이 null일 때 적용)
+ * @param vAlign 마커 셀의 수직 정렬 (position이 null일 때 적용)
  */
 internal data class ImageLocation(
     val sheetIndex: Int,
@@ -420,5 +453,7 @@ internal data class ImageLocation(
     val position: String?,
     val markerRowIndex: Int,
     val markerColIndex: Int,
-    val sizeSpec: ImageSizeSpec = ImageSizeSpec.FIT_TO_CELL
+    val sizeSpec: ImageSizeSpec = ImageSizeSpec.FIT_TO_CELL,
+    val hAlign: HorizontalAlignment = HorizontalAlignment.GENERAL,
+    val vAlign: VerticalAlignment = VerticalAlignment.TOP
 )

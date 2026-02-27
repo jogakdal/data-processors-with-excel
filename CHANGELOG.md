@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 This file is maintained in this project only and is not affected by upstream sync.
 
+## [1.1.3] - 2026-02-27
+
+### New Features
+- Automatic chart data range adjustment: chart data ranges are automatically updated when data is expanded via repeat
+- Improved image alignment within cells during image insertion
+
+### Bug Fixes
+- Chart restoration fix: charts now correctly restored after data expansion in templates containing charts
+- Formula range adjustment fix: formula cell ranges correctly expanded under all conditions
+- Image insertion position fix: images placed precisely at the designated cell position
+- Chart range adjustment fix (RIGHT direction): single-cell range expansion now validates row ranges, preventing unrelated repeat regions from being expanded
+- Chart range adjustment fix (multiple RIGHT repeats): chart column ranges now cumulatively expanded when multiple RIGHT repeats exist on the same sheet
+
+### Documentation
+- README improvements: added POI comparison code, enhanced key features, suitability table, and template syntax table
+- Manual enhancements: added comprehensive example (Rich Sample) and screenshot-based introduction section
+- Library comparison document: added feature/performance comparison with JXLS, EasyExcel, and others
+- Manual index pages reduced to documentation hub (navigation + learning paths only), removing content duplicated with README
+
 ## [1.1.2] - 2026-02-23
 
 ### Bug Fixes
