@@ -31,7 +31,7 @@ When you place aggregate formulas such as `=SUM()` below the repeat area, the fo
 | A                               | B             |
 | ${repeat(items, A2:B2, item)}   |               |
 | ${item.name}                    | ${item.value} |
-| 합계                             | =SUM(B2:B2)   |  ← Automatically expands to =SUM(B2:BN)
+| Total                            | =SUM(B2:B2)   |  ← Automatically expands to =SUM(B2:BN)
 ```
 
 ---
@@ -49,8 +49,8 @@ ${emp.name} | ${emp.position} | ${emp.salary}
 **For complex layouts**:
 ```
 ${repeat(employees, A2:B3, emp)}   ← Two-row repetition
-이름: ${emp.name}  | 직급: ${emp.position}
-급여: ${emp.salary} |
+Name: ${emp.name}  | Position: ${emp.position}
+Salary: ${emp.salary} |
 ```
 
 ---
@@ -222,10 +222,10 @@ Writing tests for your report generation logic helps catch errors caused by temp
 
 ```kotlin
 @Test
-fun `직원 보고서 생성 테스트`() {
+fun `employee report generation test`() {
     val data = mapOf(
-        "title" to "테스트",
-        "employees" to listOf(Employee("황용호", "부장", 8000))
+        "title" to "Test",
+        "employees" to listOf(Employee("Yongho Hwang", "Director", 8000))
     )
 
     ExcelGenerator().use { generator ->
@@ -235,7 +235,7 @@ fun `직원 보고서 생성 테스트`() {
         // Verify results
         XSSFWorkbook(ByteArrayInputStream(bytes)).use { workbook ->
             val sheet = workbook.getSheetAt(0)
-            assertEquals("황용호", sheet.getRow(1).getCell(0).stringCellValue)
+            assertEquals("Yongho Hwang", sheet.getRow(1).getCell(0).stringCellValue)
         }
     }
 }

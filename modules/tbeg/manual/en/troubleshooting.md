@@ -64,9 +64,9 @@ This exception is thrown when a syntax error is found during template parsing. U
 When `missingDataBehavior = THROW`, this exception is thrown if data required by the template is not found in the DataProvider.
 
 ```
-MissingTemplateDataException: 템플릿에 필요한 데이터가 누락되었습니다.
-  - 변수: title, author
-  - 컬렉션: employees
+MissingTemplateDataException: Required template data is missing.
+  - Variables: title, author
+  - Collections: employees
 ```
 
 **Resolution**: Add the missing items listed in the exception message to your DataProvider.

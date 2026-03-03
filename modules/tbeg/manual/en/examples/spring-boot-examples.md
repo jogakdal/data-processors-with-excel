@@ -82,9 +82,9 @@ class ReportService(
         val template = resourceLoader.getResource("classpath:templates/simple.xlsx")
 
         val data = mapOf(
-            "title" to "간단한 보고서",
+            "title" to "Simple Report",
             "date" to LocalDate.now().toString(),
-            "author" to "시스템"
+            "author" to "System"
         )
 
         return excelGenerator.generate(template.inputStream, data)
@@ -100,7 +100,7 @@ class ReportService(
         val employeeCount = employeeRepository.count().toInt()
 
         val provider = simpleDataProvider {
-            value("title", "직원 현황 보고서")
+            value("title", "Employee Status Report")
             value("date", LocalDate.now().toString())
 
             // Provide count along with lazy loading
@@ -111,9 +111,9 @@ class ReportService(
             }
 
             metadata {
-                title = "직원 현황 보고서"
-                author = "HR 시스템"
-                company = "(주)휴넷"
+                title = "Employee Status Report"
+                author = "HR System"
+                company = "Hunet Inc."
             }
         }
 
@@ -162,9 +162,9 @@ public class ReportService {
         var template = resourceLoader.getResource("classpath:templates/simple.xlsx");
 
         Map<String, Object> data = new HashMap<>();
-        data.put("title", "간단한 보고서");
+        data.put("title", "Simple Report");
         data.put("date", LocalDate.now().toString());
-        data.put("author", "시스템");
+        data.put("author", "System");
 
         return excelGenerator.generate(template.getInputStream(), data);
     }
@@ -176,14 +176,14 @@ public class ReportService {
         int employeeCount = (int) employeeRepository.count();
 
         var provider = SimpleDataProvider.builder()
-            .value("title", "직원 현황 보고서")
+            .value("title", "Employee Status Report")
             .value("date", LocalDate.now().toString())
             .itemsFromSupplier("employees", employeeCount,
                 () -> employeeRepository.findAll().iterator())
             .metadata(meta -> meta
-                .title("직원 현황 보고서")
-                .author("HR 시스템")
-                .company("(주)휴넷"))
+                .title("Employee Status Report")
+                .author("HR System")
+                .company("Hunet Inc."))
             .build();
 
         return excelGenerator.generateToFile(
@@ -232,14 +232,14 @@ class ReportController(
         val template = resourceLoader.getResource("classpath:templates/employees.xlsx")
 
         val data = mapOf(
-            "title" to "직원 현황",
+            "title" to "Employee Status",
             "date" to LocalDate.now().toString(),
             "employees" to employeeRepository.findAll()
         )
 
         val bytes = excelGenerator.generate(template.inputStream, data)
 
-        val filename = "직원현황_${LocalDate.now()}.xlsx"
+        val filename = "employee_status_${LocalDate.now()}.xlsx"
         val encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8)
 
         return ResponseEntity.ok()
@@ -325,13 +325,13 @@ public class ReportController {
         var template = resourceLoader.getResource("classpath:templates/employees.xlsx");
 
         Map<String, Object> data = new HashMap<>();
-        data.put("title", "직원 현황");
+        data.put("title", "Employee Status");
         data.put("date", LocalDate.now().toString());
         data.put("employees", employeeRepository.findAll());
 
         byte[] bytes = excelGenerator.generate(template.getInputStream(), data);
 
-        String filename = "직원현황_" + LocalDate.now() + ".xlsx";
+        String filename = "employee_status_" + LocalDate.now() + ".xlsx";
         String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8);
 
         return ResponseEntity.ok()
@@ -513,7 +513,7 @@ class LargeReportService(
         val employeeCount = employeeRepository.count().toInt()
 
         val provider = simpleDataProvider {
-            value("title", "전체 직원 현황")
+            value("title", "All Employee Status")
 
             items("employees", employeeCount) {
                 employeeRepository.streamAll().iterator()
@@ -646,8 +646,8 @@ class ReportServiceTest {
     fun `employee report generation test`() {
         // Given
         every { employeeRepository.findAll() } returns listOf(
-            Employee(1, "황용호", "공통플랫폼팀", 5000),
-            Employee(2, "홍용호", "IT전략기획팀", 4500)
+            Employee(1, "Yongho Hwang", "Common Platform Team", 5000),
+            Employee(2, "Yongho Hong", "IT Strategy Team", 4500)
         )
 
         val template = ClassPathResource("templates/employees.xlsx")
@@ -656,7 +656,7 @@ class ReportServiceTest {
         val bytes = excelGenerator.generate(
             template.inputStream,
             mapOf(
-                "title" to "테스트 보고서",
+                "title" to "Test Report",
                 "employees" to employeeRepository.findAll()
             )
         )
@@ -666,11 +666,11 @@ class ReportServiceTest {
         val sheet = workbook.getSheetAt(0)
 
         // Verify title
-        assert(sheet.getRow(0).getCell(0).stringCellValue == "테스트 보고서")
+        assert(sheet.getRow(0).getCell(0).stringCellValue == "Test Report")
 
         // Verify data rows
-        assert(sheet.getRow(2).getCell(0).stringCellValue == "황용호")
-        assert(sheet.getRow(3).getCell(0).stringCellValue == "홍용호")
+        assert(sheet.getRow(2).getCell(0).stringCellValue == "Yongho Hwang")
+        assert(sheet.getRow(3).getCell(0).stringCellValue == "Yongho Hong")
 
         workbook.close()
     }
@@ -719,7 +719,7 @@ class ReportControllerTest {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
-                    "title": "테스트 보고서",
+                    "title": "Test Report",
                     "startDate": "2026-01-01",
                     "endDate": "2026-01-31"
                 }

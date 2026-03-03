@@ -33,17 +33,17 @@ Replaces `${variableName}` markers in the template with the corresponding key va
 
 |   | A      | B         |
 |---|--------|-----------|
-| 1 | 제목     | ${title}  |
-| 2 | 작성일    | ${date}   |
-| 3 | 작성자    | ${author} |
+| 1 | Title    | ${title}  |
+| 2 | Date     | ${date}   |
+| 3 | Author   | ${author} |
 
 #### Data
 
 ```kotlin
 mapOf(
-    "title" to "월간 보고서",
+    "title" to "Monthly Report",
     "date" to "2026-01-15",
-    "author" to "황용호"
+    "author" to "Yongho Hwang"
 )
 ```
 
@@ -51,16 +51,16 @@ mapOf(
 
 |   | A   | B          |
 |---|-----|------------|
-| 1 | 제목  | 월간 보고서     |
-| 2 | 작성일 | 2026-01-15 |
-| 3 | 작성자 | 황용호        |
+| 1 | Title  | Monthly Report |
+| 2 | Date   | 2026-01-15     |
+| 3 | Author | Yongho Hwang   |
 
 ### 1.2 Composite Text
 
 Multiple variables and text can be combined in a single cell.
 
 ```
-작성자: ${author} (${department})
+Author: ${author} (${department})
 ```
 
 ---
@@ -78,7 +78,7 @@ Repeats the specified range downward for each item in the collection.
 |   | A                                  | B               | C             |
 |---|------------------------------------|-----------------|---------------|
 | 1 | ${repeat(employees, A3:C3, emp)}   |                 |               |
-| 2 | 이름                                 | 직급              | 연봉            |
+| 2 | Name                                 | Position          | Salary          |
 | 3 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
 
 #### Data
@@ -88,9 +88,9 @@ data class Employee(val name: String, val position: String, val salary: Int)
 
 mapOf(
     "employees" to listOf(
-        Employee("황용호", "부장", 8000),
-        Employee("한용호", "과장", 6500),
-        Employee("홍용호", "대리", 4500)
+        Employee("Yongho Hwang", "Director", 8000),
+        Employee("Yongho Han", "Manager", 6500),
+        Employee("Yongho Hong", "Assistant Manager", 4500)
     )
 )
 ```
@@ -100,10 +100,10 @@ mapOf(
 |   | A   | B  | C     |
 |---|-----|----|-------|
 | 1 |     |    |       |
-| 2 | 이름  | 직급 | 연봉    |
-| 3 | 황용호 | 부장 | 8,000 |
-| 4 | 한용호 | 과장 | 6,500 |
-| 5 | 홍용호 | 대리 | 4,500 |
+| 2 | Name          | Position          | Salary |
+| 3 | Yongho Hwang  | Director          | 8,000  |
+| 4 | Yongho Han    | Manager           | 6,500  |
+| 5 | Yongho Hong   | Assistant Manager | 4,500  |
 
 > [!NOTE]
 > The `${repeat(...)}` marker can be placed anywhere in the workbook (even on a different sheet) as long as it is outside the repeat range. The area specified by the range parameter is what gets repeated.
@@ -117,8 +117,8 @@ Specifying multiple rows in the range causes them to repeat together as a group.
 |   | A                                | B                   |
 |---|----------------------------------|---------------------|
 | 1 | ${repeat(employees, A2:B3, emp)} |                     |
-| 2 | 이름: ${emp.name}                  | 직급: ${emp.position} |
-| 3 | 급여: ${emp.salary}                |                     |
+| 2 | Name: ${emp.name}                  | Position: ${emp.position} |
+| 3 | Salary: ${emp.salary}              |                           |
 
 ### 2.3 Rightward Repeat (RIGHT)
 
@@ -137,7 +137,7 @@ Repeats the specified range to the right for each item in the collection.
 
 |   | A  | B      | C      | D      |
 |---|----|--------|--------|--------|
-| 1 |    | 1월     | 2월     | 3월     |
+| 1 |    | Jan    | Feb    | Mar    |
 | 2 |    | 100    | 150    | 200    |
 
 ### 2.4 Multiple Repeat Regions
@@ -271,7 +271,7 @@ When the collection is empty, the contents of the specified cell range are displ
 | 1   | ${repeat(employees, A2:C2, emp, DOWN, A10:C10)} |                 |               |
 | 2   | ${emp.name}                                     | ${emp.position} | ${emp.salary} |
 | ... |                                                 |                 |               |
-| 10  | (데이터가 없습니다)                                     |                 |               |
+| 10  | (No data available)                                |                 |               |
 
 #### Data (empty collection)
 
@@ -284,7 +284,7 @@ mapOf("employees" to emptyList<Employee>())
 |   | A           | B | C |
 |---|-------------|---|---|
 | 1 |             |   |   |
-| 2 | (데이터가 없습니다) |   |   |
+| 2 | (No data available) |   |   |
 
 > [!NOTE]
 > - The content and style from A10:C10 are copied to the A2:C2 position.
@@ -302,7 +302,7 @@ If the empty range is a single cell, the entire repeat region is merged and its 
 | 1   | ${repeat(employees, A2:C2, emp, DOWN, A10)} |                 |               |
 | 2   | ${emp.name}                                 | ${emp.position} | ${emp.salary} |
 | ... |                                             |                 |               |
-| 10  | 데이터가 없습니다                                   |                 |               |
+| 10  | No data available                                |                 |               |
 
 - **A10**: Write the message in a single cell (specify only A10, not A10:C10)
 
@@ -311,7 +311,7 @@ If the empty range is a single cell, the entire repeat region is merged and its 
 <table>
   <tr><th></th><th>A</th><th>B</th><th>C</th></tr>
   <tr><td>1</td><td></td><td></td><td></td></tr>
-  <tr><td>2</td><td colspan="3" style="text-align:center">데이터가 없습니다</td></tr>
+  <tr><td>2</td><td colspan="3" style="text-align:center">No data available</td></tr>
 </table>
 
 - The A2:C2 region is automatically merged and the content of A10 is displayed.
@@ -359,17 +359,17 @@ When a repeat region expands:
 |---|----------------------------------|---------------|
 | 1 | ${repeat(items, A2:B2, item)}    |               |
 | 2 | ${item.name}                     | ${item.value} |
-| 3 | 합계                               | =SUM(B2:B2)   |
+| 3 | Total                              | =SUM(B2:B2)   |
 
 **Result** (3 items)
 
-|   | A   | B           |
-|---|-----|-------------|
-| 1 |     |             |
-| 2 | 항목1 | 100         |
-| 3 | 항목2 | 200         |
-| 4 | 항목3 | 300         |
-| 5 | 합계  | =SUM(B2:B4) |
+|   | A      | B           |
+|---|--------|-------------|
+| 1 |        |             |
+| 2 | Item 1 | 100         |
+| 3 | Item 2 | 200         |
+| 4 | Item 3 | 300         |
+| 5 | Total  | =SUM(B2:B4) |
 
 > [!NOTE]
 > The totals row originally at row 3 shifts to row 5, and the formula `=SUM(B2:B2)` is updated to reference the expanded range `=SUM(B2:B4)`.
@@ -415,14 +415,14 @@ Inserts an image into the cell (or merged region) containing the marker.
 
 |   | A              | B               |
 |---|----------------|-----------------|
-| 1 | ${image(logo)} | 회사명: ${company} |
-| 2 | (병합된 셀)        |                 |
+| 1 | ${image(logo)} | Company: ${company} |
+| 2 | (merged cell)  |                     |
 
 #### Data
 
 ```kotlin
 val provider = simpleDataProvider {
-    value("company", "(주)휴넷")
+    value("company", "Hunet Inc.")
     image("logo", logoBytes)
 }
 ```
@@ -498,13 +498,13 @@ Displays the number of items in a collection.
 
 |   | A                           |
 |---|-----------------------------|
-| 1 | 총 직원 수: ${size(employees)}명 |
+| 1 | Total employees: ${size(employees)} |
 
 #### Result (when employees has 5 entries)
 
-|   | A          |
-|---|------------|
-| 1 | 총 직원 수: 5명 |
+|   | A                  |
+|---|---------------------|
+| 1 | Total employees: 5 |
 
 ---
 
@@ -530,9 +530,9 @@ Variables can be used in cell references within formulas to create dynamic range
 
 |   | A  | B                               |
 |---|----|---------------------------------|
-| 1 | 시작 | ${startRow}                     |
-| 2 | 끝  | ${endRow}                       |
-| 3 | 합계 | =SUM(B\${startRow}:B\${endRow}) |
+| 1 | Start | ${startRow}                     |
+| 2 | End   | ${endRow}                       |
+| 3 | Total | =SUM(B\${startRow}:B\${endRow}) |
 
 #### Data
 
@@ -544,9 +544,9 @@ mapOf("startRow" to 5, "endRow" to 10)
 
 |   | A      | B              |
 |---|--------|----------------|
-| 1 | 시작     | 5              |
-| 2 | 끝      | 10             |
-| 3 | 합계     | =SUM(B5:B10)   |
+| 1 | Start  | 5              |
+| 2 | End    | 10             |
+| 3 | Total  | =SUM(B5:B10)   |
 
 ---
 
