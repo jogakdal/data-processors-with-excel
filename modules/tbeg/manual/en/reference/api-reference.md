@@ -430,7 +430,7 @@ Creates an instance from a Map. List/Collection values are automatically classif
 
 ```kotlin
 val provider = SimpleDataProvider.of(mapOf(
-    "title" to "보고서",
+    "title" to "Report",
     "employees" to listOf(emp1, emp2),  // Classified as a collection
     "logo" to logoBytes                  // Classified as an image
 ))
@@ -456,7 +456,7 @@ Creates an instance using DSL syntax.
 
 ```kotlin
 val provider = simpleDataProvider {
-    value("title", "보고서")
+    value("title", "Report")
     items("employees") { repository.findAll().iterator() }
 }
 ```
@@ -584,12 +584,12 @@ io.github.jogakdal.tbeg.DocumentMetadata
 
 ```kotlin
 val provider = simpleDataProvider {
-    value("title", "보고서")
+    value("title", "Report")
     metadata {
-        title = "2026년 1월 월간 보고서"
-        author = "황용호"
-        company = "(주)휴넷"
-        keywords("월간", "보고서", "2026년")
+        title = "January 2026 Monthly Report"
+        author = "Yongho Hwang"
+        company = "Hunet Inc."
+        keywords("monthly", "report", "2026")
         created = LocalDateTime.now()
     }
 }
@@ -599,12 +599,12 @@ val provider = simpleDataProvider {
 
 ```java
 SimpleDataProvider provider = SimpleDataProvider.builder()
-    .value("title", "보고서")
+    .value("title", "Report")
     .metadata(meta -> meta
-        .title("2026년 1월 월간 보고서")
-        .author("황용호")
-        .company("(주)휴넷")
-        .keywords("월간", "보고서", "2026년")
+        .title("January 2026 Monthly Report")
+        .author("Yongho Hwang")
+        .company("Hunet Inc.")
+        .keywords("monthly", "report", "2026")
         .created(LocalDateTime.now()))
     .build();
 ```

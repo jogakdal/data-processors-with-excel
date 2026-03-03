@@ -31,9 +31,9 @@ import java.time.LocalDate
 
 fun main() {
     val data = mapOf(
-        "title" to "월간 보고서",
+        "title" to "Monthly Report",
         "date" to LocalDate.now().toString(),
-        "author" to "황용호"
+        "author" to "Yongho Hwang"
     )
 
     ExcelGenerator().use { generator ->
@@ -55,9 +55,9 @@ import java.util.*;
 public class SimpleReport {
     public static void main(String[] args) throws Exception {
         Map<String, Object> data = new HashMap<>();
-        data.put("title", "월간 보고서");
+        data.put("title", "Monthly Report");
         data.put("date", LocalDate.now().toString());
-        data.put("author", "황용호");
+        data.put("author", "Yongho Hwang");
 
         try (ExcelGenerator generator = new ExcelGenerator();
              InputStream template = new FileInputStream("template.xlsx");
@@ -74,9 +74,9 @@ public class SimpleReport {
 
 |   | A    | B          |
 |---|------|------------|
-| 1 | Title  | 월간 보고서     |
+| 1 | Title  | Monthly Report |
 | 2 | Date   | 2026-01-15 |
-| 3 | Author | 황용호        |
+| 3 | Author | Yongho Hwang   |
 
 ---
 
@@ -87,7 +87,7 @@ public class SimpleReport {
 |   | A                                  | B               | C             |
 |---|------------------------------------|-----------------|---------------|
 | 1 | ${repeat(employees, A3:C3, emp)}   |                 |               |
-| 2 | 이름                                 | 직급              | 연봉            |
+| 2 | Name                                 | Position          | Salary          |
 | 3 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
 
 ### Kotlin Code
@@ -101,10 +101,10 @@ data class Employee(val name: String, val position: String, val salary: Int)
 fun main() {
     val data = mapOf(
         "employees" to listOf(
-            Employee("황용호", "부장", 8000),
-            Employee("한용호", "과장", 6500),
-            Employee("홍용호", "대리", 4500),
-            Employee("김용호", "사원", 3500)
+            Employee("Yongho Hwang", "Director", 8000),
+            Employee("Yongho Han", "Manager", 6500),
+            Employee("Yongho Hong", "Assistant Manager", 4500),
+            Employee("Yongho Kim", "Staff", 3500)
         )
     )
 
@@ -130,10 +130,10 @@ public class EmployeeList {
     public static void main(String[] args) throws Exception {
         Map<String, Object> data = new HashMap<>();
         data.put("employees", List.of(
-            new Employee("황용호", "부장", 8000),
-            new Employee("한용호", "과장", 6500),
-            new Employee("홍용호", "대리", 4500),
-            new Employee("김용호", "사원", 3500)
+            new Employee("Yongho Hwang", "Director", 8000),
+            new Employee("Yongho Han", "Manager", 6500),
+            new Employee("Yongho Hong", "Assistant Manager", 4500),
+            new Employee("Yongho Kim", "Staff", 3500)
         ));
 
         try (ExcelGenerator generator = new ExcelGenerator();
@@ -153,11 +153,11 @@ public class EmployeeList {
 |   | A    | B  | C     |
 |---|------|----|-------|
 | 1 |      |    |       |
-| 2 | 이름   | 직급 | 연봉    |
-| 3 | 황용호  | 부장 | 8,000 |
-| 4 | 한용호  | 과장 | 6,500 |
-| 5 | 홍용호  | 대리 | 4,500 |
-| 6 | 김용호  | 사원 | 3,500 |
+| 2 | Name          | Position          | Salary  |
+| 3 | Yongho Hwang  | Director          | 8,000 |
+| 4 | Yongho Han    | Manager           | 6,500 |
+| 5 | Yongho Hong   | Assistant Manager | 4,500 |
+| 6 | Yongho Kim    | Staff             | 3,500 |
 
 ---
 
@@ -181,8 +181,8 @@ fun main() {
     val logoBytes = File("logo.png").readBytes()
 
     val provider = simpleDataProvider {
-        value("company", "(주)휴넷")
-        value("address", "서울시 강남구")
+        value("company", "Hunet Inc.")
+        value("address", "Gangnam-gu, Seoul")
         image("logo", logoBytes)
     }
 
@@ -208,8 +208,8 @@ public class WithLogo {
         byte[] logoBytes = Files.readAllBytes(Path.of("logo.png"));
 
         SimpleDataProvider provider = SimpleDataProvider.builder()
-            .value("company", "(주)휴넷")
-            .value("address", "서울시 강남구")
+            .value("company", "Hunet Inc.")
+            .value("address", "Gangnam-gu, Seoul")
             .image("logo", logoBytes)
             .build();
 
@@ -241,8 +241,8 @@ import java.nio.file.Path
 
 fun main() {
     val data = mapOf(
-        "title" to "보고서",
-        "content" to "내용..."
+        "title" to "Report",
+        "content" to "Content..."
     )
 
     ExcelGenerator().use { generator ->
@@ -273,8 +273,8 @@ import java.util.*;
 public class SaveToFile {
     public static void main(String[] args) throws Exception {
         Map<String, Object> data = new HashMap<>();
-        data.put("title", "보고서");
-        data.put("content", "내용...");
+        data.put("title", "Report");
+        data.put("content", "Content...");
 
         try (ExcelGenerator generator = new ExcelGenerator();
              InputStream template = new FileInputStream("template.xlsx")) {
@@ -306,8 +306,8 @@ import java.io.File
 
 fun main() {
     val data = mapOf(
-        "title" to "기밀 보고서",
-        "content" to "중요 내용..."
+        "title" to "Confidential Report",
+        "content" to "Important content..."
     )
 
     ExcelGenerator().use { generator ->
@@ -336,8 +336,8 @@ import java.util.*;
 public class PasswordProtected {
     public static void main(String[] args) throws Exception {
         Map<String, Object> data = new HashMap<>();
-        data.put("title", "기밀 보고서");
-        data.put("content", "중요 내용...");
+        data.put("title", "Confidential Report");
+        data.put("content", "Important content...");
 
         try (ExcelGenerator generator = new ExcelGenerator();
              InputStream template = new FileInputStream("template.xlsx")) {
@@ -370,19 +370,19 @@ import java.time.LocalDateTime
 
 fun main() {
     val provider = simpleDataProvider {
-        value("title", "보고서 내용")
-        value("author", "황용호")
+        value("title", "Report Content")
+        value("author", "Yongho Hwang")
 
         // Set document metadata
         metadata {
-            title = "2026년 1월 월간 보고서"
-            author = "황용호"
-            subject = "월간 실적"
-            keywords("월간", "보고서", "2026년", "실적")
-            description = "2026년 1월 월간 실적 보고서입니다."
-            category = "업무 보고"
-            company = "(주)휴넷"
-            manager = "홍상무"
+            title = "January 2026 Monthly Report"
+            author = "Yongho Hwang"
+            subject = "Monthly Performance"
+            keywords("monthly", "report", "2026", "performance")
+            description = "January 2026 monthly performance report."
+            category = "Business Report"
+            company = "Hunet Inc."
+            manager = "Sangmu Hong"
             created = LocalDateTime.now()
         }
     }
@@ -408,17 +408,17 @@ import java.time.LocalDateTime;
 public class WithMetadata {
     public static void main(String[] args) throws Exception {
         SimpleDataProvider provider = SimpleDataProvider.builder()
-            .value("title", "보고서 내용")
-            .value("author", "황용호")
+            .value("title", "Report Content")
+            .value("author", "Yongho Hwang")
             .metadata(meta -> meta
-                .title("2026년 1월 월간 보고서")
-                .author("황용호")
-                .subject("월간 실적")
-                .keywords("월간", "보고서", "2026년", "실적")
-                .description("2026년 1월 월간 실적 보고서입니다.")
-                .category("업무 보고")
-                .company("(주)휴넷")
-                .manager("홍상무")
+                .title("January 2026 Monthly Report")
+                .author("Yongho Hwang")
+                .subject("Monthly Performance")
+                .keywords("monthly", "report", "2026", "performance")
+                .description("January 2026 monthly performance report.")
+                .category("Business Report")
+                .company("Hunet Inc.")
+                .manager("Sangmu Hong")
                 .created(LocalDateTime.now()))
             .build();
 

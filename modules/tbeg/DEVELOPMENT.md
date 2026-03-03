@@ -210,9 +210,9 @@ Formula markers display as `#NAME?` errors in Excel but are processed correctly 
 
 **Text markers:**
 ```
-${변수명}
-${객체.속성}
-${객체.속성.서브속성}
+${variableName}
+${object.property}
+${object.property.subProperty}
 ```
 
 **Supported types:**
@@ -224,16 +224,16 @@ ${객체.속성.서브속성}
 
 **Text markers:**
 ```
-${repeat(컬렉션, 범위, 변수)}
-${repeat(컬렉션, 범위, 변수, DOWN)}
-${repeat(컬렉션, 범위, 변수, RIGHT)}
+${repeat(collection, range, variable)}
+${repeat(collection, range, variable, DOWN)}
+${repeat(collection, range, variable, RIGHT)}
 ```
 
 **Formula markers:**
 ```
-=TBEG_REPEAT(컬렉션, 범위, 변수)
-=TBEG_REPEAT(컬렉션, 범위, 변수, DOWN)
-=TBEG_REPEAT(컬렉션, 범위, 변수, RIGHT)
+=TBEG_REPEAT(collection, range, variable)
+=TBEG_REPEAT(collection, range, variable, DOWN)
+=TBEG_REPEAT(collection, range, variable, RIGHT)
 ```
 
 **Parameters:**
@@ -266,16 +266,16 @@ ${repeat(employees, A2:C2, emp, DOWN, A10:C10)}
 
 **Text markers:**
 ```
-${image(이름)}
-${image(이름, 위치)}
-${image(이름, 위치, 크기)}
+${image(name)}
+${image(name, position)}
+${image(name, position, size)}
 ```
 
 **Formula markers:**
 ```
-=TBEG_IMAGE(이름)
-=TBEG_IMAGE(이름, 위치)
-=TBEG_IMAGE(이름, 위치, 크기)
+=TBEG_IMAGE(name)
+=TBEG_IMAGE(name, position)
+=TBEG_IMAGE(name, position, size)
 ```
 
 **Size options:**
@@ -304,17 +304,17 @@ ${image(logo, B2, original)}
 
 **Text markers:**
 ```
-${size(컬렉션)}
+${size(collection)}
 ```
 
 **Formula markers:**
 ```
-=TBEG_SIZE(컬렉션)
+=TBEG_SIZE(collection)
 ```
 
 **Examples:**
 ```
-총 직원 수: ${size(employees)}명
+Total employees: ${size(employees)}
 =TBEG_SIZE(employees)
 ```
 
@@ -333,7 +333,7 @@ Variables can also be used within formulas:
 Multiple variables and text can be used together:
 
 ```
-작성자: ${author} (${department})
+Author: ${author} (${department})
 ```
 
 ### Marker Parser Structure

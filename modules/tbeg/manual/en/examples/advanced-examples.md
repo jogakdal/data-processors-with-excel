@@ -69,14 +69,14 @@ data class Employee(val name: String, val position: String, val salary: Int)
 
 val provider = simpleDataProvider {
     // Single values
-    value("title", "직원 현황 보고서")
+    value("title", "Employee Status Report")
     value("date", LocalDate.now())
-    value("author", "황용호")
+    value("author", "Yongho Hwang")
 
     // Collection (List)
     items("employees", listOf(
-        Employee("황용호", "부장", 8000),
-        Employee("한용호", "과장", 6500)
+        Employee("Yongho Hwang", "Director", 8000),
+        Employee("Yongho Han", "Manager", 6500)
     ))
 }
 ```
@@ -111,9 +111,9 @@ fun streamEmployees(): Iterator<Employee> {
 
     // Dummy data for example
     return listOf(
-        Employee("황용호", "부장", 8000),
-        Employee("한용호", "과장", 6500),
-        Employee("홍용호", "대리", 4500)
+        Employee("Yongho Hwang", "Director", 8000),
+        Employee("Yongho Han", "Manager", 6500),
+        Employee("Yongho Hong", "Assistant Manager", 4500)
     ).iterator()
 }
 
@@ -123,9 +123,9 @@ val employeeCount = countEmployees()
 // 2. Create DataProvider (collection data is NOT loaded at this point)
 val provider = simpleDataProvider {
     // Single values
-    value("title", "직원 현황 보고서")
+    value("title", "Employee Status Report")
     value("date", LocalDate.now())
-    value("author", "황용호")
+    value("author", "Yongho Hwang")
 
     // Collection: provide count along with lazy loading
     items("employees", employeeCount) {
@@ -180,7 +180,7 @@ fun downloadImage(imageUrl: String): ByteArray {
 }
 
 val provider = simpleDataProvider {
-    value("company", "(주)휴넷")
+    value("company", "Hunet Inc.")
 
     // Image - eager loading (load from resources directory)
     image("logo", javaClass.getResourceAsStream("/images/logo.png")!!.readBytes())
@@ -204,14 +204,14 @@ val provider = simpleDataProvider {
 
 ```kotlin
 val provider = simpleDataProvider {
-    value("title", "보고서")
+    value("title", "Report")
 
     metadata {
-        title = "2026년 월간 보고서"
-        author = "황용호"
-        subject = "월간 실적"
-        keywords("월간", "보고서", "실적")
-        company = "(주)휴넷"
+        title = "2026 Monthly Report"
+        author = "Yongho Hwang"
+        subject = "Monthly Performance"
+        keywords("monthly", "report", "performance")
+        company = "Hunet Inc."
     }
 }
 ```
@@ -220,15 +220,15 @@ val provider = simpleDataProvider {
 
 ```java
 SimpleDataProvider provider = SimpleDataProvider.builder()
-    .value("title", "직원 현황 보고서")
+    .value("title", "Employee Status Report")
     .value("date", LocalDate.now())
     .items("employees", employeeList)
     .items("employees", employeeCount, () -> fetchEmployees())  // count + lambda
     .image("logo", logoBytes)  // eager loading
     .imageFromSupplier("signature", () -> downloadSignature())  // lazy loading
     .metadata(meta -> meta
-        .title("보고서")
-        .author("황용호"))
+        .title("Report")
+        .author("Yongho Hwang"))
     .build();
 ```
 
@@ -284,7 +284,7 @@ class EmployeeReportDataProvider(
     private var employeeStream: java.util.stream.Stream<Employee>? = null
 
     override fun getValue(name: String): Any? = when (name) {
-        "title" -> "부서별 직원 현황"
+        "title" -> "Employee Status by Department"
 
         // Caching: performs DB query only once when the same value is referenced from multiple cells
         "departmentName" -> cachedDepartmentName
@@ -298,7 +298,7 @@ class EmployeeReportDataProvider(
             .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
 
         // [Advantage 3] Data dependencies - leveraging results from other methods
-        "summary" -> "${cachedDepartmentName ?: "부서"} 소속 총 ${getOrLoadCount()}명"
+        "summary" -> "Total of ${getOrLoadCount()} members in ${cachedDepartmentName ?: "Department"}"
 
         else -> null
     }
@@ -329,10 +329,10 @@ class EmployeeReportDataProvider(
     }
 
     override fun getMetadata(): DocumentMetadata = DocumentMetadata(
-        title = "${cachedDepartmentName ?: "부서"} 직원 현황 보고서",
-        author = "HR 시스템",
-        subject = "직원 현황",
-        company = "(주)휴넷"
+        title = "${cachedDepartmentName ?: "Department"} Employee Status Report",
+        author = "HR System",
+        subject = "Employee Status",
+        company = "Hunet Inc."
     )
 
     // Internal helper: count caching logic
@@ -401,13 +401,13 @@ public class EmployeeReportDataProvider implements ExcelDataProvider, Closeable 
     @Override
     public Object getValue(String name) {
         return switch (name) {
-            case "title" -> "부서별 직원 현황";
+            case "title" -> "Employee Status by Department";
             case "departmentName" -> getOrLoadDepartmentName();
             case "reportDate" -> reportDate.toString();
             case "generatedAt" -> LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
             // [Advantage 3] Data dependencies
-            case "summary" -> getOrLoadDepartmentName() + " 소속 총 " + getOrLoadCount() + "명";
+            case "summary" -> "Total of " + getOrLoadCount() + " members in " + getOrLoadDepartmentName();
             default -> null;
         };
     }
@@ -521,7 +521,7 @@ class ReportService(
         val count = employeeRepository.countByDepartmentId(departmentId)
 
         val provider = simpleDataProvider {
-            value("title", "직원 현황")
+            value("title", "Employee Status")
             value("date", LocalDate.now())
 
             items("employees", count) {
@@ -570,7 +570,7 @@ Usage example:
 
 ```kotlin
 val provider = simpleDataProvider {
-    value("title", "대용량 보고서")
+    value("title", "Large-Scale Report")
 
     items("employees", employeeCount) {
         PagedIterator(pageSize = 1000) { pageable ->
@@ -609,7 +609,7 @@ class MyBatisEmployeeDataProvider(
     private var cursor: Cursor<Employee>? = null
 
     override fun getValue(name: String): Any? = when (name) {
-        "title" -> "직원 현황"
+        "title" -> "Employee Status"
         else -> null
     }
 
@@ -734,7 +734,7 @@ fun fetchEmployeesFromApi(page: Int, size: Int): Page<EmployeeDto> {
     //     .block() ?: throw Exception("API call failed")
 
     // Dummy response for example
-    val content = listOf(EmployeeDto("황용호", 8000), EmployeeDto("한용호", 6500))
+    val content = listOf(EmployeeDto("Yongho Hwang", 8000), EmployeeDto("Yongho Han", 6500))
     return PageImpl(content, PageRequest.of(page, size), 100)
 }
 
@@ -744,7 +744,7 @@ fun main() {
     val totalCount = firstPage.totalElements.toInt()
 
     val provider = simpleDataProvider {
-        value("title", "API 데이터 보고서")
+        value("title", "API Data Report")
 
         items("employees", totalCount) {
             PagedApiIterator(pageSize = 50) { page, size ->
@@ -780,7 +780,7 @@ import java.nio.file.Path
 
 fun main() = runBlocking {
     val provider = simpleDataProvider {
-        value("title", "비동기 보고서")
+        value("title", "Async Report")
         items("data") { generateData().iterator() }
     }
 
@@ -818,7 +818,7 @@ import java.util.concurrent.CompletableFuture;
 public class AsyncWithFuture {
     public static void main(String[] args) throws Exception {
         SimpleDataProvider provider = SimpleDataProvider.builder()
-            .value("title", "비동기 보고서")
+            .value("title", "Async Report")
             .items("data", generateData())
             .build();
 
@@ -871,7 +871,7 @@ fun main() {
     val latch = CountDownLatch(1)
 
     val provider = simpleDataProvider {
-        value("title", "백그라운드 보고서")
+        value("title", "Background Report")
         items("data") { (1..5000).map { mapOf("id" to it) }.iterator() }
     }
 
@@ -985,7 +985,7 @@ import io.github.jogakdal.tbeg.ExcelGenerator
 
 fun main() {
     val data = mapOf(
-        "text" to "휴넷 홈페이지 바로가기",
+        "text" to "Visit Hunet website",
         "url" to "https://www.hunet.co.kr"
     )
 
@@ -1019,7 +1019,7 @@ fun main() {
 |   | A                                  | B               | C             |
 |---|------------------------------------|-----------------|---------------|
 | 1 | ${repeat(employees, A3:C3, emp)}   |                 |               |
-| 2 | 이름                                 | 직급              | 연봉            |
+| 2 | Name                               | Position        | Salary        |
 | 3 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
 
 ### Kotlin Code
@@ -1031,13 +1031,13 @@ data class Employee(val name: String, val position: String, val salary: Int)
 
 fun main() {
     val employees = listOf(
-        Employee("황용호", "부장", 8000),
-        Employee("한용호", "과장", 6500),
-        Employee("홍용호", "대리", 4500)
+        Employee("Yongho Hwang", "Director", 8000),
+        Employee("Yongho Han", "Manager", 6500),
+        Employee("Yongho Hong", "Assistant Manager", 4500)
     )
 
     val data = mapOf(
-        "title" to "직원 현황",
+        "title" to "Employee Status",
         "employees" to employees
     )
 
@@ -1078,7 +1078,7 @@ fun main() {
 
     // Provide data via lazy loading
     val provider = simpleDataProvider {
-        value("title", "대용량 보고서")
+        value("title", "Large-Scale Report")
 
         // Provide count along with lazy loading (optimal performance)
         items("data", dataCount) {
@@ -1132,13 +1132,13 @@ data class Department(val name: String, val budget: Int)
 fun main() {
     val data = mapOf(
         "employees" to listOf(
-            Employee("황용호", 8000),
-            Employee("한용호", 6500),
-            Employee("홍용호", 4500)
+            Employee("Yongho Hwang", 8000),
+            Employee("Yongho Han", 6500),
+            Employee("Yongho Hong", 4500)
         ),
         "departments" to listOf(
-            Department("공통플랫폼팀", 50000),
-            Department("IT전략기획팀", 30000)
+            Department("Common Platform Team", 50000),
+            Department("IT Strategy Team", 30000)
         )
     )
 
@@ -1173,9 +1173,9 @@ fun main() {
         items("employees", employeeCount) {
             // employeeRepository.findAll().iterator()
             listOf(
-                Employee("황용호", 8000),
-                Employee("한용호", 6500),
-                Employee("홍용호", 4500)
+                Employee("Yongho Hwang", 8000),
+                Employee("Yongho Han", 6500),
+                Employee("Yongho Hong", 4500)
             ).iterator()
         }
 
@@ -1183,8 +1183,8 @@ fun main() {
         items("departments", departmentCount) {
             // departmentRepository.findAll().iterator()
             listOf(
-                Department("공통플랫폼팀", 50000),
-                Department("IT전략기획팀", 30000)
+                Department("Common Platform Team", 50000),
+                Department("IT Strategy Team", 30000)
             ).iterator()
         }
     }
@@ -1207,9 +1207,9 @@ fun main() {
 |---|------|-------|---|----------|--------|
 | 1 |      |       |   |          |        |
 | 2 | Name | Salary|   | Department | Budget |
-| 3 | 황용호  | 8,000 |   | 공통플랫폼팀   | 50,000 |
-| 4 | 한용호  | 6,500 |   | IT전략기획팀  | 30,000 |
-| 5 | 홍용호  | 4,500 |   |          |        |
+| 3 | Yongho Hwang  | 8,000 |   | Common Platform Team | 50,000 |
+| 4 | Yongho Han    | 6,500 |   | IT Strategy Team     | 30,000 |
+| 5 | Yongho Hong   | 4,500 |   |                      |        |
 
 > [!NOTE]
 > Each repeat region expands independently. In the example above, there are 3 employees and 2 departments, so each expands by a different number of rows.
@@ -1225,7 +1225,7 @@ fun main() {
 
 |   | A                                       | B             |
 |---|-----------------------------------------|---------------|
-| 1 | ${repeat(months, B1:B2, m, RIGHT)}      | ${m.month}월   |
+| 1 | ${repeat(months, B1:B2, m, RIGHT)}      | ${m.month}     |
 | 2 |                                         | ${m.sales}    |
 
 ### Kotlin Code
@@ -1261,7 +1261,7 @@ fun main() {
 
 |   | A  | B      | C      | D      | E      |
 |---|----|--------|--------|--------|--------|
-| 1 |    | 1월     | 2월     | 3월     | 4월     |
+| 1 |    | Jan    | Feb    | Mar    | Apr    |
 | 2 |    | 1,000  | 1,500  | 2,000  | 1,800  |
 
 ---
@@ -1316,8 +1316,8 @@ fun main() {
 | 1 | Employee Status |      |       |
 | 2 |      |      |       |
 | 3 | Name | Position | Salary |
-| 4 | 황용호  | 부장   | 8,000 |
-| 5 | 한용호  | 과장   | 6,500 |
+| 4 | Yongho Hwang | Director | 8,000 |
+| 5 | Yongho Han   | Manager  | 6,500 |
 
 - The message row (row 7) is removed from the result
 
@@ -1404,8 +1404,8 @@ fun main() {
             "salary" to bundle.getString("label.salary")
         ),
         "employees" to listOf(
-            Employee("황용호", "부장", 8000),
-            Employee("한용호", "과장", 6500)
+            Employee("Yongho Hwang", "Director", 8000),
+            Employee("Yongho Han", "Manager", 6500)
         )
     )
 
@@ -1447,8 +1447,8 @@ fun buildI18nProvider(messageSource: MessageSource, locale: Locale) = simpleData
 | 1 | 직원 현황 보고서 |      |       |
 | 2 |           |      |       |
 | 3 | 이름        | 직급   | 연봉    |
-| 4 | 황용호       | 부장   | 8,000 |
-| 5 | 한용호       | 과장   | 6,500 |
+| 4 | Yongho Hwang | Director | 8,000 |
+| 5 | Yongho Han   | Manager  | 6,500 |
 
 ### Result (English)
 
@@ -1457,8 +1457,8 @@ fun buildI18nProvider(messageSource: MessageSource, locale: Locale) = simpleData
 | 1 | Employee Report |          |        |
 | 2 |                 |          |        |
 | 3 | Name            | Position | Salary |
-| 4 | 황용호             | 부장       | 8,000  |
-| 5 | 한용호             | 과장       | 6,500  |
+| 4 | Yongho Hwang    | Director | 8,000  |
+| 5 | Yongho Han      | Manager  | 6,500  |
 
 > [!TIP]
 > TBEG does not provide dedicated I18N syntax. Instead, use Java/Spring's `ResourceBundle` or `MessageSource` to resolve translations and pass the results as variables. A single template can serve all languages.

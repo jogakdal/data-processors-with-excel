@@ -49,8 +49,8 @@ dependencies {
 
 |   | A      | B         |
 |---|--------|-----------|
-| 1 | 제목     | ${title}  |
-| 2 | 작성일    | ${date}   |
+| 1 | Title    | ${title}  |
+| 2 | Date     | ${date}   |
 
 #### Kotlin Code
 
@@ -61,7 +61,7 @@ import java.time.LocalDate
 
 fun main() {
     val data = mapOf(
-        "title" to "월간 보고서",
+        "title" to "Monthly Report",
         "date" to LocalDate.now().toString()
     )
 
@@ -84,7 +84,7 @@ import java.util.*;
 public class QuickStart {
     public static void main(String[] args) throws Exception {
         Map<String, Object> data = new HashMap<>();
-        data.put("title", "월간 보고서");
+        data.put("title", "Monthly Report");
         data.put("date", LocalDate.now().toString());
 
         try (ExcelGenerator generator = new ExcelGenerator();
@@ -114,7 +114,7 @@ TBEG uses special markers in Excel templates to bind data.
 | `${item.field}`            | Object field substitution    | `${emp.name}`                      |
 | `${repeat(collection, range, variable)}` | Repeat processing | `${repeat(employees, A3:C3, emp)}` |
 | `${image(name)}`           | Image insertion              | `${image(logo)}`                   |
-| `${size(collection)}`      | Collection size              | `${size(employees)}명`              |
+| `${size(collection)}`      | Collection size              | `${size(employees)}`               |
 
 For detailed syntax, see the [Template Syntax Reference](./reference/template-syntax.md).
 
@@ -127,7 +127,7 @@ List data is repeatedly rendered within the designated range of the template. By
 |   | A                                  | B               | C             |
 |---|------------------------------------|-----------------|---------------|
 | 1 | ${repeat(employees, A3:C3, emp)}   |                 |               |
-| 2 | 이름                                 | 직급              | 연봉            |
+| 2 | Name                                 | Position          | Salary          |
 | 3 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
 
 > [!NOTE]
@@ -144,9 +144,9 @@ data class Employee(val name: String, val position: String, val salary: Int)
 fun main() {
     val data = mapOf(
         "employees" to listOf(
-            Employee("황용호", "부장", 8000),
-            Employee("한용호", "과장", 6500),
-            Employee("홍용호", "대리", 4500)
+            Employee("Yongho Hwang", "Director", 8000),
+            Employee("Yongho Han", "Manager", 6500),
+            Employee("Yongho Hong", "Assistant Manager", 4500)
         )
     )
 
@@ -164,10 +164,10 @@ fun main() {
 |   | A    | B  | C     |
 |---|------|----|-------|
 | 1 |      |    |       |
-| 2 | 이름   | 직급 | 연봉    |
-| 3 | 황용호  | 부장 | 8,000 |
-| 4 | 한용호  | 과장 | 6,500 |
-| 5 | 홍용호  | 대리 | 4,500 |
+| 2 | Name          | Position          | Salary  |
+| 3 | Yongho Hwang  | Director          | 8,000   |
+| 4 | Yongho Han    | Manager           | 6,500   |
+| 5 | Yongho Hong   | Assistant Manager | 4,500   |
 
 > [!TIP]
 > When a repeat range expands, formulas, charts, pivot tables, and other affected elements have their coordinates and ranges automatically adjusted. For details, see the [Template Syntax Reference](./reference/template-syntax.md#28-automatic-adjustment-of-related-elements).
@@ -186,7 +186,7 @@ fun main() {
     val logoBytes = File("logo.png").readBytes()
 
     val provider = simpleDataProvider {
-        value("company", "(주)휴넷")
+        value("company", "Hunet Inc.")
         image("logo", logoBytes)
     }
 
@@ -239,7 +239,7 @@ import io.github.jogakdal.tbeg.simpleDataProvider
 
 val provider = simpleDataProvider {
     // Simple variables
-    value("title", "보고서 제목")
+    value("title", "Report Title")
     value("date", LocalDate.now().toString())
 
     // Collection (eager loading)
@@ -255,9 +255,9 @@ val provider = simpleDataProvider {
 
     // Document metadata
     metadata {
-        title = "월간 보고서"
-        author = "황용호"
-        company = "(주)휴넷"
+        title = "Monthly Report"
+        author = "Yongho Hwang"
+        company = "Hunet Inc."
     }
 }
 ```
@@ -268,15 +268,15 @@ val provider = simpleDataProvider {
 import io.github.jogakdal.tbeg.SimpleDataProvider;
 
 SimpleDataProvider provider = SimpleDataProvider.builder()
-    .value("title", "보고서 제목")
+    .value("title", "Report Title")
     .value("date", LocalDate.now().toString())
     .items("departments", List.of(dept1, dept2, dept3))
     .itemsFromSupplier("employees", () -> employeeRepository.findAll().iterator())
     .image("logo", logoBytes)
     .metadata(meta -> meta
-        .title("월간 보고서")
-        .author("황용호")
-        .company("(주)휴넷"))
+        .title("Monthly Report")
+        .author("Yongho Hwang")
+        .company("Hunet Inc."))
     .build();
 ```
 
@@ -292,7 +292,7 @@ class MyDataProvider(
 ) : ExcelDataProvider {
 
     override fun getValue(name: String): Any? = when (name) {
-        "title" -> "직원 현황"
+        "title" -> "Employee Status"
         "date" -> LocalDate.now().toString()
         else -> null
     }
@@ -329,12 +329,12 @@ fun main() = runBlocking {
         // Async generation
         val path = generator.generateToFileAsync(
             template = template,
-            data = mapOf("title" to "비동기 보고서"),
+            data = mapOf("title" to "Async Report"),
             outputDir = Path.of("./output"),
             baseFileName = "async_report"
         )
 
-        println("파일 생성됨: $path")
+        println("File created: $path")
     }
 }
 ```
@@ -353,12 +353,12 @@ public class AsyncExample {
 
             CompletableFuture<Path> future = generator.generateToFileFuture(
                 template,
-                Map.of("title", "비동기 보고서"),
+                Map.of("title", "Async Report"),
                 Path.of("./output"),
                 "async_report"
             );
 
-            future.thenAccept(path -> System.out.println("파일 생성됨: " + path));
+            future.thenAccept(path -> System.out.println("File created: " + path));
 
             // Wait for completion
             Path result = future.get();
@@ -436,7 +436,7 @@ import io.github.jogakdal.tbeg.simpleDataProvider
 val employeeCount = employeeRepository.count().toInt()
 
 val provider = simpleDataProvider {
-    value("title", "전체 직원 현황")
+    value("title", "All Employee Status")
 
     // Provide count with lazy loading
     items("employees", employeeCount) {
@@ -487,7 +487,7 @@ class ReportService(
         val count = employeeRepository.count().toInt()
 
         val provider = simpleDataProvider {
-            value("title", "전체 직원 현황")
+            value("title", "All Employee Status")
             items("employees", count) {
                 employeeRepository.streamAll().iterator()
             }
