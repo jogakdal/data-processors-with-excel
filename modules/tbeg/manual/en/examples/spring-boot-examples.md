@@ -20,12 +20,8 @@
 ```kotlin
 // build.gradle.kts
 
-repositories {
-    mavenCentral()
-}
-
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.1.3")
+    implementation("io.github.jogakdal:tbeg:1.2.0")
 }
 ```
 
@@ -36,7 +32,7 @@ dependencies {
 
 ```yaml
 tbeg:
-  streaming-mode: enabled           # enabled, disabled
+  # streaming-mode: deprecated (the value is ignored starting from 1.2.0)
   file-naming-mode: timestamp       # none, timestamp
   timestamp-format: yyyyMMdd_HHmmss
   file-conflict-policy: sequence    # error, sequence
@@ -633,6 +629,7 @@ import io.github.jogakdal.tbeg.ExcelGenerator
 import io.mockk.every
 import io.mockk.mockk
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.springframework.core.io.ClassPathResource
 import java.io.ByteArrayInputStream
@@ -662,17 +659,16 @@ class ReportServiceTest {
         )
 
         // Then
-        val workbook = XSSFWorkbook(ByteArrayInputStream(bytes))
-        val sheet = workbook.getSheetAt(0)
+        XSSFWorkbook(ByteArrayInputStream(bytes)).use { workbook ->
+            val sheet = workbook.getSheetAt(0)
 
-        // Verify title
-        assert(sheet.getRow(0).getCell(0).stringCellValue == "Test Report")
+            // Verify title
+            assertEquals("Test Report", sheet.getRow(0).getCell(0).stringCellValue)
 
-        // Verify data rows
-        assert(sheet.getRow(2).getCell(0).stringCellValue == "Yongho Hwang")
-        assert(sheet.getRow(3).getCell(0).stringCellValue == "Yongho Hong")
-
-        workbook.close()
+            // Verify data rows
+            assertEquals("Yongho Hwang", sheet.getRow(2).getCell(0).stringCellValue)
+            assertEquals("Yongho Hong", sheet.getRow(3).getCell(0).stringCellValue)
+        }
     }
 }
 ```

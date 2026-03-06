@@ -27,7 +27,7 @@ class DataProviderCountTest {
 
     @BeforeEach
     fun setUp() {
-        engine = TemplateRenderingEngine(StreamingMode.DISABLED)
+        engine = TemplateRenderingEngine()
         templateBytes = javaClass.getResourceAsStream("/templates/no_pivot_template.xlsx")?.readBytes()
             ?: throw IllegalStateException("템플릿 파일을 찾을 수 없습니다")
     }
@@ -367,13 +367,13 @@ class DataProviderCountTest {
     }
 
     @Nested
-    @DisplayName("SXSSF 스트리밍 모드")
-    inner class SxssfModeTest {
+    @DisplayName("스트리밍 모드")
+    inner class StreamingModeTest {
 
         @Test
-        @DisplayName("SXSSF 모드에서 count 제공 시 Iterator 순회 횟수가 줄어든다 (count 파악 순회 없음)")
-        fun sxssfIteratorTraversalReducedWithCount() {
-            val sxssfEngine = TemplateRenderingEngine(StreamingMode.ENABLED)
+        @DisplayName("count 제공 시 Iterator 순회 횟수가 줄어든다 (count 파악 순회 없음)")
+        fun iteratorTraversalReducedWithCount() {
+            val streamingEngine = TemplateRenderingEngine()
             val traversalWithCount = AtomicInteger(0)
             val traversalWithoutCount = AtomicInteger(0)
 
@@ -386,7 +386,7 @@ class DataProviderCountTest {
             // count 제공 provider
             val providerWithCount = object : ExcelDataProvider {
                 override fun getValue(name: String): Any? = when (name) {
-                    "title" -> "SXSSF 순회 테스트"
+                    "title" -> "순회 테스트"
                     "date" -> "2026-01-29"
                     "secondTitle" -> "부서"
                     "linkText" -> "링크"
@@ -417,7 +417,7 @@ class DataProviderCountTest {
             // count 미제공 provider
             val providerWithoutCount = object : ExcelDataProvider {
                 override fun getValue(name: String): Any? = when (name) {
-                    "title" -> "SXSSF 순회 테스트"
+                    "title" -> "순회 테스트"
                     "date" -> "2026-01-29"
                     "secondTitle" -> "부서"
                     "linkText" -> "링크"
@@ -446,8 +446,8 @@ class DataProviderCountTest {
                 images = emptySet()
             )
 
-            sxssfEngine.process(ByteArrayInputStream(templateBytes), providerWithCount, requiredNames)
-            sxssfEngine.process(ByteArrayInputStream(templateBytes), providerWithoutCount, requiredNames)
+            streamingEngine.process(ByteArrayInputStream(templateBytes), providerWithCount, requiredNames)
+            streamingEngine.process(ByteArrayInputStream(templateBytes), providerWithoutCount, requiredNames)
 
             // count 제공 시: count 파악을 위한 순회가 없으므로 순회 횟수가 적음
             // count 미제공 시: count 파악을 위해 추가로 items.size만큼 순회
@@ -461,9 +461,9 @@ class DataProviderCountTest {
         }
 
         @Test
-        @DisplayName("SXSSF 모드에서 count 미제공 시 getItems()가 최소 2번 호출된다 (count 파악 + 렌더링)")
-        fun sxssfGetItemsCalledAtLeastTwiceWithoutCount() {
-            val sxssfEngine = TemplateRenderingEngine(StreamingMode.ENABLED)
+        @DisplayName("count 미제공 시 getItems()가 최소 2번 호출된다 (count 파악 + 렌더링)")
+        fun getItemsCalledAtLeastTwiceWithoutCount() {
+            val streamingEngine = TemplateRenderingEngine()
             val getItemsCallCount = AtomicInteger(0)
 
             val items = listOf(
@@ -474,7 +474,7 @@ class DataProviderCountTest {
 
             val provider = object : ExcelDataProvider {
                 override fun getValue(name: String): Any? = when (name) {
-                    "title" -> "SXSSF 재호출 테스트"
+                    "title" -> "재호출 테스트"
                     "date" -> "2026-01-29"
                     "secondTitle" -> "부서"
                     "linkText" -> "링크"
@@ -499,19 +499,19 @@ class DataProviderCountTest {
                 images = emptySet()
             )
 
-            sxssfEngine.process(ByteArrayInputStream(templateBytes), provider, requiredNames)
+            streamingEngine.process(ByteArrayInputStream(templateBytes), provider, requiredNames)
 
             // count 미제공 시: getItems()는 최소 2번 호출됨
             // - count 파악을 위해 1회
             // - 렌더링 시 각 repeat 영역마다 1회씩 (같은 컬렉션이 여러 repeat에서 사용되면 재호출)
             assertTrue(getItemsCallCount.get() >= 2,
-                "SXSSF 모드에서 count 미제공 시 getItems()는 최소 2번 호출되어야 합니다 (호출 횟수: ${getItemsCallCount.get()})")
+                "count 미제공 시 getItems()는 최소 2번 호출되어야 합니다 (호출 횟수: ${getItemsCallCount.get()})")
         }
 
         @Test
-        @DisplayName("SXSSF 모드에서 count 제공 시 getItems() 호출이 줄어든다 (count 파악 순회 없음)")
-        fun sxssfGetItemsCallCountReducedWithCount() {
-            val sxssfEngine = TemplateRenderingEngine(StreamingMode.ENABLED)
+        @DisplayName("count 제공 시 getItems() 호출이 줄어든다 (count 파악 순회 없음)")
+        fun getItemsCallCountReducedWithCount() {
+            val streamingEngine = TemplateRenderingEngine()
             val getItemsWithCountCallCount = AtomicInteger(0)
             val getItemsWithoutCountCallCount = AtomicInteger(0)
 
@@ -524,7 +524,7 @@ class DataProviderCountTest {
             // count 제공하는 provider
             val providerWithCount = object : ExcelDataProvider {
                 override fun getValue(name: String): Any? = when (name) {
-                    "title" -> "SXSSF 호출 횟수 테스트"
+                    "title" -> "호출 횟수 테스트"
                     "date" -> "2026-01-29"
                     "secondTitle" -> "부서"
                     "linkText" -> "링크"
@@ -551,7 +551,7 @@ class DataProviderCountTest {
             // count 미제공 provider
             val providerWithoutCount = object : ExcelDataProvider {
                 override fun getValue(name: String): Any? = when (name) {
-                    "title" -> "SXSSF 호출 횟수 테스트"
+                    "title" -> "호출 횟수 테스트"
                     "date" -> "2026-01-29"
                     "secondTitle" -> "부서"
                     "linkText" -> "링크"
@@ -576,8 +576,8 @@ class DataProviderCountTest {
                 images = emptySet()
             )
 
-            sxssfEngine.process(ByteArrayInputStream(templateBytes), providerWithCount, requiredNames)
-            sxssfEngine.process(ByteArrayInputStream(templateBytes), providerWithoutCount, requiredNames)
+            streamingEngine.process(ByteArrayInputStream(templateBytes), providerWithCount, requiredNames)
+            streamingEngine.process(ByteArrayInputStream(templateBytes), providerWithoutCount, requiredNames)
 
             // count 제공 시 호출 횟수가 더 적어야 함 (count 파악을 위한 순회가 없음)
             assertTrue(getItemsWithCountCallCount.get() < getItemsWithoutCountCallCount.get(),
@@ -586,9 +586,9 @@ class DataProviderCountTest {
         }
 
         @Test
-        @DisplayName("SXSSF 모드에서도 count 제공/미제공 시 동일한 결과를 생성한다")
-        fun sxssfProducesSameResult() {
-            val sxssfEngine = TemplateRenderingEngine(StreamingMode.ENABLED)
+        @DisplayName("count 제공/미제공 시 동일한 결과를 생성한다")
+        fun producesSameResult() {
+            val streamingEngine = TemplateRenderingEngine()
 
             val employees = listOf(
                 mapOf("name" to "황용호", "position" to "개발자", "salary" to 5000),
@@ -601,7 +601,7 @@ class DataProviderCountTest {
 
             // count 제공하는 DataProvider
             val providerWithCount = SimpleDataProvider.builder()
-                .value("title", "SXSSF 테스트")
+                .value("title", "테스트")
                 .value("date", "2026-01-29")
                 .value("secondTitle", "부서")
                 .value("linkText", "링크")
@@ -613,7 +613,7 @@ class DataProviderCountTest {
             // count 제공하지 않는 DataProvider
             val providerWithoutCount = object : ExcelDataProvider {
                 override fun getValue(name: String): Any? = when (name) {
-                    "title" -> "SXSSF 테스트"
+                    "title" -> "테스트"
                     "date" -> "2026-01-29"
                     "secondTitle" -> "부서"
                     "linkText" -> "링크"
@@ -634,13 +634,13 @@ class DataProviderCountTest {
                 images = emptySet()
             )
 
-            val resultWithCount = sxssfEngine.process(
+            val resultWithCount = streamingEngine.process(
                 ByteArrayInputStream(templateBytes),
                 providerWithCount,
                 requiredNames
             )
 
-            val resultWithoutCount = sxssfEngine.process(
+            val resultWithoutCount = streamingEngine.process(
                 ByteArrayInputStream(templateBytes),
                 providerWithoutCount,
                 requiredNames
@@ -658,7 +658,7 @@ class DataProviderCountTest {
             val sheetWithoutCount = wbWithoutCount.getSheetAt(0)
 
             assertEquals(sheetWithCount.lastRowNum, sheetWithoutCount.lastRowNum,
-                "SXSSF 모드에서도 두 결과의 행 수가 동일해야 합니다")
+                "두 결과의 행 수가 동일해야 합니다")
 
             wbWithCount.close()
             wbWithoutCount.close()

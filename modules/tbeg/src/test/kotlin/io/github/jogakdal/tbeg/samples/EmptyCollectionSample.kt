@@ -1,8 +1,6 @@
 package io.github.jogakdal.tbeg.samples
 
 import io.github.jogakdal.tbeg.ExcelGenerator
-import io.github.jogakdal.tbeg.TbegConfig
-import io.github.jogakdal.tbeg.StreamingMode
 import io.github.jogakdal.tbeg.simpleDataProvider
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -30,11 +28,7 @@ object EmptyCollectionSample {
         println("빈 컬렉션 + emptyRange 샘플")
         println("=".repeat(60))
 
-        // XSSF 모드
-        runSample(StreamingMode.DISABLED, "xssf")
-
-        // SXSSF 모드
-        runSample(StreamingMode.ENABLED, "sxssf")
+        runSample()
 
         println()
         println("=".repeat(60))
@@ -60,13 +54,12 @@ object EmptyCollectionSample {
         return Paths.get("").toAbsolutePath()
     }
 
-    private fun runSample(streamingMode: StreamingMode, modeName: String) {
+    private fun runSample() {
         println()
-        println("[${modeName.uppercase()}] 빈 컬렉션 렌더링")
+        println("빈 컬렉션 렌더링")
         println("-".repeat(40))
 
-        val config = TbegConfig(streamingMode = streamingMode)
-        ExcelGenerator(config).use { generator ->
+        ExcelGenerator().use { generator ->
             val template = loadEmptyCollectionTemplate()
             val dataProvider = createEmptyCollectionProvider()
 
@@ -74,7 +67,7 @@ object EmptyCollectionSample {
                 template = template,
                 dataProvider = dataProvider,
                 outputDir = outputDir,
-                baseFileName = "empty_collection_$modeName"
+                baseFileName = "empty_collection"
             )
 
             println("결과: $resultPath")

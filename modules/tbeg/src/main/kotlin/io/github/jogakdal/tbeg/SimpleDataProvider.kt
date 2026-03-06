@@ -157,6 +157,9 @@ class SimpleDataProvider private constructor(
         /** 이미지를 추가한다. (지연 로딩 - Kotlin) */
         fun image(name: String, imageSupplier: () -> ByteArray) = apply { images[name] = imageSupplier }
 
+        /** URL에서 이미지를 다운로드하여 삽입한다. (다운로드는 렌더링 시점에 수행) */
+        fun imageUrl(name: String, url: String) = apply { values["image.$name"] = url }
+
         /** 이미지를 추가한다. (지연 로딩 - Java Supplier) */
         @Suppress("unused") // Java API
         fun imageFromSupplier(name: String, imageSupplier: Supplier<ByteArray>) = apply {

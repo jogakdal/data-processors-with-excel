@@ -1,9 +1,7 @@
 package io.github.jogakdal.tbeg.samples
 
 import io.github.jogakdal.tbeg.ExcelGenerator
-import io.github.jogakdal.tbeg.TbegConfig
 import io.github.jogakdal.tbeg.SimpleDataProvider
-import io.github.jogakdal.tbeg.StreamingMode
 import io.github.jogakdal.tbeg.async.ExcelGenerationListener
 import io.github.jogakdal.tbeg.async.GenerationResult
 import io.github.jogakdal.tbeg.exception.FormulaExpansionException
@@ -81,46 +79,24 @@ object TbegSample {
         // Spring Boot 환경에서는 ExcelGenerator가 Bean으로 자동 주입됩니다.
         // 이 샘플은 테스트 목적으로 직접 인스턴스를 생성합니다.
 
-        // ========== SXSSF (스트리밍) 모드 ==========
-        println("\n" + "=" .repeat(60))
-        println("SXSSF (스트리밍) 모드")
-        println("=" .repeat(60))
-
         ExcelGenerator().use { generator ->
             // 1. 기본 사용 (Map 기반)
-            runBasicExample(generator, outputDir, "basic_example_sxssf")
+            runBasicExample(generator, outputDir)
 
             // 2. 지연 로딩 (DataProvider)
-            runLazyLoadingExample(generator, outputDir, "lazy_loading_example_sxssf")
+            runLazyLoadingExample(generator, outputDir)
 
             // 3. 비동기 실행 (Listener)
-            runAsyncExample(generator, outputDir, "async_example_sxssf")
+            runAsyncExample(generator, outputDir)
 
             // 4. 대용량 비동기 (DataProvider + Listener)
-            runLargeAsyncExample(generator, outputDir, "large_async_example_sxssf")
+            runLargeAsyncExample(generator, outputDir)
 
             // 5. 암호화된 대용량 비동기 (암호: 1234)
             runEncryptedLargeAsyncExample(generator, outputDir)
 
             // 6. 문서 메타데이터 설정
             runMetadataExample(generator, outputDir)
-        }
-
-        // ========== XSSF (비스트리밍) 모드 ==========
-        println("\n" + "=" .repeat(60))
-        println("XSSF (비스트리밍) 모드")
-        println("=" .repeat(60))
-
-        val xssfConfig = TbegConfig(streamingMode = StreamingMode.DISABLED)
-        ExcelGenerator(xssfConfig).use { generator ->
-            // 1. 기본 사용 (Map 기반) - XSSF
-            runBasicExample(generator, outputDir, "basic_example_xssf")
-
-            // 2. 지연 로딩 (DataProvider) - XSSF
-            runLazyLoadingExample(generator, outputDir, "lazy_loading_example_xssf")
-
-            // 3. 대용량 비동기 (DataProvider + Listener) - XSSF
-            runLargeAsyncExample(generator, outputDir, "large_async_example_xssf")
         }
 
         println("\n" + "=" .repeat(60))
@@ -627,7 +603,7 @@ object TbegSample {
 
         // FormulaExpansionException 발생 시 데이터 수를 줄여서 재시도
         if (formulaError != null && dataCount > retryDataCount) {
-            println("\n\t⚠️ 수식 확장 실패로 인해 ${retryDataCount}건으로 재시도합니다...")
+            println("\n\t[!] 수식 확장 실패로 인해 ${retryDataCount}건으로 재시도합니다...")
             return runLargeAsyncWithRetry(
                 generator = generator,
                 outputDir = outputDir,

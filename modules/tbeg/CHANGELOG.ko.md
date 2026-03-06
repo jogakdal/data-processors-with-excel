@@ -1,5 +1,48 @@
 # TBEG Changelog
 
+## 1.2.0
+
+### Breaking Changes
+
+- **XSSF(비스트리밍) 모드 폐지**: 항상 스트리밍 모드로 동작합니다
+  - `StreamingMode` enum: deprecated (향후 버전에서 제거 예정)
+  - `TbegConfig.streamingMode`: deprecated (값이 무시됩니다)
+  - `TbegConfig.forSmallData()`: deprecated (`default()`와 동일하게 동작)
+  - `TbegConfig.withStreamingMode()`: deprecated
+  - `TbegConfig.Builder.streamingMode()`: deprecated
+  - Spring 설정 `streaming-mode`: deprecated (값이 무시됩니다)
+  - 내부 클래스 `XssfRenderingStrategy` 삭제
+  - `SxssfRenderingStrategy` -> `StreamingRenderingStrategy`로 리네이밍
+
+### 새 기능
+
+- **이미지 URL 지원**: 이미지 데이터로 `ByteArray` 대신 HTTP(S) URL 문자열을 지정하면 렌더링 시점에 자동으로 다운로드합니다. `imageUrl("logo", "https://...")` 형태로 사용합니다
+  - `imageUrlCacheTtlSeconds` 설정으로 호출 간 캐시 TTL을 지정할 수 있습니다 (기본: 0, 캐싱 안 함)
+  - 다운로드 실패 시 경고 로그를 출력하고 해당 이미지를 건너뜁니다
+- **자동 셀 병합 (merge)**: repeat 확장 시 연속된 같은 값의 셀을 자동으로 병합합니다. `${merge(item.field)}` 또는 `=TBEG_MERGE(item.field)` 마커로 사용합니다
+- **요소 묶음 (bundle)**: 지정된 범위의 요소를 하나의 단위로 묶어 repeat 확장 시 일체로 이동합니다. `${bundle(범위)}` 또는 `=TBEG_BUNDLE(범위)` 마커로 사용합니다
+
+### 버그 수정
+
+- **RIGHT repeat 열 너비 복제 수정**: 같은 열 범위의 RIGHT repeat이 여러 개일 때 열 너비가 올바르게 복제되지 않던 문제가 수정되었습니다
+- **RIGHT repeat non-repeat 셀 필터링 수정**: 다른 RIGHT repeat 영역의 열도 non-repeat 셀 기록에서 올바르게 제외하도록 수정되었습니다
+- **RIGHT repeat 간접 겹침 검사 수정**: 행 범위가 겹치는 RIGHT repeat 간의 열 겹침 검사가 누락되던 문제가 수정되었습니다
+
+<details>
+<summary>내부 개선</summary>
+
+- **체이닝 기반 위치 계산**: PositionCalculator가 ColumnGroup 기반 MAX 방식에서 체이닝 알고리즘으로 전환되었습니다. 병합 셀과 bundle을 통한 교차 열 밀림 전파가 정확해졌습니다
+- **MergeTracker**: 자동 셀 병합을 처리하는 MergeTracker 클래스가 추가되었습니다
+- **TemplateAnalyzer 5단계 분석**: bundle 수집 및 검증 단계(Phase 2.5)가 추가되었습니다
+- **dead zone 처리**: 밀림으로 인한 빈 영역을 감지하고 올바르게 스킵하는 로직이 추가되었습니다
+- **forward verification**: getFinalPosition()의 역방향 계산 모호성을 방지하는 검증 로직이 추가되었습니다
+- **행 높이 MAX 적용**: 체이닝으로 여러 템플릿 행이 같은 실제 행에 매핑될 때 최대 높이를 적용합니다
+- **`ensureCalculated()` 패턴 추출**: PositionCalculator의 공개 메서드에서 반복되던 지연 계산 호출을 단일 메서드로 통합하였습니다
+- **RIGHT repeat 열 너비 적용 개선**: `applyColumnWidths()`에서 같은 colRange를 가진 repeat을 groupBy로 묶어 중복 적용을 방지합니다
+- 단위/통합 테스트 추가: `CellMergeTest`, `PositionCalculatorTest` 체이닝/bundle 테스트
+
+</details>
+
 ## 1.1.3
 
 ### 새 기능
@@ -28,7 +71,7 @@
 - `ChartProcessor` 리팩토링
 - `ImageInserter` 리팩토링
 - `FormulaAdjuster` 확장
-- SXSSF/XSSF 렌더링 전략 개선
+- 렌더링 전략 개선
 - Rich Sample 추가 (분기 매출 실적 보고서 데모)
 - 단위/통합 테스트 추가: `ChartRangeAdjusterTest`, `ChartRepeatIntegrationTest`, `DrawingXmlMergeTest`, `FormulaAdjusterTest`, `ImageInserterAlignmentTest`
 
@@ -38,8 +81,8 @@
 
 ### 버그 수정
 
-- **비반복 영역 수식 처리 개선**: XSSF 모드에서 비반복 영역의 수식 셀이 올바르게 처리되지 않던 문제가 수정되었습니다
-- **비반복 영역 정적 행 플래그 수정**: SXSSF 모드에서 비반복 영역 셀의 `isStaticRow` 플래그가 올바르게 설정되지 않던 문제가 수정되었습니다
+- **비반복 영역 수식 처리 개선**: 비반복 영역의 수식 셀이 올바르게 처리되지 않던 문제가 수정되었습니다
+- **비반복 영역 정적 행 플래그 수정**: 비반복 영역 셀의 `isStaticRow` 플래그가 올바르게 설정되지 않던 문제가 수정되었습니다
 - **크로스 시트 중복 마커 그룹핑 수정**: 중복 repeat 마커 감지 시 마커가 위치한 시트가 아닌 대상 시트 기준으로 그룹핑하도록 수정되었습니다
 
 ## 1.1.1
@@ -63,9 +106,9 @@
 - **공통 타입 도입**: `IndexRange`/`RowRange`/`ColRange` 범위 타입과 `CollectionSizes` value class를 도입했습니다
 - **`CellCoord` 타입 공개 및 활용 확대**: `TemplateAnalyzer` 내부 private class였던 `CellCoord`를 공개 타입으로 전환했습니다
 - **`CellArea` 타입 도입**: 셀 영역 표현 타입을 도입하고 `RepeatRegionSpec`을 `area: CellArea` 단일 프로퍼티로 통합했습니다
-- `TemplateAnalyzer`를 4단계 분석 구조로 개편했습니다 (수집 → repeat 중복 제거 → SheetSpec 생성 → 셀 마커 중복 제거)
+- `TemplateAnalyzer`를 4단계 분석 구조로 개편했습니다 (수집 -> repeat 중복 제거 -> SheetSpec 생성 -> 셀 마커 중복 제거)
 - 내부 코드 리팩토링 및 KDoc 현행화
-- 같은 행의 다중 독립 repeat 영역 검증 테스트 추가 (XSSF/SXSSF 모드별 매개변수화 테스트)
+- 같은 행의 다중 독립 repeat 영역 검증 테스트 추가
 - 중복 마커 감지 테스트 추가 (repeat 7건 + image 6건)
 
 </details>
@@ -83,7 +126,7 @@
 
 ### Breaking Changes
 
-- **설정 클래스 리네이밍**: `ExcelGeneratorConfig` → `TbegConfig`
+- **설정 클래스 리네이밍**: `ExcelGeneratorConfig` -> `TbegConfig`
   - 기존 이름은 타입 별칭으로 유지되므로 기존 코드는 그대로 동작합니다
 
 <details>
@@ -94,7 +137,7 @@
 - 조건부 서식 처리 로직을 개선하고 유틸리티를 추출했습니다
 - BOM 모듈을 추가했습니다
 - Kotlin/Java 샘플 6가지 사용 패턴을 추가했습니다 (기본, 지연 로딩, 비동기, 대용량, 암호화, 메타데이터)
-- XSSF vs SXSSF 성능 벤치마크를 추가했습니다
+- 성능 벤치마크를 추가했습니다
 - 빈 컬렉션 처리 테스트 및 매개변수화 테스트를 도입했습니다
 
 </details>

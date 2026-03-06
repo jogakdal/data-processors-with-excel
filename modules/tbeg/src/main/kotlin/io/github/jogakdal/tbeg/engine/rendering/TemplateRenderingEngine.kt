@@ -1,7 +1,6 @@
 package io.github.jogakdal.tbeg.engine.rendering
 
 import io.github.jogakdal.tbeg.ExcelDataProvider
-import io.github.jogakdal.tbeg.StreamingMode
 import io.github.jogakdal.tbeg.engine.core.CollectionSizes
 import io.github.jogakdal.tbeg.engine.core.buildCollectionSizes
 import io.github.jogakdal.tbeg.engine.rendering.ChartRangeAdjuster.RepeatExpansionInfo
@@ -27,34 +26,25 @@ import java.lang.reflect.Method
  * - `=TBEG_SIZE(collection)` - 컬렉션 크기
  *
  * ## 처리 방식
- * - **비스트리밍 모드**: XSSF 기반 템플릿 변환 (shiftRows + copyRowFrom)
- * - **스트리밍 모드**: SXSSF 기반 순차 생성 (청사진 기반)
- *
- * ## Strategy Pattern
- * 내부적으로 RenderingStrategy를 사용하여 XSSF/SXSSF 모드를 분리한다.
- * - [XssfRenderingStrategy]: 비스트리밍 모드
- * - [SxssfRenderingStrategy]: 스트리밍 모드
+ * 명세 기반 순차 생성 (청사진 기반) 방식으로 동작한다.
+ * 내부적으로 [StreamingRenderingStrategy]를 사용한다.
  */
 class TemplateRenderingEngine(
-    private val streamingMode: StreamingMode = StreamingMode.ENABLED
+    private val imageUrlCacheTtlSeconds: Long = 0
 ) {
     private val analyzer = TemplateAnalyzer()
     private val variableProcessor = VariableProcessor(emptyList())
     private val imageInserter = ImageInserter()
-    private val repeatExpansionProcessor = RepeatExpansionProcessor()
     private val sheetLayoutApplier = SheetLayoutApplier()
 
     private val fieldCache = mutableMapOf<Pair<Class<*>, String>, Field?>()
     private val getterCache = mutableMapOf<Pair<Class<*>, String>, Method?>()
 
-    private val strategy: RenderingStrategy = when (streamingMode) {
-        StreamingMode.DISABLED -> XssfRenderingStrategy()
-        StreamingMode.ENABLED -> SxssfRenderingStrategy()
-    }
+    private val strategy: RenderingStrategy = StreamingRenderingStrategy()
 
     /**
      * 마지막 렌더링에서 수집된 시트별 repeat 확장 정보.
-     * SXSSF 모드에서 차트 범위 조정에 사용된다.
+     * 차트 범위 조정에 사용된다.
      */
     internal var lastRepeatExpansionInfos: Map<String, List<RepeatExpansionInfo>> = emptyMap()
         private set
@@ -68,12 +58,12 @@ class TemplateRenderingEngine(
     ) = RenderingContext(
         analyzer = analyzer,
         imageInserter = imageInserter,
-        repeatExpansionProcessor = repeatExpansionProcessor,
         sheetLayoutApplier = sheetLayoutApplier,
         evaluateText = ::evaluateText,
         resolveFieldPath = ::resolveFieldPath,
         streamingDataSource = streamingDataSource,
-        collectionSizes = collectionSizes
+        collectionSizes = collectionSizes,
+        imageUrlCacheTtlSeconds = imageUrlCacheTtlSeconds
     )
 
     /**
@@ -89,11 +79,9 @@ class TemplateRenderingEngine(
     /**
      * 템플릿에 DataProvider 데이터를 바인딩하여 Excel 생성
      *
-     * **메모리 효율성 (모드별):**
-     * - **SXSSF (스트리밍)**: Iterator 순차 소비, 현재 아이템만 메모리 유지
-     * - **XSSF (비스트리밍)**: List로 변환 (소량 데이터 전용)
+     * Iterator를 순차적으로 소비하여 메모리 사용을 최소화한다.
      *
-     * **DataProvider 조건 (SXSSF):**
+     * **DataProvider 조건:**
      * - 같은 컬렉션이 여러 repeat에서 사용될 경우 getItems()가 다시 호출됨
      * - getItems()는 같은 데이터를 다시 제공할 수 있어야 함
      *
@@ -101,22 +89,7 @@ class TemplateRenderingEngine(
      * @param dataProvider 데이터 제공자
      * @param requiredNames 템플릿에서 필요로 하는 데이터 이름 (선택적)
      */
-    fun process(template: InputStream, dataProvider: ExcelDataProvider, requiredNames: RequiredNames? = null) =
-        when (streamingMode) {
-            StreamingMode.ENABLED -> processWithStreaming(template, dataProvider, requiredNames)
-            StreamingMode.DISABLED -> processWithoutStreaming(template, dataProvider, requiredNames)
-        }
-
-    /**
-     * SXSSF (스트리밍) 모드 처리
-     *
-     * - Iterator를 순차적으로 소비하여 메모리 사용 최소화
-     * - 현재 아이템만 메모리에 유지
-     */
-    private fun processWithStreaming(template: InputStream,
-        dataProvider: ExcelDataProvider,
-        requiredNames: RequiredNames?
-    ): ByteArray {
+    fun process(template: InputStream, dataProvider: ExcelDataProvider, requiredNames: RequiredNames? = null): ByteArray {
         val templateBytes = template.readBytes()
 
         // 컬렉션 크기 계산 (위치 계산용)
@@ -132,7 +105,9 @@ class TemplateRenderingEngine(
                 dataProvider.getValue(name)?.let { put(name, it) }
             }
             requiredNames?.images?.forEach { name ->
-                dataProvider.getImage(name)?.let { put("image.$name", it) }
+                val imageData = dataProvider.getImage(name)
+                    ?: dataProvider.getValue("image.$name")  // URL 문자열 등 대체 소스
+                imageData?.let { put("image.$name", it) }
             }
         }
 
@@ -147,41 +122,6 @@ class TemplateRenderingEngine(
             strategy.render(templateBytes, simpleData, renderingContext).also {
                 lastRepeatExpansionInfos = renderingContext.repeatExpansionInfos.toMap()
             }
-        }
-    }
-
-    /**
-     * XSSF (비스트리밍) 모드 처리
-     *
-     * - 컬렉션을 List로 변환하여 전체 메모리에 로드
-     * - 소량 데이터 전용
-     */
-    private fun processWithoutStreaming(
-        template: InputStream,
-        dataProvider: ExcelDataProvider,
-        requiredNames: RequiredNames?
-    ) = buildMap {
-        requiredNames?.let { names ->
-            // 단순 변수
-            names.variables.forEach { name ->
-                dataProvider.getValue(name)?.let { put(name, it) }
-            }
-
-            // 컬렉션 (List로 변환)
-            names.collections.forEach { name ->
-                val iterator = dataProvider.getItems(name) ?: return@forEach
-                put(name, iterator.asSequence().toList())
-            }
-
-            // 이미지
-            names.images.forEach { name ->
-                dataProvider.getImage(name)?.let { put("image.$name", it) }
-            }
-        }
-    }.let { data ->
-        val renderingContext = createRenderingContext()
-        strategy.render(template.readBytes(), data, renderingContext).also {
-            lastRepeatExpansionInfos = renderingContext.repeatExpansionInfos.toMap()
         }
     }
 

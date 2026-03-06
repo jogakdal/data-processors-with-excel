@@ -46,7 +46,7 @@ class ChartRangeAdjusterTest {
         @Test
         fun `단일 repeat, 범위 끝이 repeat 영역 안에 있으면 확장한다`() {
             // repeat: rows 6-6 (0-based), 5개 아이템
-            // 차트 수식: Sheet1!$A$7:$A$7 (1-based) → 범위 끝 7은 7..7 안에 있음
+            // 차트 수식: Sheet1!$A$7:$A$7 (1-based) -> 범위 끝 7은 7..7 안에 있음
             val result = ChartRangeAdjuster.adjustFormula(
                 "Sheet1!\$A\$7:\$A\$7",
                 "Sheet1",
@@ -59,7 +59,7 @@ class ChartRangeAdjusterTest {
         @Test
         fun `단일 repeat, 범위가 repeat 영역 전체를 포함하면 끝만 확장한다`() {
             // repeat: rows 6-8 (0-based, 3행), 4개 아이템
-            // 차트 수식: Sheet1!$B$5:$B$9 (1-based, rows 5-9) → 끝 행 9는 7..9 안에 있음
+            // 차트 수식: Sheet1!$B$5:$B$9 (1-based, rows 5-9) -> 끝 행 9는 7..9 안에 있음
             val result = ChartRangeAdjuster.adjustFormula(
                 "Sheet1!\$B\$5:\$B\$9",
                 "Sheet1",
@@ -72,8 +72,8 @@ class ChartRangeAdjusterTest {
 
         @Test
         fun `범위가 repeat 영역 뒤에 있으면 시프트한다`() {
-            // repeat: rows 6-6 (0-based), 5개 아이템 → expansionAmount = 4
-            // 차트 수식: Sheet1!$A$10:$A$15 (1-based) → 둘 다 repeat 뒤
+            // repeat: rows 6-6 (0-based), 5개 아이템 -> expansionAmount = 4
+            // 차트 수식: Sheet1!$A$10:$A$15 (1-based) -> 둘 다 repeat 뒤
             val result = ChartRangeAdjuster.adjustFormula(
                 "Sheet1!\$A\$10:\$A\$15",
                 "Sheet1",
@@ -86,7 +86,7 @@ class ChartRangeAdjusterTest {
         @Test
         fun `범위가 repeat 영역 앞에 있으면 변경하지 않는다`() {
             // repeat: rows 10-10 (0-based), 3개 아이템
-            // 차트 수식: Sheet1!$A$1:$A$5 → 둘 다 repeat 앞
+            // 차트 수식: Sheet1!$A$1:$A$5 -> 둘 다 repeat 앞
             val result = ChartRangeAdjuster.adjustFormula(
                 "Sheet1!\$A\$1:\$A\$5",
                 "Sheet1",
@@ -117,9 +117,9 @@ class ChartRangeAdjusterTest {
 
         @Test
         fun `다중 repeat, 누적 오프셋이 적용된다`() {
-            // repeat1: rows 3-3 (0-based), 3개 아이템 → expansion = 2
-            // repeat2: rows 6-6 (0-based), 4개 아이템 → expansion = 3
-            // 차트 수식: Sheet1!$A$8:$A$8 → repeat2 끝 안에 있음
+            // repeat1: rows 3-3 (0-based), 3개 아이템 -> expansion = 2
+            // repeat2: rows 6-6 (0-based), 4개 아이템 -> expansion = 3
+            // 차트 수식: Sheet1!$A$8:$A$8 -> repeat2 끝 안에 있음
             val result = ChartRangeAdjuster.adjustFormula(
                 "Sheet1!\$A\$8:\$A\$12",
                 "Sheet1",
@@ -128,10 +128,10 @@ class ChartRangeAdjusterTest {
                     downExpansion(startRow = 6, endRow = 6, itemCount = 4)
                 )
             )
-            // repeat1 후: 시작 8 > 4(templateEndRow1=4) → start = 8 + 2 = 10
-            //              끝 12 > 4 → end = 12 + 2 = 14
-            // repeat2 후: 시작 8 > 7(templateEndRow1=7) → start = 8 + 2 + 3 = 13
-            //              끝 12 > 7 → end = 12 + 2 + 3 = 17
+            // repeat1 후: 시작 8 > 4(templateEndRow1=4) -> start = 8 + 2 = 10
+            //              끝 12 > 4 -> end = 12 + 2 = 14
+            // repeat2 후: 시작 8 > 7(templateEndRow1=7) -> start = 8 + 2 + 3 = 13
+            //              끝 12 > 7 -> end = 12 + 2 + 3 = 17
             assertEquals("Sheet1!\$A\$13:\$A\$17", result)
         }
 
@@ -214,7 +214,7 @@ class ChartRangeAdjusterTest {
                 "Sheet1",
                 listOf(downExpansion(startRow = 5, endRow = 7, itemCount = 3))
             )
-            // 끝 행 8은 6..8 안에 있음 → 확장: 6 + (3*3) - 1 = 14
+            // 끝 행 8은 6..8 안에 있음 -> 확장: 6 + (3*3) - 1 = 14
             assertEquals("Sheet1!\$A\$6:\$A\$14", result)
         }
     }
@@ -263,13 +263,13 @@ class ChartRangeAdjusterTest {
         @Test
         fun `RIGHT 방향 repeat 시 열 범위가 확장된다`() {
             // repeat: cols 1-2 (B-C, 0-based), rows 5-5, 3개 아이템
-            // 차트 수식: Sheet1!$B$6:$C$6 → 끝 열 C(2)가 1..2 안에 있음
+            // 차트 수식: Sheet1!$B$6:$C$6 -> 끝 열 C(2)가 1..2 안에 있음
             val result = ChartRangeAdjuster.adjustFormula(
                 "Sheet1!\$B\$6:\$C\$6",
                 "Sheet1",
                 listOf(rightExpansion(startRow = 5, endRow = 5, startCol = 1, endCol = 2, itemCount = 3))
             )
-            // 끝 열: 1 + (3*2) - 1 = 6 → G
+            // 끝 열: 1 + (3*2) - 1 = 6 -> G
             assertEquals("Sheet1!\$B\$6:\$G\$6", result)
         }
 
@@ -294,8 +294,8 @@ class ChartRangeAdjusterTest {
 
         @Test
         fun `repeat 영역 뒤의 행이 시프트된다`() {
-            // repeat: rows 3-5 (0-based, 3행), 4개 아이템 → expansion = 9
-            // row 10 > 5(templateEndRow) → 시프트
+            // repeat: rows 3-5 (0-based, 3행), 4개 아이템 -> expansion = 9
+            // row 10 > 5(templateEndRow) -> 시프트
             assertEquals(19, ChartRangeAdjuster.shiftRow(
                 10, fullColRange, listOf(downExpansion(startRow = 3, endRow = 5, itemCount = 4))
             ))
@@ -310,7 +310,7 @@ class ChartRangeAdjusterTest {
 
         @Test
         fun `repeat 영역 경계(templateEndRow)의 행은 변경되지 않는다`() {
-            // row == templateEndRow → 시프트 안 됨 (repeat 영역 끝은 아직 포함)
+            // row == templateEndRow -> 시프트 안 됨 (repeat 영역 끝은 아직 포함)
             assertEquals(5, ChartRangeAdjuster.shiftRow(
                 5, fullColRange, listOf(downExpansion(startRow = 3, endRow = 5, itemCount = 4))
             ))
@@ -318,9 +318,9 @@ class ChartRangeAdjusterTest {
 
         @Test
         fun `다중 repeat 누적 오프셋`() {
-            // repeat1: rows 2-2, 3개 → expansion = 2
-            // repeat2: rows 5-5, 4개 → expansion = 3
-            // row 10 > 2 → +2, row 10 > 5 → +3, total = +5
+            // repeat1: rows 2-2, 3개 -> expansion = 2
+            // repeat2: rows 5-5, 4개 -> expansion = 3
+            // row 10 > 2 -> +2, row 10 > 5 -> +3, total = +5
             assertEquals(15, ChartRangeAdjuster.shiftRow(
                 10, fullColRange, listOf(
                     downExpansion(startRow = 2, endRow = 2, itemCount = 3),
@@ -349,20 +349,20 @@ class ChartRangeAdjusterTest {
 
         @Test
         fun `멀티 리피트에서 열 범위에 해당하는 repeat만 적용된다`() {
-            // depts: B~G (cols 1-6), 5개 아이템 → 4행 확장
-            // products: I~K (cols 8-10), 4개 아이템 → 3행 확장
+            // depts: B~G (cols 1-6), 5개 아이템 -> 4행 확장
+            // products: I~K (cols 8-10), 4개 아이템 -> 3행 확장
             val expansions = listOf(
                 downExpansion(startRow = 5, endRow = 5, itemCount = 5, startCol = 1, endCol = 6),
                 downExpansion(startRow = 5, endRow = 5, itemCount = 4, startCol = 8, endCol = 10)
             )
 
-            // 바 차트 앵커 (B~G 영역, cols 1-6) → depts의 4행 확장만 적용
+            // 바 차트 앵커 (B~G 영역, cols 1-6) -> depts의 4행 확장만 적용
             assertEquals(14, ChartRangeAdjuster.shiftRow(10, 1..6, expansions))
 
-            // 파이 차트 앵커 (I~K 영역, cols 8-10) → products의 3행 확장만 적용
+            // 파이 차트 앵커 (I~K 영역, cols 8-10) -> products의 3행 확장만 적용
             assertEquals(13, ChartRangeAdjuster.shiftRow(10, 8..10, expansions))
 
-            // 전체 범위 앵커 (B~K, cols 1-10) → max(4, 3) = 4행 시프트
+            // 전체 범위 앵커 (B~K, cols 1-10) -> max(4, 3) = 4행 시프트
             assertEquals(14, ChartRangeAdjuster.shiftRow(10, 1..10, expansions))
         }
 
@@ -398,8 +398,8 @@ class ChartRangeAdjusterTest {
 
         @Test
         fun `RIGHT 방향 repeat 뒤의 열이 시프트된다`() {
-            // repeat: cols 1-2, rows 3-3, 3개 → expansion = 4
-            // col 5 > 2(templateEndCol) + 행 범위 겹침 → 시프트
+            // repeat: cols 1-2, rows 3-3, 3개 -> expansion = 4
+            // col 5 > 2(templateEndCol) + 행 범위 겹침 -> 시프트
             assertEquals(9, ChartRangeAdjuster.shiftCol(
                 5, 3..10,
                 listOf(rightExpansion(startRow = 3, endRow = 3, startCol = 1, endCol = 2, itemCount = 3))
@@ -446,13 +446,13 @@ class ChartRangeAdjusterTest {
             )
             chart.plot(data)
 
-            // repeat: rows 2-5 (0-based), 5개 아이템 → expansion = (5-1)*4 = 16
+            // repeat: rows 2-5 (0-based), 5개 아이템 -> expansion = (5-1)*4 = 16
             val expansions = listOf(downExpansion(startRow = 2, endRow = 5, itemCount = 5))
 
             ChartRangeAdjuster.adjustAnchorsInSheet(sheet, expansions)
 
-            // anchor row1: 10 > 5 → 10 + 16 = 26
-            // anchor row2: 25 > 5 → 25 + 16 = 41
+            // anchor row1: 10 > 5 -> 10 + 16 = 26
+            // anchor row2: 25 > 5 -> 25 + 16 = 41
             val resultAnchor = drawing.first().anchor as org.apache.poi.xssf.usermodel.XSSFClientAnchor
             assertEquals(26, resultAnchor.row1, "anchor row1이 시프트되어야 한다")
             assertEquals(41, resultAnchor.row2, "anchor row2가 시프트되어야 한다")

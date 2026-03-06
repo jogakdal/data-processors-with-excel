@@ -13,7 +13,7 @@
 
 ### `#NAME?` 에러가 표시됩니다
 
-**증상**: 수식 형태 마커(`=TBEG_REPEAT(...)`, `=TBEG_IMAGE(...)`, `=TBEG_SIZE(...)`)가 있는 셀에서 `#NAME?` 에러가 표시됩니다.
+**증상**: 수식 형태 마커(`=TBEG_REPEAT(...)`, `=TBEG_IMAGE(...)`, `=TBEG_SIZE(...)`, `=TBEG_MERGE(...)`, `=TBEG_BUNDLE(...)`)가 있는 셀에서 `#NAME?` 에러가 표시됩니다.
 
 **원인**: 이 마커들은 Excel에 실제로 존재하지 않는 함수이므로, Excel에서 열면 에러로 표시됩니다.
 
@@ -50,7 +50,7 @@
 | `MISSING_REQUIRED_PARAMETER` | 필수 파라미터 누락 | repeat의 `collection`, `range`는 필수입니다 |
 | `INVALID_RANGE_FORMAT` | 잘못된 셀 범위 형식 | `A2:C2` 같은 올바른 범위를 사용하세요 |
 | `SHEET_NOT_FOUND` | 존재하지 않는 시트 참조 | 시트명이 정확한지 확인하세요 (`'Sheet1'!A2:C2`) |
-| `INVALID_PARAMETER_VALUE` | 잘못된 파라미터 값 | direction은 `DOWN`/`RIGHT`만 허용됩니다 |
+| `INVALID_PARAMETER_VALUE` | 잘못된 파라미터 값 | direction은 `DOWN`/`RIGHT`만 허용됩니다. bundle 중첩이나 경계 걸침도 이 오류로 보고됩니다 |
 
 > [!NOTE]
 > 명시적 파라미터와 위치 기반 파라미터를 혼합하면 `INVALID_REPEAT_SYNTAX` 오류가 발생합니다. 한 마커 내에서는 한 가지 방식만 사용하세요.
@@ -62,9 +62,9 @@
 `missingDataBehavior = THROW`일 때, 템플릿에 정의된 데이터가 DataProvider에 없으면 발생합니다.
 
 ```
-MissingTemplateDataException: 템플릿에 필요한 데이터가 누락되었습니다.
-  - 변수: title, author
-  - 컬렉션: employees
+MissingTemplateDataException: Required template data is missing.
+  - Variables: title, author
+  - Collections: employees
 ```
 
 **해결**: 예외 메시지에 표시된 누락 항목을 DataProvider에 추가하세요.
@@ -86,10 +86,9 @@ repeat으로 행이 확장될 때 수식 참조를 자동 조정하는 과정에
 대용량 데이터 처리 시 JVM 메모리가 부족하면 발생합니다.
 
 **해결 단계**:
-1. 스트리밍 모드 확인: `StreamingMode.ENABLED` (기본값)
-2. DataProvider에서 지연 로딩 사용 (`items("name", count) { ... }`)
-3. JVM 힙 메모리 증가: `-Xmx2g` 등
-4. 데이터를 여러 파일로 분할 생성
+1. DataProvider에서 지연 로딩 사용 (`items("name", count) { ... }`)
+2. JVM 힙 메모리 증가: `-Xmx2g` 등
+3. 데이터를 여러 파일로 분할 생성
 
 ---
 
@@ -102,6 +101,36 @@ repeat으로 행이 확장될 때 수식 참조를 자동 조정하는 과정에
 **해결**: TBEG은 차트 데이터 소스 범위를 자동으로 조정합니다. 이 문제가 발생한다면:
 - 차트의 데이터 소스가 repeat 영역을 정확히 참조하는지 확인하세요
 - 차트와 repeat 영역이 같은 시트에 있는지 확인하세요
+
+---
+
+### merge 병합 결과가 기대와 다릅니다
+
+**증상**: `${merge(item.field)}`로 병합했는데 같은 값이 여러 그룹으로 나뉘어 병합됩니다.
+
+**원인**: merge는 **연속된** 같은 값만 병합합니다. 같은 값이 떨어져 있으면 별도의 병합 그룹이 됩니다.
+
+**해결**: 데이터를 병합 기준 필드로 미리 정렬하세요.
+
+```kotlin
+// 정렬 전: [영업1팀, 영업2팀, 영업1팀] -> 영업1팀이 2개 그룹으로 분리됨
+// 정렬 후: [영업1팀, 영업1팀, 영업2팀] -> 영업1팀이 하나로 병합됨
+val employees = employeeRepository.findAll().sortedBy { it.department }
+```
+
+---
+
+### bundle 범위 오류가 발생합니다
+
+**증상**: `INVALID_PARAMETER_VALUE` 오류와 함께 bundle 관련 메시지가 표시됩니다.
+
+**원인 및 해결**:
+
+| 원인 | 해결 방법 |
+|------|----------|
+| repeat이 bundle 경계에 걸침 | bundle 범위가 repeat 영역 전체를 포함하도록 조정하세요 |
+| bundle이 중첩됨 | bundle은 서로 중첩될 수 없습니다. 범위를 분리하세요 |
+| bundle 범위 형식 오류 | `A1:B10` 같은 올바른 범위를 사용하세요 |
 
 ---
 
@@ -129,13 +158,7 @@ repeat으로 행이 확장될 때 수식 참조를 자동 조정하는 과정에
 
 아래 단계를 순서대로 확인하세요.
 
-**1단계: 스트리밍 모드 확인**
-
-```kotlin
-val config = TbegConfig(streamingMode = StreamingMode.ENABLED) // 기본값
-```
-
-**2단계: count 제공 여부 확인**
+**1단계: count 제공 여부 확인**
 
 count를 제공하면 데이터 이중 순회를 방지하여 성능이 개선됩니다.
 
@@ -145,7 +168,7 @@ items("employees", employeeCount) {
 }
 ```
 
-**3단계: 지연 로딩 사용**
+**2단계: 지연 로딩 사용**
 
 모든 데이터를 미리 로드하지 말고 Lambda를 활용하세요.
 
@@ -155,7 +178,7 @@ items("employees") {
 }
 ```
 
-**4단계: DB 스트리밍 사용**
+**3단계: DB 스트리밍 사용**
 
 JPA Stream 또는 MyBatis Cursor를 사용하여 DB에서 대용량 데이터를 스트리밍으로 처리하세요.
 

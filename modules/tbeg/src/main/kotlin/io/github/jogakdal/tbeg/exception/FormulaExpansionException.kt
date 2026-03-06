@@ -25,13 +25,13 @@ class FormulaExpansionException(
     companion object {
         private fun buildMessage(sheetName: String, cellRef: String, formula: String): String {
             return """
-                |수식 확장 실패: 시트 '$sheetName'의 셀 ${cellRef}에서 수식 '$formula'가 확장되지 않았습니다.
+                |Formula expansion failed: Formula '$formula' in cell $cellRef on sheet '$sheetName' could not be expanded.
                 |
-                |원인: repeat 문으로 행이 확장되었지만, 비연속적인 셀 참조가 Excel 함수의 인자 수 제한(255개)을 초과했습니다.
+                |Cause: Rows were expanded by repeat directive, but non-contiguous cell references exceeded Excel's function argument limit (255).
                 |
-                |해결 방법:
-                |1. 템플릿을 1행 1데이터 구조로 수정한다 (병합 셀로 인한 다중 행 레이아웃 사용 금지).
-                |2. 또는 수식 대신 DataProvider에서 미리 집계된 값을 제공한다.
+                |Resolution:
+                |1. Modify the template to use a one-row-per-data structure (avoid multi-row layouts caused by merged cells).
+                |2. Or provide pre-aggregated values from the DataProvider instead of using formulas.
             """.trimMargin()
         }
     }

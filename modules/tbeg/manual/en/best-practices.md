@@ -5,7 +5,8 @@
 ## Table of Contents
 1. [Template Design](#1-template-design)
 2. [Performance Optimization](#2-performance-optimization)
-3. [Error Prevention](#3-error-prevention)
+3. [Cell Merge and Bundle](#3-cell-merge-and-bundle)
+4. [Error Prevention](#4-error-prevention)
 
 ---
 
@@ -17,8 +18,8 @@ The `${repeat(...)}` marker can be placed anywhere in the workbook as long as it
 
 ```
 | A                                  | B               | C             |
-| ${repeat(employees, A2:C2, emp)}   |                 |               |  ← Marker
-| ${emp.name}                        | ${emp.position} | ${emp.salary} |  ← Repeat range
+| ${repeat(employees, A2:C2, emp)}   |                 |               |  <- Marker
+| ${emp.name}                        | ${emp.position} | ${emp.salary} |  <- Repeat range
 ```
 
 ---
@@ -31,7 +32,7 @@ When you place aggregate formulas such as `=SUM()` below the repeat area, the fo
 | A                               | B             |
 | ${repeat(items, A2:B2, item)}   |               |
 | ${item.name}                    | ${item.value} |
-| Total                            | =SUM(B2:B2)   |  ← Automatically expands to =SUM(B2:BN)
+| Total                           | =SUM(B2:B2)   |  <- Automatically expands to =SUM(B2:BN)
 ```
 
 ---
@@ -42,13 +43,13 @@ Design repeat ranges intuitively. Use one row per data record as the default, an
 
 **Recommended**:
 ```
-${repeat(employees, A2:C2, emp)}   ← One-row repetition
+${repeat(employees, A2:C2, emp)}   <- One-row repetition
 ${emp.name} | ${emp.position} | ${emp.salary}
 ```
 
 **For complex layouts**:
 ```
-${repeat(employees, A2:B3, emp)}   ← Two-row repetition
+${repeat(employees, A2:B3, emp)}   <- Two-row repetition
 Name: ${emp.name}  | Position: ${emp.position}
 Salary: ${emp.salary} |
 ```
@@ -82,7 +83,7 @@ When placing multiple repeat areas on the same sheet, ensure that no areas overl
 ```
 | A (employees) | B (employees) |
 | ...           | ...           |
-| A (departments) | B (departments) |  ← Placed below employees
+| A (departments) | B (departments) |  <- Placed below employees
 ```
 
 ---
@@ -167,7 +168,44 @@ fun generateLargeReport(): Path {
 
 ---
 
-## 3. Error Prevention
+## 3. Cell Merge and Bundle
+
+### Sort data when using merge markers
+
+The `${merge(item.field)}` marker automatically merges consecutive cells with the same value. Therefore, data must be pre-sorted by the merge key field to achieve the intended result.
+
+```
+Data: [Sales Team 1, Sales Team 2, Sales Team 1]  -> Sales Team 1 is split, so separate cells remain
+Data: [Sales Team 1, Sales Team 1, Sales Team 2]  -> Sales Team 1: 2 cells merged, Sales Team 2: 1 cell
+```
+
+```kotlin
+// Recommended: sort by merge key field
+val employees = employeeRepository.findAll()
+    .sortedBy { it.department }  // Sort by department
+
+items("employees", employees)
+```
+
+---
+
+### Use bundle to protect complex layouts
+
+In complex layouts where multiple repeat regions are stacked vertically, the default behavior is for upper region expansion to push lower regions down. If regions need to expand independently, wrap them with `${bundle(range)}`.
+
+```
+| A                                  | B             | C | D                                     | E              |
+| ${bundle(A1:B5)}                   |               |   | ${bundle(D1:E5)}                      |                |
+| ${repeat(employees, A3:B3, emp)}   |               |   | ${repeat(departments, D3:E3, dept)}   |                |
+| Name                               | Salary        |   | Department                            | Budget         |
+| ${emp.name}                        | ${emp.salary} |   | ${dept.name}                          | ${dept.budget} |
+```
+
+A bundle groups all elements within the range into a single unit so they are unaffected by expansion of other regions. The bundle range must fully contain the repeat region.
+
+---
+
+## 4. Error Prevention
 
 ### Use `THROW` mode during development
 

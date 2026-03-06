@@ -16,7 +16,9 @@
 8. [오른쪽 방향 반복](#8-오른쪽-방향-반복)
 9. [빈 컬렉션 처리](#9-빈-컬렉션-처리)
 10. [다국어 지원 (I18N)](#10-다국어-지원-i18n)
-11. [종합 예제 — 분기 매출 실적 보고서](#11-종합-예제--분기-매출-실적-보고서)
+11. [종합 예제 -- 분기 매출 실적 보고서](#11-종합-예제--분기-매출-실적-보고서)
+12. [자동 셀 병합 활용](#12-자동-셀-병합-활용)
+13. [요소 묶음 (Bundle)](#13-요소-묶음-bundle)
 
 > [!NOTE]
 > 이 문서의 예제는 `resources/templates/` 디렉토리에서 템플릿을 로드합니다.
@@ -52,9 +54,9 @@ Kotlin DSL을 사용한 가장 간편한 방법입니다.
 | 4 | 이름                               | 직급              | 연봉            |
 | 5 | ${emp.name}                      | ${emp.position} | ${emp.salary} |
 
-- **단일 값**: `${title}`, `${date}`, `${author}` → DataProvider의 `value()`로 제공
-- **반복 영역**: `${repeat(employees, A5:C5, emp)}` → DataProvider의 `items()`로 제공
-- **아이템 속성**: `${emp.name}`, `${emp.position}`, `${emp.salary}` → 각 아이템의 필드 참조
+- **단일 값**: `${title}`, `${date}`, `${author}` -> DataProvider의 `value()`로 제공
+- **반복 영역**: `${repeat(employees, A5:C5, emp)}` -> DataProvider의 `items()`로 제공
+- **아이템 속성**: `${emp.name}`, `${emp.position}`, `${emp.salary}` -> 각 아이템의 필드 참조
 
 #### 기본 사용법
 
@@ -143,8 +145,8 @@ ExcelGenerator().use { generator ->
 ```
 
 **동작 흐름:**
-1. `countEmployees()` 호출 → count만 먼저 조회 (가벼운 쿼리)
-2. `simpleDataProvider { ... }` 호출 → Provider 객체 생성 (컬렉션 데이터는 로드 안 함)
+1. `countEmployees()` 호출 -> count만 먼저 조회 (가벼운 쿼리)
+2. `simpleDataProvider { ... }` 호출 -> Provider 객체 생성 (컬렉션 데이터는 로드 안 함)
 3. `generator.generate(template, provider)` 호출
 4. 템플릿에서 `employees` 데이터가 필요한 시점에 Lambda 실행, DB 조회
 5. 생성된 Excel 바이트 배열을 파일로 저장
@@ -653,11 +655,11 @@ fun generateReport(departmentId: Long): ByteArray {
 
 ### 1.5 외부 API 연동
 
-마이크로서비스 아키텍처에서 다른 서비스의 API를 호출하여 데이터를 **페이지 단위로** 가져온 후 Excel로 변환하는 경우입니다.
+마이크로서비스 아키텍처에서 다른 서비스의 API를 호출하여 데이터를 **분할**하여 가져온 후 Excel로 변환하는 경우입니다.
 
-#### Spring Data Page 기반 Iterator
+#### Page 기반 Iterator
 
-Spring Data의 `Page<T>` 타입을 활용하여 페이징 API 응답을 Iterator로 변환합니다.
+Spring Data의 `Page` 인터페이스를 활용합니다.
 
 ```kotlin
 import org.springframework.data.domain.Page
@@ -669,16 +671,16 @@ class PagedApiIterator<T>(
 
     private var currentPage = 0
     private var currentIterator: Iterator<T> = emptyList<T>().iterator()
-    private var hasMorePages = true
+    private var hasMore = true
 
     override fun hasNext(): Boolean {
         if (currentIterator.hasNext()) return true
-        if (!hasMorePages) return false
+        if (!hasMore) return false
 
         // 다음 페이지 로드 (API 호출)
         val result = fetcher(currentPage++, pageSize)
         currentIterator = result.content.iterator()
-        hasMorePages = result.hasNext()
+        hasMore = result.hasNext()
 
         return currentIterator.hasNext()
     }
@@ -730,8 +732,11 @@ fun fetchEmployeesFromApi(page: Int, size: Int): Page<EmployeeDto> {
     //     .block() ?: throw Exception("API 호출 실패")
 
     // 예시용 더미 응답
-    val content = listOf(EmployeeDto("황용호", 8000), EmployeeDto("한용호", 6500))
-    return PageImpl(content, PageRequest.of(page, size), 100)
+    return PageImpl(
+        listOf(EmployeeDto("황용호", 8000), EmployeeDto("한용호", 6500)),
+        PageRequest.of(page, size),
+        100
+    )
 }
 
 fun main() {
@@ -760,7 +765,7 @@ fun main() {
 ```
 
 > [!NOTE]
-> Spring Data의 `Page<T>`는 0부터 시작하는 페이지 번호를 사용합니다. REST API에서 `Page`를 역직렬화할 때 `PageImpl`은 기본 생성자가 없으므로, `RestPageImpl` 등 커스텀 클래스를 사용하거나 `@JsonCreator`를 정의해야 합니다.
+> `Page`와 `PageRequest`는 Spring Data에서 제공하는 표준 페이징 인터페이스입니다. 마이크로서비스 간 페이징 API를 사용하는 경우 이 패턴을 활용할 수 있습니다.
 
 ---
 
@@ -973,8 +978,8 @@ import io.github.jogakdal.tbeg.ExcelGenerator
 
 fun main() {
     val data = mapOf(
-        "text" to "휴넷 홈페이지 바로가기",
-        "url" to "https://www.hunet.co.kr"
+        "text" to "홈페이지 바로가기",
+        "url" to "https://example.com"
     )
 
     ExcelGenerator().use { generator ->
@@ -1441,9 +1446,9 @@ fun buildI18nProvider(messageSource: MessageSource, locale: Locale) = simpleData
 
 ---
 
-## 11. 종합 예제 — 분기 매출 실적 보고서
+## 11. 종합 예제 -- 분기 매출 실적 보고서
 
-변수 치환, 이미지 삽입, 반복 데이터 확장, 수식 자동 조정, 조건부 서식 복제, 차트 데이터 반영을 하나의 보고서에서 활용하는 예제입니다.
+변수 치환, 이미지 삽입, 반복 데이터 확장, 수식 자동 조정, 조건부 서식 복제, 차트 데이터 반영, 자동 셀 병합, 요소 묶음을 하나의 보고서에서 활용하는 예제입니다.
 
 ### 템플릿
 
@@ -1453,11 +1458,13 @@ fun buildI18nProvider(messageSource: MessageSource, locale: Locale) = simpleData
 ![템플릿](../../src/main/resources/sample/screenshot_template.png)
 
 템플릿 구성:
-- **변수 마커**: `${reportTitle}`, `${period}`, `${author}`, `${reportDate}`
-- **이미지 마커**: `${image(logo)}`, `${image(ci)}`
-- **반복 마커**: `${repeat(depts, B7:G7, d)}` (부서별 실적), `${repeat(products, I7:K7, p)}` (제품 카테고리)
+- **변수 마커**: `${reportTitle}`, `${period}`, `${author}`, `${reportDate}`, `${subtitle_emp}`
+- **이미지 마커**: `${image(logo,,-1:0)}`, `${image(ci)}`
+- **반복 마커**: `${repeat(depts, B8:G8, d)}` (부서별 실적), `${repeat(products, I8:K8, p)}` (제품 카테고리), `${repeat(employees, B31:K31, emp)}` (직원별 실적)
+- **자동 병합 마커**: `${merge(emp.dept)}` (부서명 병합), `${merge(emp.team)}` (팀명 병합)
+- **요소 묶음 마커**: `${bundle(B30:K33)}` (직원 실적 영역을 독립 단위로 보호)
 - **수식**: SUM, AVERAGE (합계/평균 행), 셀 간 계산 (Profit = Revenue - Cost, Achievement = Revenue / Target)
-- **조건부 서식**: Achievement ≥ 100% → 초록, < 100% → 빨강 / Share ≥ 30% → 초록, < 30% → 빨강
+- **조건부 서식**: Achievement >= 100% -> 초록, < 100% -> 빨강 / Share >= 30% -> 초록, < 30% -> 빨강
 - **차트**: 부서별 Revenue/Cost/Profit 막대 차트, 제품 카테고리 파이 차트
 
 ### 코드
@@ -1471,6 +1478,10 @@ import java.time.LocalDate
 
 data class DeptResult(val deptName: String, val revenue: Long, val cost: Long, val target: Long)
 data class ProductCategory(val category: String, val revenue: Long)
+data class Employee(
+    val dept: String, val team: String, val name: String, val rank: String,
+    val revenue: Long, val cost: Long, val target: Long
+)
 
 fun main() {
     val data = simpleDataProvider {
@@ -1478,8 +1489,9 @@ fun main() {
         value("period", "Jan 2026 ~ Mar 2026")
         value("author", "Yongho Hwang")
         value("reportDate", LocalDate.now().toString())
-        image("logo", File("hunet_logo.png").readBytes())
-        image("ci", File("hunet_ci.png").readBytes())
+        value("subtitle_emp", "Employee Performance Details")
+        image("logo", File("logo.png").readBytes())
+        image("ci", File("ci.png").readBytes())
 
         items("depts") {
             listOf(
@@ -1499,6 +1511,22 @@ fun main() {
                 ProductCategory("Contents License", 15000),
             ).iterator()
         }
+
+        items("employees") {
+            listOf(
+                Employee("Common Platform", "Strategy", "Hwang Yongho", "Manager", 18000, 11000, 17000),
+                Employee("Common Platform", "Strategy", "Park Sungjun",  "Senior",  15000,  9000, 14000),
+                Employee("Common Platform", "Backend",  "Choi Changmin", "Senior",  12000,  7000, 13000),
+                Employee("Common Platform", "Backend",  "Kim Hyunkyung",  "Junior",   7000,  4000,  6000),
+                Employee("IT Strategy",     "Planning", "Byun Jaemyung","Manager", 20000, 12000, 20000),
+                Employee("IT Strategy",     "Planning", "Kim Minchul", "Senior",  11000,  6000, 12000),
+                Employee("IT Strategy",     "Analysis", "Kim Minhee",   "Senior",   7000,  4000,  8000),
+                Employee("Education Biz",   "Sales",    "Yoon Seojin",  "Manager", 35000, 22000, 30000),
+                Employee("Education Biz",   "Sales",    "Kang Minwoo",  "Senior",  28000, 18000, 25000),
+                Employee("Education Biz",   "Sales",    "Lim Soyeon",   "Junior",  15000, 10000, 15000),
+                Employee("Education Biz",   "Support",  "Oh Junhyeok",  "Senior",  17000, 11000, 20000),
+            ).iterator()
+        }
     }
 
     ExcelGenerator().use { generator ->
@@ -1513,17 +1541,156 @@ fun main() {
 ![결과](../../src/main/resources/sample/screenshot_result.png)
 
 TBEG이 자동으로 처리한 항목:
-- **변수 치환** — 제목, 기간, 작성자, 날짜
-- **이미지 삽입** — 로고, CI
-- **반복 데이터 확장** — 부서 5행, 제품 4행으로 확장
-- **수식 범위 자동 조정** — `SUM(C7:C7)` → `SUM(C7:C11)`, `AVERAGE(C7:C7)` → `AVERAGE(C7:C11)`
-- **조건부 서식 복제** — 달성률/점유율 색상이 모든 행에 적용
-- **차트 데이터 범위 반영** — 차트가 확장된 데이터 범위를 참조
+- **변수 치환** -- 제목, 기간, 작성자, 날짜, 직원 실적 소제목
+- **이미지 삽입** -- 로고, CI
+- **반복 데이터 확장** -- 부서 5행, 제품 4행, 직원 11행으로 확장
+- **자동 셀 병합** -- 같은 부서명/팀명이 연속된 셀을 자동 병합
+- **요소 묶음** -- 직원 실적 영역이 부서 실적 확장에 영향받지 않도록 보호
+- **수식 범위 자동 조정** -- `SUM(C8:C8)` -> `SUM(C8:C12)`, `AVERAGE(C8:C8)` -> `AVERAGE(C8:C12)`
+- **조건부 서식 복제** -- 달성률/점유율 색상이 모든 행에 적용
+- **차트 데이터 범위 반영** -- 차트가 확장된 데이터 범위를 참조
+
+---
+
+## 12. 자동 셀 병합 활용
+
+부서별 매출 보고서에서 같은 부서명을 자동으로 병합하는 예제입니다.
+
+### 템플릿 (dept_merge_template.xlsx)
+
+|   | A                                      | B               | C             | D              |
+|---|----------------------------------------|-----------------|---------------|----------------|
+| 1 | ${repeat(sales, A3:D3, s)}             |                 |               |                |
+| 2 | 부서                                     | 담당자             | 매출액           | 비고             |
+| 3 | ${merge(s.dept)}                       | ${s.name}       | ${s.amount}   | ${s.note}      |
+
+- **A3**: `${merge(s.dept)}`는 연속된 같은 부서명 셀을 자동 병합합니다
+- 나머지 열은 일반 필드로, 병합 없이 각 행에 개별 값이 출력됩니다
+
+### Kotlin 코드
+
+```kotlin
+import io.github.jogakdal.tbeg.ExcelGenerator
+
+data class SalesRecord(val dept: String, val name: String, val amount: Int, val note: String)
+
+fun main() {
+    // 병합 기준(dept)으로 정렬
+    val data = mapOf(
+        "sales" to listOf(
+            SalesRecord("공통플랫폼팀", "황용호", 12000, ""),
+            SalesRecord("공통플랫폼팀", "한용호", 9500, ""),
+            SalesRecord("공통플랫폼팀", "홍용호", 8000, "신규"),
+            SalesRecord("IT전략기획팀", "김철수", 15000, ""),
+            SalesRecord("IT전략기획팀", "이영희", 11000, ""),
+        )
+    )
+
+    ExcelGenerator().use { generator ->
+        val template = object {}.javaClass.getResourceAsStream("/templates/dept_merge_template.xlsx")
+            ?: throw IllegalStateException("템플릿을 찾을 수 없습니다")
+
+        val bytes = generator.generate(template, data)
+        File("dept_merge_output.xlsx").writeBytes(bytes)
+    }
+}
+```
+
+### 결과
+
+<table>
+<tr><th></th><th>A</th><th>B</th><th>C</th><th>D</th></tr>
+<tr><td>1</td><td></td><td></td><td></td><td></td></tr>
+<tr><td>2</td><td>부서</td><td>담당자</td><td>매출액</td><td>비고</td></tr>
+<tr><td>3</td><td rowspan="3">공통플랫폼팀</td><td>황용호</td><td>12,000</td><td></td></tr>
+<tr><td>4</td><td>한용호</td><td>9,500</td><td></td></tr>
+<tr><td>5</td><td>홍용호</td><td>8,000</td><td>신규</td></tr>
+<tr><td>6</td><td rowspan="2">IT전략기획팀</td><td>김철수</td><td>15,000</td><td></td></tr>
+<tr><td>7</td><td>이영희</td><td>11,000</td><td></td></tr>
+</table>
+
+- A3:A5가 "공통플랫폼팀"으로 병합, A6:A7이 "IT전략기획팀"으로 병합됩니다
+- 여러 열에 `merge`를 적용하면 각 열이 독립적으로 병합됩니다
+
+> [!IMPORTANT]
+> `merge` 마커는 연속된 같은 값만 병합합니다. 데이터를 병합 기준 필드로 미리 정렬하세요.
+
+---
+
+## 13. 요소 묶음 (Bundle)
+
+독립적인 두 repeat 영역이 서로의 확장에 영향받지 않도록 bundle로 묶는 예제입니다.
+
+### 템플릿 (bundle_template.xlsx)
+
+|   | A                                      | B             | C | D                                       | E              |
+|---|----------------------------------------|---------------|---|-----------------------------------------|----------------|
+| 1 | ${bundle(A1:B10)}                      |               |   | ${bundle(D1:E10)}                       |                |
+| 2 | ${repeat(employees, A4:B4, emp)}       |               |   | ${repeat(departments, D4:E4, dept)}     |                |
+| 3 | 이름                                     | 연봉            |   | 부서명                                     | 예산             |
+| 4 | ${emp.name}                            | ${emp.salary} |   | ${dept.name}                            | ${dept.budget} |
+
+- **A1**: `${bundle(A1:B10)}`으로 왼쪽 영역을 묶음
+- **D1**: `${bundle(D1:E10)}`으로 오른쪽 영역을 묶음
+- 각 bundle 내부의 repeat은 독립적으로 확장되며, 다른 bundle에 영향을 주지 않습니다
+
+### Kotlin 코드
+
+```kotlin
+import io.github.jogakdal.tbeg.ExcelGenerator
+
+data class Employee(val name: String, val salary: Int)
+data class Department(val name: String, val budget: Int)
+
+fun main() {
+    val data = mapOf(
+        "employees" to listOf(
+            Employee("황용호", 8000),
+            Employee("한용호", 6500),
+            Employee("홍용호", 4500),
+            Employee("김철수", 5500),
+            Employee("이영희", 7000),
+        ),
+        "departments" to listOf(
+            Department("공통플랫폼팀", 50000),
+            Department("IT전략기획팀", 30000),
+        )
+    )
+
+    ExcelGenerator().use { generator ->
+        val template = object {}.javaClass.getResourceAsStream("/templates/bundle_template.xlsx")
+            ?: throw IllegalStateException("템플릿을 찾을 수 없습니다")
+
+        val bytes = generator.generate(template, data)
+        File("bundle_output.xlsx").writeBytes(bytes)
+    }
+}
+```
+
+### 결과
+
+|   | A    | B     | C | D        | E      |
+|---|------|-------|---|----------|--------|
+| 1 |      |       |   |          |        |
+| 2 |      |       |   |          |        |
+| 3 | 이름   | 연봉    |   | 부서명      | 예산     |
+| 4 | 황용호  | 8,000 |   | 공통플랫폼팀   | 50,000 |
+| 5 | 한용호  | 6,500 |   | IT전략기획팀  | 30,000 |
+| 6 | 홍용호  | 4,500 |   |          |        |
+| 7 | 김철수  | 5,500 |   |          |        |
+| 8 | 이영희  | 7,000 |   |          |        |
+
+- 직원(5명)과 부서(2개)가 각각 독립적으로 확장되었습니다
+- bundle이 없으면 직원 영역의 확장으로 부서 영역도 밀려나는 반면, bundle로 보호되어 제자리를 유지합니다
+
+> [!NOTE]
+> bundle 범위는 그 안에 포함된 repeat 영역 전체를 감싸야 합니다. repeat이 bundle 경계에 걸치면 오류가 발생합니다.
 
 ---
 
 ## 다음 단계
 
+- [기본 예제](./basic-examples.md) - 기초 사용법
 - [Spring Boot 예제](./spring-boot-examples.md) - Spring Boot 환경 통합
 - [설정 옵션 레퍼런스](../reference/configuration.md) - 상세 설정
 - [API 레퍼런스](../reference/api-reference.md) - API 상세

@@ -56,8 +56,24 @@ data class MarkerDefinition(
             )
         )
 
+        /** merge 마커 정의 */
+        val MERGE = MarkerDefinition(
+            name = "merge",
+            parameters = listOf(
+                ParameterDef("field", required = true)
+            )
+        )
+
+        /** bundle 마커 정의 */
+        val BUNDLE = MarkerDefinition(
+            name = "bundle",
+            parameters = listOf(
+                ParameterDef("range", required = true)
+            )
+        )
+
         /** 등록된 모든 마커 정의 */
-        val ALL = listOf(REPEAT, IMAGE, SIZE)
+        val ALL = listOf(REPEAT, IMAGE, SIZE, MERGE, BUNDLE)
 
         /** 이름으로 마커 정의 조회 */
         fun byName(name: String): MarkerDefinition? =

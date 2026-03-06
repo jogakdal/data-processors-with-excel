@@ -2,7 +2,6 @@
 
 package io.github.jogakdal.tbeg.engine
 
-import io.github.jogakdal.tbeg.StreamingMode
 import io.github.jogakdal.tbeg.engine.core.CellCoord
 import io.github.jogakdal.tbeg.engine.core.CellArea
 import io.github.jogakdal.tbeg.engine.core.CollectionSizes
@@ -115,8 +114,7 @@ class ForwardReferenceTest {
             "mergedEmployees" to employees
         )
 
-        // SXSSF 모드로 처리
-        val engine = TemplateRenderingEngine(StreamingMode.ENABLED)
+        val engine = TemplateRenderingEngine()
         val resultBytes = engine.process(template, data)
 
         // 결과 검증
@@ -144,13 +142,13 @@ class ForwardReferenceTest {
         // 결과 파일 저장
         val samplesDir = Path.of("build/samples/forward-reference")
         java.nio.file.Files.createDirectories(samplesDir)
-        samplesDir.resolve("sxssf_formula_below_repeat.xlsx").toFile().writeBytes(resultBytes)
+        samplesDir.resolve("formula_below_repeat.xlsx").toFile().writeBytes(resultBytes)
 
-        println("✅ 수식이 repeat 영역 아래에 있는 경우 SXSSF에서 정상 동작")
+        println("✅ 수식이 repeat 영역 아래에 있는 경우 정상 동작")
     }
 
     @Test
-    fun `TBEG - 수식이 repeat 영역 위에 있는 경우 (아래 행 참조) - XSSF vs SXSSF 비교`() {
+    fun `TBEG - 수식이 repeat 영역 위에 있는 경우 (아래 행 참조)`() {
         // 프로그래밍 방식으로 템플릿 생성하여 테스트
         val templateBytes = createForwardRefTemplate()
 
@@ -163,46 +161,27 @@ class ForwardReferenceTest {
         )
         val data = mapOf("employees" to employees)
 
-        // XSSF 모드
-        val xssfEngine = TemplateRenderingEngine(StreamingMode.DISABLED)
-        val xssfResult = xssfEngine.process(ByteArrayInputStream(templateBytes), data)
-
-        // SXSSF 모드
-        val sxssfEngine = TemplateRenderingEngine(StreamingMode.ENABLED)
-        val sxssfResult = sxssfEngine.process(ByteArrayInputStream(templateBytes), data)
+        val engine = TemplateRenderingEngine()
+        val result = engine.process(ByteArrayInputStream(templateBytes), data)
 
         // 결과 파일 저장
         val samplesDir = Path.of("build/samples/forward-reference")
         java.nio.file.Files.createDirectories(samplesDir)
-        samplesDir.resolve("xssf_forward_ref.xlsx").toFile().writeBytes(xssfResult)
-        samplesDir.resolve("sxssf_forward_ref.xlsx").toFile().writeBytes(sxssfResult)
+        samplesDir.resolve("forward_ref.xlsx").toFile().writeBytes(result)
 
         // 상세 결과 출력
-        println("  === XSSF 결과 ===")
-        printExcelContent(xssfResult)
-        println("  === SXSSF 결과 ===")
-        printExcelContent(sxssfResult)
+        println("  === 결과 ===")
+        printExcelContent(result)
 
-        // 결과 비교
-        val xssfFormula = extractFormula(xssfResult, 0, 0)  // A1
-        val sxssfFormula = extractFormula(sxssfResult, 0, 0)  // A1
+        // 결과 검증
+        val formula = extractFormula(result, 0, 0)  // A1
 
-        println("  XSSF A1 수식: $xssfFormula")
-        println("  SXSSF A1 수식: $sxssfFormula")
-
-        // 두 모드의 수식이 동일해야 함
-        assertEquals(xssfFormula, sxssfFormula, "XSSF와 SXSSF의 수식 결과가 동일해야 함")
+        println("  A1 수식: $formula")
 
         // 수식이 B3:B7로 확장되어야 함 (5개 데이터)
         val expectedFormula = "SUM(B3:B7)"
-        if (sxssfFormula == expectedFormula) {
-            println("✅ 아래 행 참조 수식이 올바르게 확장됨: $sxssfFormula")
-        } else {
-            println("⚠️ 수식이 확장되지 않음!")
-            println("   기대값: $expectedFormula")
-            println("   실제값: $sxssfFormula")
-            println("   이것이 'SXSSF 아래 행 참조 수식 제한'의 실제 사례입니다.")
-        }
+        assertEquals(expectedFormula, formula, "아래 행 참조 수식이 올바르게 확장되어야 함")
+        println("✅ 아래 행 참조 수식이 올바르게 확장됨: $formula")
     }
 
     private fun printExcelContent(bytes: ByteArray) {
@@ -311,7 +290,7 @@ class ForwardReferenceTest {
         if (expansion != null) {
             println("  ✅ expansion found: rowExpansion=${expansion.rowExpansion}, itemCount=${expansion.itemCount}")
         } else {
-            println("  ❌ expansion is null!")
+            println("  [X] expansion is null!")
         }
 
         // FormulaAdjuster.expandToRangeWithCalculator 테스트
@@ -361,32 +340,23 @@ class ForwardReferenceTest {
         )
         val data = mapOf("employees" to employees)
 
-        // XSSF 모드
-        val xssfEngine = TemplateRenderingEngine(StreamingMode.DISABLED)
-        val xssfResult = xssfEngine.process(ByteArrayInputStream(templateBytes), data)
-
-        // SXSSF 모드
-        val sxssfEngine = TemplateRenderingEngine(StreamingMode.ENABLED)
-        val sxssfResult = sxssfEngine.process(ByteArrayInputStream(templateBytes), data)
+        val engine = TemplateRenderingEngine()
+        val result = engine.process(ByteArrayInputStream(templateBytes), data)
 
         // 결과 파일 저장
         val samplesDir = Path.of("build/samples/forward-reference")
         java.nio.file.Files.createDirectories(samplesDir)
-        samplesDir.resolve("xssf_range_below_repeat.xlsx").toFile().writeBytes(xssfResult)
-        samplesDir.resolve("sxssf_range_below_repeat.xlsx").toFile().writeBytes(sxssfResult)
+        samplesDir.resolve("range_below_repeat.xlsx").toFile().writeBytes(result)
 
         // 결과 확인 (수식은 7행에 위치해야 함: 마커1행 + 데이터5행 + 합계1행 = 7행)
-        val xssfFormula = extractFormula(xssfResult, 6, 1)  // B7
-        val sxssfFormula = extractFormula(sxssfResult, 6, 1)  // B7
+        val formula = extractFormula(result, 6, 1)  // B7
 
         println("  === 범위 참조가 repeat 영역 아래에 있는 경우 ===")
-        println("  XSSF B7 수식: $xssfFormula")
-        println("  SXSSF B7 수식: $sxssfFormula")
+        println("  B7 수식: $formula")
 
         // 수식이 B2:B6으로 확장되어야 함 (5개 데이터)
         val expectedFormula = "SUM(B2:B6)"
-        assertEquals(expectedFormula, xssfFormula, "XSSF 수식이 확장되어야 함")
-        assertEquals(expectedFormula, sxssfFormula, "SXSSF 수식이 확장되어야 함")
+        assertEquals(expectedFormula, formula, "수식이 확장되어야 함")
 
         println("✅ 범위 참조 수식이 repeat 영역 아래에서 올바르게 확장됨")
     }
@@ -421,7 +391,7 @@ class ForwardReferenceTest {
         )
         val data = mapOf("employees" to employees)
 
-        val engine = TemplateRenderingEngine(StreamingMode.ENABLED)
+        val engine = TemplateRenderingEngine()
         val resultBytes = engine.process(ByteArrayInputStream(templateBytes), data)
 
         val relativeFormula = extractFormula(resultBytes, 0, 0)
@@ -466,7 +436,7 @@ class ForwardReferenceTest {
         )
         val data = mapOf("employees" to employees)
 
-        val engine = TemplateRenderingEngine(StreamingMode.ENABLED)
+        val engine = TemplateRenderingEngine()
         val resultBytes = engine.process(ByteArrayInputStream(templateBytes), data)
 
         val rowAbsFormula = extractFormula(resultBytes, 0, 0)
@@ -509,7 +479,7 @@ class ForwardReferenceTest {
         )
         val data = mapOf("employees" to employees)
 
-        val engine = TemplateRenderingEngine(StreamingMode.ENABLED)
+        val engine = TemplateRenderingEngine()
         val resultBytes = engine.process(ByteArrayInputStream(templateBytes), data)
 
         val formula = extractFormula(resultBytes, 0, 0)

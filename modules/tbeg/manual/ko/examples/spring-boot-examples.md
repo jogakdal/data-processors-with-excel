@@ -19,7 +19,7 @@
 // build.gradle.kts
 
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.1.3")
+    implementation("io.github.jogakdal:tbeg:1.2.0")
 }
 ```
 
@@ -30,7 +30,7 @@ dependencies {
 
 ```yaml
 tbeg:
-  streaming-mode: enabled           # enabled, disabled
+  # streaming-mode: deprecated (1.2.0부터 값이 무시됩니다)
   file-naming-mode: timestamp       # none, timestamp
   timestamp-format: yyyyMMdd_HHmmss
   file-conflict-policy: sequence    # error, sequence

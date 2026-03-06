@@ -3,7 +3,6 @@ package io.github.jogakdal.tbeg.spring
 import io.github.jogakdal.tbeg.ExcelGenerator
 import io.github.jogakdal.tbeg.TbegConfig
 import io.github.jogakdal.tbeg.SimpleDataProvider
-import io.github.jogakdal.tbeg.StreamingMode
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -31,9 +30,6 @@ class TbegAutoConfigurationTest {
             val generator = context.getBean(ExcelGenerator::class.java)
             assertNotNull(generator)
 
-            val config = context.getBean(TbegConfig::class.java)
-            assertEquals(StreamingMode.ENABLED, config.streamingMode)
-
             generator.close()
         }
     }
@@ -42,14 +38,12 @@ class TbegAutoConfigurationTest {
     fun `properties should be applied to config`() {
         contextRunner
             .withPropertyValues(
-                "hunet.tbeg.streaming-mode=enabled",
                 "hunet.tbeg.timestamp-format=yyyy-MM-dd",
                 "hunet.tbeg.progress-report-interval=200"
             )
             .run { context ->
                 val config = context.getBean(TbegConfig::class.java)
 
-                assertEquals(StreamingMode.ENABLED, config.streamingMode)
                 assertEquals("yyyy-MM-dd", config.timestampFormat)
                 assertEquals(200, config.progressReportInterval)
 
@@ -65,7 +59,6 @@ class TbegAutoConfigurationTest {
                 val config = context.getBean(TbegConfig::class.java)
 
                 // 커스텀 설정이 적용되어야 함
-                assertEquals(StreamingMode.ENABLED, config.streamingMode)
                 assertEquals(500, config.progressReportInterval)
 
                 context.getBean(ExcelGenerator::class.java).close()
@@ -121,7 +114,6 @@ class TbegAutoConfigurationTest {
     class CustomTbegConfig {
         @Bean
         fun tbegConfig(): TbegConfig = TbegConfig(
-            streamingMode = StreamingMode.ENABLED,
             progressReportInterval = 500
         )
     }

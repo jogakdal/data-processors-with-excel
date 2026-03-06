@@ -2,23 +2,42 @@
 
 # TBEG Migration Guide
 
-## 1.0.x to 1.1.0
+## 1.1.x to 1.2.0
 
-### Class Renaming
+### StreamingMode Removed
 
-`ExcelGeneratorConfig` has been renamed to `TbegConfig`. The old name is still available as a type alias, so existing code continues to work.
+Starting from 1.2.0, TBEG always operates in streaming mode. The existing `StreamingMode.DISABLED` setting is ignored.
 
-**Recommended**: Migrate to the new name. The type alias may be removed in a future release.
+**Migration:**
+- `TbegConfig(streamingMode = StreamingMode.DISABLED)` -> `TbegConfig()` (or `TbegConfig.default()`)
+- `TbegConfig.forSmallData()` -> `TbegConfig.default()`
+- Spring setting `streaming-mode: disabled` -> Remove the setting
+- `TemplateRenderingEngine(StreamingMode.xxx)` -> `TemplateRenderingEngine()`
+
+The deprecated APIs are retained for backward compatibility but will be removed in a future version.
+
+---
+
+## 1.1.1 to 1.1.2
+
+### Bug Fixes
+
+Version 1.1.2 is a bug fix release for non-repeat area handling and cross-sheet marker grouping.
+
+### How to Upgrade
+
+Simply update the dependency version. There are no API changes.
 
 ```kotlin
-// Old code (works but not recommended)
-val config = ExcelGeneratorConfig(streamingMode = StreamingMode.ENABLED)
-
-// Recommended
-val config = TbegConfig(streamingMode = StreamingMode.ENABLED)
+// build.gradle.kts
+dependencies {
+    implementation("io.github.jogakdal:tbeg:1.1.2")
+}
 ```
 
 ---
+
+## 1.0.x to 1.1.0
 
 ### New Features
 
@@ -47,7 +66,7 @@ See: [Template Syntax - Multiple Repeat Regions](./reference/template-syntax.md#
 Formulas referencing repeat areas on other sheets are automatically expanded.
 
 ```
-=SUM(Sheet2!B3:B3) → =SUM(Sheet2!B3:B5)  // When repeat on Sheet2 expanded by 3 rows
+=SUM(Sheet2!B3:B3) -> =SUM(Sheet2!B3:B5)  // When repeat on Sheet2 expanded by 3 rows
 ```
 
 See: [Template Syntax - Automatic Adjustment of Related Elements](./reference/template-syntax.md#28-automatic-adjustment-of-related-elements)
@@ -83,4 +102,5 @@ dependencies {
 ## Next Steps
 
 - [Changelog](../CHANGELOG.md) - Full version history
+- [Best Practices](./best-practices.md) - Tips for using the latest features
 - [User Guide](./user-guide.md) - How to use TBEG

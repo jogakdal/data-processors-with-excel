@@ -1,8 +1,6 @@
 package io.github.jogakdal.tbeg.benchmark
 
 import io.github.jogakdal.tbeg.ExcelGenerator
-import io.github.jogakdal.tbeg.TbegConfig
-import io.github.jogakdal.tbeg.StreamingMode
 import io.github.jogakdal.tbeg.simpleDataProvider
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.ByteArrayInputStream
@@ -43,22 +41,11 @@ object PerformanceBenchmark {
         val rowCounts = listOf(1_000, 10_000, 30_000, 50_000, 100_000)
 
         println("\n" + "=" .repeat(60))
-        println("SXSSF (스트리밍) 모드")
+        println("벤치마크 실행")
         println("=" .repeat(60))
 
         ExcelGenerator().use { generator ->
             for (count in rowCounts) {
-                runBenchmark(generator, templateBytes, outputDir, count)
-            }
-        }
-
-        println("\n" + "=" .repeat(60))
-        println("XSSF (비스트리밍) 모드 - 메모리 제한으로 10,000행까지만")
-        println("=" .repeat(60))
-
-        val xssfConfig = TbegConfig(streamingMode = StreamingMode.DISABLED)
-        ExcelGenerator(xssfConfig).use { generator ->
-            for (count in rowCounts.filter { it <= 10_000 }) {
                 runBenchmark(generator, templateBytes, outputDir, count)
             }
         }

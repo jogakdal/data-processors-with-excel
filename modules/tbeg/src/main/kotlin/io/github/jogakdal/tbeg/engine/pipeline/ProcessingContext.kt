@@ -68,7 +68,7 @@ internal class ProcessingContext(
         internal set
 
     /**
-     * 시트별 repeat 확장 정보 (SXSSF 차트 범위 조정용).
+     * 시트별 repeat 확장 정보 (차트 범위 조정용).
      * Key: 시트 이름, Value: 해당 시트의 repeat 확장 정보 목록
      * RenderingStrategy가 설정하고 ChartRestoreProcessor가 사용한다.
      */

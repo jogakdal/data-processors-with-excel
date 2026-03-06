@@ -7,6 +7,7 @@
 4. [파일로 저장](#4-파일로-저장)
 5. [암호 설정](#5-암호-설정)
 6. [문서 메타데이터](#6-문서-메타데이터)
+7. [자동 셀 병합](#7-자동-셀-병합)
 
 ---
 
@@ -182,7 +183,7 @@ fun main() {
 
     val provider = simpleDataProvider {
         value("company", "(주)휴넷")
-        value("address", "서울시 강남구")
+        value("address", "서울시 구로구")
         image("logo", logoBytes)
     }
 
@@ -209,7 +210,7 @@ public class WithLogo {
 
         SimpleDataProvider provider = SimpleDataProvider.builder()
             .value("company", "(주)휴넷")
-            .value("address", "서울시 강남구")
+            .value("address", "서울시 구로구")
             .image("logo", logoBytes)
             .build();
 
@@ -447,6 +448,53 @@ public class WithMetadata {
 | company | 회사 | 파일 > 정보 > 회사 |
 | manager | 관리자 | 파일 > 정보 > 관리자 |
 | created | 작성 일시 | 파일 > 정보 > 만든 날짜 |
+
+---
+
+## 7. 자동 셀 병합
+
+반복 데이터에서 연속된 같은 값의 셀을 자동으로 병합합니다.
+
+### 템플릿 (merge_report.xlsx)
+
+|   | A                    | B           | C           | D                                |
+|---|----------------------|-------------|-------------|----------------------------------|
+| 1 | 부서                   | 이름          | 직급          | ${repeat(employees, A2:C2, emp)} |
+| 2 | ${merge(emp.dept)}   | ${emp.name} | ${emp.rank} |                                  |
+
+### Kotlin 코드
+
+```kotlin
+val data = mapOf(
+    "employees" to listOf(
+        mapOf("dept" to "영업부", "name" to "황용호", "rank" to "사원"),
+        mapOf("dept" to "영업부", "name" to "한용호", "rank" to "대리"),
+        mapOf("dept" to "개발부", "name" to "홍용호", "rank" to "과장"),
+        mapOf("dept" to "개발부", "name" to "허용호", "rank" to "사원"),
+        mapOf("dept" to "개발부", "name" to "김용호", "rank" to "대리"),
+    )
+)
+
+ExcelGenerator().use { generator ->
+    val result = generator.generate(templateStream, data)
+    File("merge_report.xlsx").writeBytes(result)
+}
+```
+
+### 결과
+
+<table>
+  <tr><th></th><th>A</th><th>B</th><th>C</th></tr>
+  <tr><td>1</td><td>부서</td><td>이름</td><td>직급</td></tr>
+  <tr><td>2</td><td rowspan="2">영업부</td><td>황용호</td><td>사원</td></tr>
+  <tr><td>3</td><td>한용호</td><td>대리</td></tr>
+  <tr><td>4</td><td rowspan="3">개발부</td><td>홍용호</td><td>과장</td></tr>
+  <tr><td>5</td><td>허용호</td><td>사원</td></tr>
+  <tr><td>6</td><td>김용호</td><td>대리</td></tr>
+</table>
+
+> A2:A3이 "영업부", A4:A6이 "개발부"로 자동 병합됩니다.
+> 데이터가 병합 기준(부서)으로 사전 정렬되어 있어야 합니다.
 
 ---
 

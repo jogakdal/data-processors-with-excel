@@ -309,7 +309,7 @@ internal class ChartProcessor {
     }
 
     /**
-     * drawing 파일 경로 → 시트 이름 매핑을 구축한다.
+     * drawing 파일 경로 -> 시트 이름 매핑을 구축한다.
      *
      * drawing rels에서 차트 참조를 추출하고, 해당 차트 XML의 수식에서 시트 이름을 파싱한다.
      */
@@ -323,12 +323,12 @@ internal class ChartProcessor {
                 .toList()
 
             for (target in chartTargets) {
-                // Target: "../charts/chart1.xml" → "/xl/charts/chart1.xml"
+                // Target: "../charts/chart1.xml" -> "/xl/charts/chart1.xml"
                 val chartPath = "/xl/charts/" + target.substringAfterLast("/")
                 val chartBytes = chartInfo.chartFiles[chartPath] ?: continue
                 val sheetName = extractSheetNameFromChartXml(String(chartBytes, Charsets.UTF_8)) ?: continue
 
-                // relsPath: "/xl/drawings/_rels/drawing1.xml.rels" → drawingPath: "/xl/drawings/drawing1.xml"
+                // relsPath: "/xl/drawings/_rels/drawing1.xml.rels" -> drawingPath: "/xl/drawings/drawing1.xml"
                 val drawingPath = "/xl/drawings/" + relsPath.substringAfterLast("/_rels/").removeSuffix(".rels")
                 put(drawingPath, sheetName)
                 break  // 같은 drawing 내 차트는 같은 시트

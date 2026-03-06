@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * 특징:
  * - 토큰 구분자 커스터마이징 (기본: "%{", "}%")
- * - 가변 파라미터 전달 (단일 값 / Collection ⇒ Resolver 에 List 로 전달)
+ * - 가변 파라미터 전달 (단일 값 / Collection => Resolver 에 List 로 전달)
  * - 대소문자 무시 옵션 (ignoreCase=true) 지원 (단, 충돌 키 존재 시 예외)
  * - 미등록 토큰 무시 옵션(ignoreMissing) 및 기본값 문법 %{token|fallback}% 지원
  * - Spring 환경에서는 `VariableResolverRegistry` 다중 빈 자동 수집

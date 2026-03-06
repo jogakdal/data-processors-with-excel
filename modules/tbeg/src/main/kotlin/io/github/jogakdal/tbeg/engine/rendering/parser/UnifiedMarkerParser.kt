@@ -89,6 +89,8 @@ object UnifiedMarkerParser {
             "repeat" -> convertRepeatMarker(marker)
             "image" -> convertImageMarker(marker)
             "size" -> convertSizeMarker(marker)
+            "merge" -> convertMergeMarker(marker)
+            "bundle" -> convertBundleMarker(marker)
             else -> CellContent.StaticString(marker.originalText)
         }
     }
@@ -129,6 +131,36 @@ object UnifiedMarkerParser {
         }
 
         return CellContent.StaticString(text)
+    }
+
+    /**
+     * bundle 마커를 CellContent.BundleMarker로 변환 (검증 포함)
+     */
+    private fun convertBundleMarker(marker: ParsedMarker): CellContent.BundleMarker {
+        val range = marker.require("range")
+        validateRange(range, "range", marker.originalText)
+        return CellContent.BundleMarker(range = range, originalText = marker.originalText)
+    }
+
+    /**
+     * merge 마커를 CellContent.MergeField로 변환 (검증 포함)
+     */
+    private fun convertMergeMarker(marker: ParsedMarker): CellContent.MergeField {
+        val field = marker.require("field")
+
+        val dotIndex = field.indexOf('.')
+        if (dotIndex < 0) {
+            throw MarkerValidationException(
+                "Parameter 'field' must be in 'item.field' format. " +
+                "Input: '$field', Marker: ${marker.originalText}"
+            )
+        }
+
+        return CellContent.MergeField(
+            itemVariable = field.substring(0, dotIndex),
+            fieldPath = field.substring(dotIndex + 1),
+            originalText = marker.originalText
+        )
     }
 
     // === 검증 패턴 ===
@@ -214,8 +246,8 @@ object UnifiedMarkerParser {
     private fun validateDirection(value: String, originalText: String) {
         if (value.uppercase() !in VALID_DIRECTIONS) {
             throw MarkerValidationException(
-                "direction 파라미터는 DOWN 또는 RIGHT만 허용됩니다. " +
-                "입력값: '$value', 마커: $originalText"
+                "Parameter 'direction' only accepts DOWN or RIGHT. " +
+                "Input: '$value', Marker: $originalText"
             )
         }
     }
@@ -224,8 +256,8 @@ object UnifiedMarkerParser {
         // 셀 범위 패턴 또는 Named Range(식별자) 허용
         if (!CELL_RANGE_PATTERN.matches(value) && !IDENTIFIER_PATTERN.matches(value)) {
             throw MarkerValidationException(
-                "$paramName 파라미터는 셀 범위(예: A1:B2) 또는 Named Range 형식이어야 합니다. " +
-                "입력값: '$value', 마커: $originalText"
+                "Parameter '$paramName' must be a cell range (e.g., A1:B2) or Named Range format. " +
+                "Input: '$value', Marker: $originalText"
             )
         }
     }
@@ -233,8 +265,8 @@ object UnifiedMarkerParser {
     private fun validateIdentifier(value: String, paramName: String, originalText: String) {
         if (!IDENTIFIER_PATTERN.matches(value)) {
             throw MarkerValidationException(
-                "$paramName 파라미터는 유효한 식별자(영문, 숫자, 언더스코어)여야 합니다. " +
-                "입력값: '$value', 마커: $originalText"
+                "Parameter '$paramName' must be a valid identifier (alphanumeric and underscores). " +
+                "Input: '$value', Marker: $originalText"
             )
         }
     }
@@ -242,8 +274,8 @@ object UnifiedMarkerParser {
     private fun validateSizeSpec(value: String, originalText: String) {
         if (!SIZE_SPEC_PATTERN.matches(value)) {
             throw MarkerValidationException(
-                "size 파라미터는 fit, original, 또는 숫자:숫자 형식이어야 합니다. " +
-                "입력값: '$value', 마커: $originalText"
+                "Parameter 'size' must be 'fit', 'original', or 'number:number' format. " +
+                "Input: '$value', Marker: $originalText"
             )
         }
     }

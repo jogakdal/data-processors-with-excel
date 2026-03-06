@@ -19,7 +19,7 @@ io.github.jogakdal.tbeg.TbegConfig
 
 | 옵션                        | 타입                    | 기본값                 | 설명                       |
 |---------------------------|-----------------------|---------------------|--------------------------|
-| `streamingMode`           | `StreamingMode`       | `ENABLED`           | 스트리밍 모드 설정               |
+| ~~`streamingMode`~~       | `StreamingMode`       | `ENABLED`           | **deprecated** -- 값이 무시됩니다 |
 | `fileNamingMode`          | `FileNamingMode`      | `TIMESTAMP`         | 파일명 생성 모드                |
 | `timestampFormat`         | `String`              | `"yyyyMMdd_HHmmss"` | 파일명 타임스탬프 형식             |
 | `fileConflictPolicy`      | `FileConflictPolicy`  | `SEQUENCE`          | 파일명 충돌 시 처리 정책           |
@@ -28,22 +28,19 @@ io.github.jogakdal.tbeg.TbegConfig
 | `pivotIntegerFormatIndex` | `Short`               | `3`                 | 정수 숫자 서식 인덱스 (`#,##0`)   |
 | `pivotDecimalFormatIndex` | `Short`               | `4`                 | 소수 숫자 서식 인덱스 (`#,##0.00`) |
 | `missingDataBehavior`     | `MissingDataBehavior` | `WARN`              | 데이터 누락 시 동작              |
+| `imageUrlCacheTtlSeconds` | `Long`                | `0`                 | 이미지 URL 캐시 TTL (초, 0=캐싱 안 함) |
 
 ---
 
 ### 옵션 상세
 
-#### streamingMode
+#### streamingMode (deprecated)
 
-스트리밍 모드를 설정합니다.
-
-| 값          | 설명                               |
-|------------|----------------------------------|
-| `ENABLED`  | 메모리 효율적, 대용량 데이터에 최적화 (기본값)      |
-| `DISABLED` | POI 원본 API 사용, shiftRows 기반 행 삽입 |
+> **deprecated**: 1.2.0부터 항상 스트리밍 모드로 동작합니다. 이 옵션은 무시됩니다.
 
 ```kotlin
-TbegConfig(streamingMode = StreamingMode.ENABLED)
+// deprecated -- 설정할 필요 없음
+// TbegConfig(streamingMode = StreamingMode.ENABLED)
 ```
 
 #### fileNamingMode
@@ -131,6 +128,22 @@ TbegConfig(
 TbegConfig(missingDataBehavior = MissingDataBehavior.THROW)
 ```
 
+#### imageUrlCacheTtlSeconds
+
+이미지 데이터로 URL을 지정했을 때, 다운로드 결과를 호출 간에 캐싱하는 TTL(초)입니다.
+
+| 값 | 동작 |
+|---|------|
+| `0` | 호출 간 캐싱 안 함 (기본값). 동일 URL이라도 매번 다운로드 |
+| `> 0` | 지정 시간 동안 캐싱. 같은 URL을 여러 번 생성하는 경우 효과적 |
+
+> [!NOTE]
+> 단일 `generate()` 호출 내에서는 TTL 설정과 무관하게 같은 URL을 중복 다운로드하지 않습니다.
+
+```kotlin
+TbegConfig(imageUrlCacheTtlSeconds = 60)  // 60초간 캐싱
+```
+
 ---
 
 ### 생성 방법
@@ -139,7 +152,6 @@ TbegConfig(missingDataBehavior = MissingDataBehavior.THROW)
 
 ```kotlin
 val config = TbegConfig(
-    streamingMode = StreamingMode.ENABLED,
     progressReportInterval = 500
 )
 val generator = ExcelGenerator(config)
@@ -149,7 +161,6 @@ val generator = ExcelGenerator(config)
 
 ```java
 TbegConfig config = TbegConfig.builder()
-    .streamingMode(StreamingMode.ENABLED)
     .progressReportInterval(500)
     .build();
 
@@ -168,41 +179,43 @@ io.github.jogakdal.tbeg.spring.TbegProperties
 ### application.yml 예시
 
 ```yaml
-hunet:
-  tbeg:
-    # 스트리밍 모드: enabled, disabled
-    streaming-mode: enabled
+tbeg:
+  # streaming-mode: deprecated (1.2.0부터 값이 무시됩니다)
+  # streaming-mode: enabled
 
-    # 파일명 생성 모드: none, timestamp
-    file-naming-mode: timestamp
+  # 파일명 생성 모드: none, timestamp
+  file-naming-mode: timestamp
 
-    # 파일명 타임스탬프 형식
-    timestamp-format: yyyyMMdd_HHmmss
+  # 파일명 타임스탬프 형식
+  timestamp-format: yyyyMMdd_HHmmss
 
-    # 파일명 충돌 정책: error, sequence
-    file-conflict-policy: sequence
+  # 파일명 충돌 정책: error, sequence
+  file-conflict-policy: sequence
 
-    # 진행률 콜백 호출 간격
-    progress-report-interval: 100
+  # 진행률 콜백 호출 간격
+  progress-report-interval: 100
 
-    # 템플릿 레이아웃 보존
-    preserve-template-layout: true
+  # 템플릿 레이아웃 보존
+  preserve-template-layout: true
 
-    # 정수 숫자 서식 인덱스 (기본: 3, #,##0)
-    pivot-integer-format-index: 3
+  # 정수 숫자 서식 인덱스 (기본: 3, #,##0)
+  pivot-integer-format-index: 3
 
-    # 소수 숫자 서식 인덱스 (기본: 4, #,##0.00)
-    pivot-decimal-format-index: 4
+  # 소수 숫자 서식 인덱스 (기본: 4, #,##0.00)
+  pivot-decimal-format-index: 4
 
-    # 데이터 누락 시 동작: warn, throw
-    missing-data-behavior: warn
+  # 데이터 누락 시 동작: warn, throw
+  missing-data-behavior: warn
+
+  # 이미지 URL 캐시 TTL (초, 0=캐싱 안 함)
+  image-url-cache-ttl-seconds: 0
 ```
 
 ### 프로퍼티 매핑
 
 | application.yml 키             | TbegConfig 속성    |
 |-------------------------------|----------------------------|
-| `streaming-mode`              | `streamingMode`            |
+| ~~`streaming-mode`~~          | ~~`streamingMode`~~ (deprecated) |
 | `file-naming-mode`            | `fileNamingMode`           |
 | `timestamp-format`            | `timestampFormat`          |
 | `file-conflict-policy`        | `fileConflictPolicy`       |
@@ -211,24 +224,23 @@ hunet:
 | `pivot-integer-format-index`  | `pivotIntegerFormatIndex`  |
 | `pivot-decimal-format-index`  | `pivotDecimalFormatIndex`  |
 | `missing-data-behavior`       | `missingDataBehavior`      |
+| `image-url-cache-ttl-seconds` | `imageUrlCacheTtlSeconds`  |
 
 ---
 
 ## 3. Enum 타입
 
-### StreamingMode
+### StreamingMode (deprecated)
+
+> **deprecated**: 1.2.0부터 항상 스트리밍 모드로 동작합니다. 이 enum은 향후 버전에서 제거될 예정입니다.
 
 ```kotlin
+@Deprecated("항상 스트리밍 모드로 동작합니다")
 enum class StreamingMode {
-    DISABLED,  // POI 원본 API 사용
-    ENABLED    // 메모리 효율적 (기본값)
+    DISABLED,
+    ENABLED
 }
 ```
-
-| 값          | 권장 상황                          |
-|------------|--------------------------------|
-| `DISABLED` | 1,000행 이하의 소량 데이터              |
-| `ENABLED`  | 10,000행 이상의 대용량 데이터, 메모리 제약 환경 |
 
 ### FileNamingMode
 
@@ -292,17 +304,19 @@ val config = TbegConfig()
 
 ```kotlin
 val config = TbegConfig.forLargeData()
-// streamingMode = ENABLED
 // progressReportInterval = 500
 ```
 
-### forSmallData()
+### forSmallData() (deprecated)
 
-소량 데이터 처리에 최적화된 설정입니다.
+> **deprecated**: 1.2.0부터 `default()`와 동일하게 동작합니다. `default()` 또는 `TbegConfig()`를 사용하세요.
 
 ```kotlin
+// deprecated
 val config = TbegConfig.forSmallData()
-// streamingMode = DISABLED
+
+// 권장
+val config = TbegConfig.default()
 ```
 
 ---
@@ -313,7 +327,6 @@ val config = TbegConfig.forSmallData()
 
 ```kotlin
 val config = TbegConfig(
-    streamingMode = StreamingMode.ENABLED,
     progressReportInterval = 1000
 )
 ```

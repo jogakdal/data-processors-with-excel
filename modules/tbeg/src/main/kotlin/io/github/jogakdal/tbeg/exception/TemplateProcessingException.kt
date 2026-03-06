@@ -36,13 +36,13 @@ class TemplateProcessingException(
     companion object {
         private fun buildMessage(errorType: ErrorType, details: String): String {
             val typeMessage = when (errorType) {
-                ErrorType.INVALID_REPEAT_SYNTAX -> "repeat 마커 문법 오류"
-                ErrorType.MISSING_REQUIRED_PARAMETER -> "필수 파라미터 누락"
-                ErrorType.INVALID_RANGE_FORMAT -> "잘못된 셀 범위 형식"
-                ErrorType.SHEET_NOT_FOUND -> "존재하지 않는 시트"
-                ErrorType.INVALID_PARAMETER_VALUE -> "잘못된 파라미터 값"
+                ErrorType.INVALID_REPEAT_SYNTAX -> "Invalid repeat marker syntax"
+                ErrorType.MISSING_REQUIRED_PARAMETER -> "Missing required parameter"
+                ErrorType.INVALID_RANGE_FORMAT -> "Invalid cell range format"
+                ErrorType.SHEET_NOT_FOUND -> "Sheet not found"
+                ErrorType.INVALID_PARAMETER_VALUE -> "Invalid parameter value"
             }
-            return "템플릿 처리 오류 [$typeMessage]: $details"
+            return "Template processing error [$typeMessage]: $details"
         }
 
         /**
@@ -51,7 +51,7 @@ class TemplateProcessingException(
         @Suppress("unused")
         fun invalidRepeatSyntax(marker: String, reason: String) = TemplateProcessingException(
             errorType = ErrorType.INVALID_REPEAT_SYNTAX,
-            details = "마커 '$marker' - $reason"
+            details = "Marker '$marker' - $reason"
         )
 
         /**
@@ -60,7 +60,7 @@ class TemplateProcessingException(
         @Suppress("unused")
         fun missingParameter(marker: String, parameterName: String) = TemplateProcessingException(
             errorType = ErrorType.MISSING_REQUIRED_PARAMETER,
-            details = "마커 '$marker'에서 필수 파라미터 '$parameterName'이(가) 누락되었습니다."
+            details = "Required parameter '$parameterName' is missing in marker '$marker'."
         )
 
         /**
@@ -69,7 +69,7 @@ class TemplateProcessingException(
         @Suppress("unused")
         fun invalidRange(marker: String, rangeStr: String) = TemplateProcessingException(
             errorType = ErrorType.INVALID_RANGE_FORMAT,
-            details = "마커 '$marker'의 범위 '$rangeStr'이(가) 올바른 Excel 셀 범위 형식이 아닙니다. (예: A1:C10, 'Sheet1'!A1:C10)"
+            details = "Range '$rangeStr' in marker '$marker' is not a valid Excel cell range format. (e.g., A1:C10, 'Sheet1'!A1:C10)"
         )
 
         /**
@@ -78,7 +78,7 @@ class TemplateProcessingException(
         @Suppress("unused")
         fun sheetNotFound(sheetName: String, availableSheets: List<String>) = TemplateProcessingException(
             errorType = ErrorType.SHEET_NOT_FOUND,
-            details = "시트 '$sheetName'을(를) 찾을 수 없습니다. 사용 가능한 시트: ${availableSheets.joinToString(", ")}"
+            details = "Sheet '$sheetName' not found. Available sheets: ${availableSheets.joinToString(", ")}"
         )
 
         /**
@@ -93,8 +93,8 @@ class TemplateProcessingException(
         ) = TemplateProcessingException(
             errorType = ErrorType.INVALID_PARAMETER_VALUE,
             details = buildString {
-                append("마커 '$marker'의 파라미터 '$parameterName' 값 '$value'이(가) 올바르지 않습니다.")
-                validValues?.let { append(" 사용 가능한 값: ${it.joinToString(", ")}") }
+                append("Invalid value '$value' for parameter '$parameterName' in marker '$marker'.")
+                validValues?.let { append(" Valid values: ${it.joinToString(", ")}") }
             }
         )
     }

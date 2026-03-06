@@ -205,7 +205,7 @@ object RichSampleTemplateGenerator {
             // === 조건부 서식 ===
             val cfRules = sheet.sheetConditionalFormatting
 
-            // G7: Achievement >= 100% → 초록, < 100% → 빨강
+            // G7: Achievement >= 100% -> 초록, < 100% -> 빨강
             val greenRule = cfRules.createConditionalFormattingRule(ComparisonOperator.GE, "1")
             greenRule.createPatternFormatting().apply {
                 fillBackgroundColor = IndexedColors.LIGHT_GREEN.index
@@ -229,7 +229,7 @@ object RichSampleTemplateGenerator {
                 greenRule, redRule
             )
 
-            // K7: Share >= 30% → 초록, < 30% → 빨강
+            // K7: Share >= 30% -> 초록, < 30% -> 빨강
             val greenShareRule = cfRules.createConditionalFormattingRule(ComparisonOperator.GE, "0.3")
             greenShareRule.createPatternFormatting().apply {
                 fillBackgroundColor = IndexedColors.LIGHT_GREEN.index

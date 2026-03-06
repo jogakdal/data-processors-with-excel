@@ -3,10 +3,8 @@ package io.github.jogakdal.tbeg.engine
 import io.github.jogakdal.tbeg.engine.core.CellCoord
 import io.github.jogakdal.tbeg.engine.core.CellArea
 import io.github.jogakdal.tbeg.engine.core.CollectionSizes
-import io.github.jogakdal.tbeg.engine.rendering.PositionCalculator
-import io.github.jogakdal.tbeg.engine.rendering.RepeatDirection
-import io.github.jogakdal.tbeg.engine.rendering.RepeatRegionSpec
-import io.github.jogakdal.tbeg.engine.rendering.RowInfo
+import io.github.jogakdal.tbeg.engine.rendering.*
+import org.apache.poi.ss.util.CellRangeAddress
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -15,7 +13,7 @@ import org.junit.jupiter.api.Test
 /**
  * PositionCalculator 유닛 테스트
  *
- * 특히 getTotalRows(), getRowInfo() 메서드를 검증합니다.
+ * 체이닝 기반 밀려남 알고리즘을 검증합니다.
  */
 @DisplayName("PositionCalculator 테스트")
 class PositionCalculatorTest {
@@ -39,9 +37,6 @@ class PositionCalculatorTest {
         @Test
         @DisplayName("단일 DOWN repeat 영역의 총 행 수를 계산한다")
         fun singleDownRepeat() {
-            // 템플릿: 5-6행에 2행짜리 repeat (0-indexed: 4-5)
-            // 아이템 3개 -> 2행 × 3개 = 6행
-            // 마지막 행: 5 + (3-1)*2 = 9 -> 총 10행 (0-9)
             val regions = listOf(
                 RepeatRegionSpec(
                     collection = "items",
@@ -79,8 +74,6 @@ class PositionCalculatorTest {
             )
             calculator.calculate()
 
-            // 아이템 1개 -> 확장 없음
-            // 템플릿 마지막 행(5) + 확장량(0) + 1 = 6
             assertEquals(6, calculator.getTotalRows())
         }
 
@@ -102,7 +95,6 @@ class PositionCalculatorTest {
             )
             calculator.calculate()
 
-            // 아이템 0개 -> 확장 없음
             assertEquals(6, calculator.getTotalRows())
         }
     }
@@ -118,7 +110,7 @@ class PositionCalculatorTest {
                 RepeatRegionSpec(
                     collection = "items",
                     variable = "item",
-                    area = CellArea(CellCoord(4, 0), CellCoord(5, 2)),  // 5-6행 (1-indexed)
+                    area = CellArea(CellCoord(4, 0), CellCoord(5, 2)),
                     direction = RepeatDirection.DOWN
                 )
             )
@@ -129,7 +121,6 @@ class PositionCalculatorTest {
             )
             calculator.calculate()
 
-            // 0-3행은 repeat 영역 앞의 정적 행
             for (row in 0..3) {
                 val rowInfo = calculator.getRowInfo(row)
                 assertTrue(rowInfo is RowInfo.Static, "행 $row 는 정적 행이어야 함")
@@ -140,7 +131,6 @@ class PositionCalculatorTest {
         @Test
         @DisplayName("반복 행은 Repeat으로 반환되고 올바른 itemIndex와 templateRowOffset을 가진다")
         fun repeatRow() {
-            // 템플릿 4-5행 (2행짜리 repeat), 아이템 3개
             val regions = listOf(
                 RepeatRegionSpec(
                     collection = "items",
@@ -156,37 +146,21 @@ class PositionCalculatorTest {
             )
             calculator.calculate()
 
-            // 실제 행 4: 첫 번째 아이템, 첫 번째 템플릿 행
             val row4 = calculator.getRowInfo(4)
             assertTrue(row4 is RowInfo.Repeat)
             assertEquals(0, (row4 as RowInfo.Repeat).itemIndex)
             assertEquals(0, row4.templateRowOffset)
 
-            // 실제 행 5: 첫 번째 아이템, 두 번째 템플릿 행
             val row5 = calculator.getRowInfo(5)
             assertTrue(row5 is RowInfo.Repeat)
             assertEquals(0, (row5 as RowInfo.Repeat).itemIndex)
             assertEquals(1, row5.templateRowOffset)
 
-            // 실제 행 6: 두 번째 아이템, 첫 번째 템플릿 행
             val row6 = calculator.getRowInfo(6)
             assertTrue(row6 is RowInfo.Repeat)
             assertEquals(1, (row6 as RowInfo.Repeat).itemIndex)
             assertEquals(0, row6.templateRowOffset)
 
-            // 실제 행 7: 두 번째 아이템, 두 번째 템플릿 행
-            val row7 = calculator.getRowInfo(7)
-            assertTrue(row7 is RowInfo.Repeat)
-            assertEquals(1, (row7 as RowInfo.Repeat).itemIndex)
-            assertEquals(1, row7.templateRowOffset)
-
-            // 실제 행 8: 세 번째 아이템, 첫 번째 템플릿 행
-            val row8 = calculator.getRowInfo(8)
-            assertTrue(row8 is RowInfo.Repeat)
-            assertEquals(2, (row8 as RowInfo.Repeat).itemIndex)
-            assertEquals(0, row8.templateRowOffset)
-
-            // 실제 행 9: 세 번째 아이템, 두 번째 템플릿 행
             val row9 = calculator.getRowInfo(9)
             assertTrue(row9 is RowInfo.Repeat)
             assertEquals(2, (row9 as RowInfo.Repeat).itemIndex)
@@ -196,9 +170,6 @@ class PositionCalculatorTest {
         @Test
         @DisplayName("반복 영역 이후의 정적 행은 올바른 템플릿 행 인덱스를 가진다")
         fun staticRowAfterRepeat() {
-            // 템플릿: 행 4-5가 repeat, 행 6-7은 정적
-            // 아이템 3개 -> 확장량 4행
-            // 실제 행 10-11은 템플릿 행 6-7에 해당
             val regions = listOf(
                 RepeatRegionSpec(
                     collection = "items",
@@ -214,7 +185,6 @@ class PositionCalculatorTest {
             )
             calculator.calculate()
 
-            // 실제 행 10은 템플릿 행 6에 해당 (repeat 이후)
             val row10 = calculator.getRowInfo(10)
             assertTrue(row10 is RowInfo.Static, "행 10은 정적 행이어야 함")
             assertEquals(6, (row10 as RowInfo.Static).templateRowIndex)
@@ -223,7 +193,6 @@ class PositionCalculatorTest {
         @Test
         @DisplayName("단일 행 repeat에서 올바른 정보를 반환한다")
         fun singleRowRepeat() {
-            // 템플릿 5행만 repeat (1행짜리)
             val regions = listOf(
                 RepeatRegionSpec(
                     collection = "items",
@@ -239,12 +208,11 @@ class PositionCalculatorTest {
             )
             calculator.calculate()
 
-            // 실제 행 5-8은 각각 아이템 0-3에 해당
             for (itemIdx in 0..3) {
                 val row = calculator.getRowInfo(5 + itemIdx)
                 assertTrue(row is RowInfo.Repeat)
                 assertEquals(itemIdx, (row as RowInfo.Repeat).itemIndex)
-                assertEquals(0, row.templateRowOffset) // 단일 행이므로 항상 0
+                assertEquals(0, row.templateRowOffset)
             }
         }
     }
@@ -256,8 +224,6 @@ class PositionCalculatorTest {
         @Test
         @DisplayName("두 개의 연속된 DOWN repeat 영역을 올바르게 처리한다")
         fun twoConsecutiveDownRepeats() {
-            // 템플릿 행 2-3: 첫 번째 repeat (employees)
-            // 템플릿 행 5-6: 두 번째 repeat (departments)
             val regions = listOf(
                 RepeatRegionSpec(
                     collection = "employees",
@@ -276,13 +242,12 @@ class PositionCalculatorTest {
             val calculator = PositionCalculator(
                 repeatRegions = regions,
                 collectionSizes = CollectionSizes.of(
-                    "employees" to 2,    // 2행 × 2 = 4행 (확장량 2)
-                    "departments" to 3   // 2행 × 3 = 6행 (확장량 4)
+                    "employees" to 2,
+                    "departments" to 3
                 )
             )
             calculator.calculate()
 
-            // 첫 번째 repeat (행 2-5): employees
             val row2 = calculator.getRowInfo(2)
             assertTrue(row2 is RowInfo.Repeat)
             assertEquals("employees", (row2 as RowInfo.Repeat).repeatRegion.collection)
@@ -293,12 +258,9 @@ class PositionCalculatorTest {
             assertEquals("employees", (row4 as RowInfo.Repeat).repeatRegion.collection)
             assertEquals(1, row4.itemIndex)
 
-            // 행 6은 정적 (템플릿 행 4)
             val row6 = calculator.getRowInfo(6)
             assertTrue(row6 is RowInfo.Static)
 
-            // 두 번째 repeat (행 7-12): departments
-            // 첫 번째 repeat의 확장으로 2행 밀림: 5+2=7
             val row7 = calculator.getRowInfo(7)
             assertTrue(row7 is RowInfo.Repeat)
             assertEquals("departments", (row7 as RowInfo.Repeat).repeatRegion.collection)
@@ -324,16 +286,15 @@ class PositionCalculatorTest {
 
             val calculator = PositionCalculator(
                 repeatRegions = regions,
-                collectionSizes = CollectionSizes.of("items" to 3)  // 확장량: (3-1) × 2 = 4
+                collectionSizes = CollectionSizes.of("items" to 3)
             )
             calculator.calculate()
 
-            // 템플릿 행 6 (repeat 이후) -> 실제 행 10 (6 + 4)
+            // 템플릿 행 6 -> 실제 행 10 (6 + 4)
             val (actualRow, actualCol) = calculator.getFinalPosition(6, 0)
             assertEquals(10, actualRow)
             assertEquals(0, actualCol)
 
-            // 템플릿 행 10 -> 실제 행 14
             val (actualRow2, _) = calculator.getFinalPosition(10, 0)
             assertEquals(14, actualRow2)
         }
@@ -356,11 +317,210 @@ class PositionCalculatorTest {
             )
             calculator.calculate()
 
-            // 템플릿 행 0-3은 변경 없음
             for (row in 0..3) {
                 val (actualRow, _) = calculator.getFinalPosition(row, 0)
                 assertEquals(row, actualRow)
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("체이닝 기반 밀려남 테스트")
+    inner class ChainingTest {
+
+        /**
+         * Rich Sample과 유사한 레이아웃:
+         * - depts: row 6, cols 1-6, 5개 -> rowExpansion = 4
+         * - products: row 6, cols 8-10, 4개 -> rowExpansion = 3
+         * - employees: row 30, cols 1-10, 11개 -> rowExpansion = 10
+         */
+        private fun createRichSampleRegions() = listOf(
+            RepeatRegionSpec("depts", "dept", CellArea(CellCoord(6, 1), CellCoord(6, 6)), RepeatDirection.DOWN),
+            RepeatRegionSpec("products", "prod", CellArea(CellCoord(6, 8), CellCoord(6, 10)), RepeatDirection.DOWN),
+            RepeatRegionSpec("employees", "emp", CellArea(CellCoord(30, 1), CellCoord(30, 10)), RepeatDirection.DOWN)
+        )
+
+        private val sizes = CollectionSizes.of("depts" to 5, "products" to 4, "employees" to 11)
+
+        @Test
+        @DisplayName("같은 행의 repeat들이 MAX로 처리된다")
+        fun sameRowRepeatsUseMax() {
+            val calculator = PositionCalculator(
+                repeatRegions = createRichSampleRegions(),
+                collectionSizes = sizes
+            )
+            calculator.calculate()
+
+            // employees의 finalStartRow: max(depts +4, products +3) = 4 -> 30 + 4 = 34
+            val employeesExpansion = calculator.getExpansionFor("employees")!!
+            assertEquals(34, employeesExpansion.finalStartRow)
+        }
+
+        @Test
+        @DisplayName("gap 열의 정적 셀은 밀리지 않는다 (병합 셀 없을 때)")
+        fun gapColumnNotShifted() {
+            val calculator = PositionCalculator(
+                repeatRegions = createRichSampleRegions(),
+                collectionSizes = sizes,
+                templateLastRow = 35
+            )
+            calculator.calculate()
+
+            // 행 7 (repeat 바로 아래)
+            // depts 열(col 1): 11 (7 + 4)
+            assertEquals(11, calculator.getFinalPosition(7, 1).row, "depts 열")
+            // products 열(col 8): 10 (7 + 3)
+            assertEquals(10, calculator.getFinalPosition(7, 8).row, "products 열")
+            // gap 열(col 7): 7 (밀리지 않음!)
+            assertEquals(7, calculator.getFinalPosition(7, 7).row, "gap 열은 밀리지 않음")
+        }
+
+        @Test
+        @DisplayName("병합 셀을 통한 교차 열 밀림 전파")
+        fun mergedCellPropagation() {
+            // 행 7에 A:K 병합 셀 추가 (col 0-10)
+            val mergedRegions = listOf(
+                CellRangeAddress(7, 7, 0, 10)
+            )
+
+            val calculator = PositionCalculator(
+                repeatRegions = createRichSampleRegions(),
+                collectionSizes = sizes,
+                templateLastRow = 35,
+                mergedRegions = mergedRegions
+            )
+            calculator.calculate()
+
+            // 병합 셀이 모든 열을 커버하므로 MAX(depts 4, products 3) = 4
+            // 병합 셀의 최종 위치 = 7 + 4 = 11
+            // 모든 열에서 동일
+            val posCol1 = calculator.getFinalPosition(7, 1)
+            val posCol7 = calculator.getFinalPosition(7, 7)
+            val posCol8 = calculator.getFinalPosition(7, 8)
+
+            assertEquals(11, posCol1.row, "depts 열 (병합 셀 전파)")
+            assertEquals(11, posCol7.row, "gap 열 (병합 셀 전파)")
+            assertEquals(11, posCol8.row, "products 열 (병합 셀 전파)")
+        }
+
+        @Test
+        @DisplayName("전체 폭 repeat 아래 정적 행은 모든 열에서 동일하게 밀린다")
+        fun fullWidthRepeatBelowUniform() {
+            val calculator = PositionCalculator(
+                repeatRegions = createRichSampleRegions(),
+                collectionSizes = sizes,
+                templateLastRow = 35
+            )
+            calculator.calculate()
+
+            // employees(col 1-10, row 30) 아래의 정적 행(row 31)
+            // employees는 모든 열을 커버하므로 모든 열에서 동일
+            val posCol1 = calculator.getFinalPosition(31, 1)
+            val posCol7 = calculator.getFinalPosition(31, 7)
+            val posCol8 = calculator.getFinalPosition(31, 8)
+
+            assertEquals(posCol1.row, posCol7.row, "employees 아래 gap 열")
+            assertEquals(posCol1.row, posCol8.row, "employees 아래 products 열")
+            assertEquals(45, posCol1.row, "employees 아래 행 위치")
+        }
+
+        @Test
+        @DisplayName("getTotalRows가 MAX 기반으로 계산된다")
+        fun totalRowsUsesMax() {
+            val calculator = PositionCalculator(
+                repeatRegions = createRichSampleRegions(),
+                collectionSizes = sizes,
+                templateLastRow = 35
+            )
+            calculator.calculate()
+
+            // templateLastRow(35) + max(4,3) + 10 + 1 = 50
+            assertEquals(50, calculator.getTotalRows())
+        }
+
+        @Test
+        @DisplayName("dead zone에서 shorter repeat 열은 정적 행으로 역변환된다")
+        fun deadZoneReturnsStaticForShorterRepeatColumn() {
+            val calculator = PositionCalculator(
+                repeatRegions = createRichSampleRegions(),
+                collectionSizes = sizes,
+                templateLastRow = 35
+            )
+            calculator.calculate()
+
+            val info = calculator.getRowInfoForColumn(10, 8)
+            assertTrue(info is RowInfo.Static, "dead zone의 shorter repeat 열은 정적 행")
+            assertEquals(7, (info as RowInfo.Static).templateRowIndex, "products Total 행으로 역변환")
+        }
+
+        @Test
+        @DisplayName("dead zone 다음 행에서 중복 Total이 발생하지 않는다")
+        fun noDuplicateTotalAfterDeadZone() {
+            val calculator = PositionCalculator(
+                repeatRegions = createRichSampleRegions(),
+                collectionSizes = sizes,
+                templateLastRow = 35
+            )
+            calculator.calculate()
+
+            val info = calculator.getRowInfoForColumn(11, 8)
+            assertTrue(info is RowInfo.Static, "정적 행이어야 함")
+            assertEquals(8, (info as RowInfo.Static).templateRowIndex, "Total 다음 행으로 역변환되어 중복 방지")
+        }
+
+        @Test
+        @DisplayName("employees 아래 행이 모든 열에서 동일한 템플릿 행으로 역변환된다")
+        fun reverseCalculationUniformBelowFullWidthRepeat() {
+            val calculator = PositionCalculator(
+                repeatRegions = createRichSampleRegions(),
+                collectionSizes = sizes,
+                templateLastRow = 35
+            )
+            calculator.calculate()
+
+            val infoCol1 = calculator.getRowInfoForColumn(45, 1)
+            val infoCol8 = calculator.getRowInfoForColumn(45, 8)
+
+            assertTrue(infoCol1 is RowInfo.Static)
+            assertTrue(infoCol8 is RowInfo.Static)
+            assertEquals(
+                (infoCol1 as RowInfo.Static).templateRowIndex,
+                (infoCol8 as RowInfo.Static).templateRowIndex,
+                "employees 아래 행은 모든 열에서 동일한 템플릿 행"
+            )
+            assertEquals(31, infoCol1.templateRowIndex)
+        }
+    }
+
+    @Nested
+    @DisplayName("bundle 기본 동작 테스트")
+    inner class BundleTest {
+
+        @Test
+        @DisplayName("bundle 내부 repeat은 외부에 단일 요소로 참여한다")
+        fun bundleActsAsSingleElement() {
+            // bundle(A1:D10) 안에 repeat(A5:D5, 3개)
+            val regions = listOf(
+                RepeatRegionSpec("items", "item", CellArea(CellCoord(4, 0), CellCoord(4, 3)), RepeatDirection.DOWN)
+            )
+            val bundles = listOf(
+                BundleRegionSpec(CellArea(CellCoord(0, 0), CellCoord(9, 3)))
+            )
+
+            val calculator = PositionCalculator(
+                repeatRegions = regions,
+                collectionSizes = CollectionSizes.of("items" to 3),
+                templateLastRow = 15,
+                bundleRegions = bundles
+            )
+            calculator.calculate()
+
+            // bundle 내부 repeat의 expansion = (3-1)*1 = 2
+            // bundle의 renderingEnd = bundle.finalStart(0) + (9-0) + 2 = 11
+            // bundle 아래 행(row 10): 10이 bundle의 templateEndRow(9)보다 크므로
+            // 상위 = bundle(renderingEnd=11), gap = 10-9-1 = 0, candidate = 11+0+1 = 12
+            val pos = calculator.getFinalPosition(10, 0)
+            assertEquals(12, pos.row, "bundle 아래 행은 내부 확장량만큼 밀린다")
         }
     }
 }

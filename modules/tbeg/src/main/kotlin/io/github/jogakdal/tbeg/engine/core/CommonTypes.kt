@@ -23,8 +23,13 @@ data class CellArea(val start: CellCoord, val end: CellCoord) {
     fun overlapsRows(other: CellArea) =
         !(end.row < other.start.row || start.row > other.end.row)
 
-    /** 다른 영역과 2D 공간(행×열)에서 겹치는지 확인 */
+    /** 다른 영역과 2D 공간(행x열)에서 겹치는지 확인 */
     fun overlaps(other: CellArea) = overlapsRows(other) && overlapsColumns(other)
+
+    /** 다른 영역을 완전히 포함하는지 확인 */
+    fun contains(other: CellArea) =
+        start.row <= other.start.row && end.row >= other.end.row &&
+        start.col <= other.start.col && end.col >= other.end.col
 }
 
 /**
@@ -36,7 +41,7 @@ data class CellArea(val start: CellCoord, val end: CellCoord) {
 data class FormulaExpansionResult(val formula: String, val isSequential: Boolean)
 
 /**
- * 컬렉션 이름 → 아이템 수 매핑
+ * 컬렉션 이름 -> 아이템 수 매핑
  *
  * repeat 영역의 위치 계산 및 수식 확장에 사용된다.
  */

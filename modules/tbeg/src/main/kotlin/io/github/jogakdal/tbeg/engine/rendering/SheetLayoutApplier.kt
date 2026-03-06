@@ -38,7 +38,8 @@ internal class SheetLayoutApplier {
         repeatRegions: List<RepeatRegionSpec>,
         data: Map<String, Any>,
         totalRowOffset: Int,
-        collectionSizes: CollectionSizes = CollectionSizes.EMPTY
+        collectionSizes: CollectionSizes = CollectionSizes.EMPTY,
+        calculator: PositionCalculator? = null
     ) {
         if (conditionalFormattings.isEmpty()) return
 
@@ -49,7 +50,7 @@ internal class SheetLayoutApplier {
         for (cfInfo in conditionalFormattings) {
             val allRanges = cfInfo.ranges.flatMap { range ->
                 expandRangeForConditionalFormatting(
-                    range, repeatRegions, data, collectionSizes, totalRowOffset, maxRepeatEndRow
+                    range, repeatRegions, data, collectionSizes, totalRowOffset, maxRepeatEndRow, calculator
                 )
             }
 
@@ -69,10 +70,14 @@ internal class SheetLayoutApplier {
         data: Map<String, Any>,
         collectionSizes: CollectionSizes,
         totalRowOffset: Int,
-        maxRepeatEndRow: Int
+        maxRepeatEndRow: Int,
+        calculator: PositionCalculator? = null
     ): List<CellRangeAddress> {
+        // RIGHT repeat은 열 범위도 겹쳐야 한다 (행만 겹치면 non-repeat 셀까지 확장될 수 있음)
         val overlappingRegion = repeatRegions.find { region ->
-            range.firstRow in region.area.rowRange && range.lastRow in region.area.rowRange
+            range.firstRow in region.area.rowRange && range.lastRow in region.area.rowRange &&
+                (region.direction == RepeatDirection.DOWN ||
+                    (range.firstColumn in region.area.colRange && range.lastColumn in region.area.colRange))
         } ?: return listOf(calculateOffsetRange(range, totalRowOffset, maxRepeatEndRow))
 
         val itemCount = (data[overlappingRegion.collection] as? Collection<*>)?.size
@@ -82,13 +87,52 @@ internal class SheetLayoutApplier {
         // 빈 컬렉션인 경우 건너뜀 (emptyRange 조건부 서식이 별도로 적용됨)
         if (itemCount == 0) return emptyList()
 
-        val relativeStartRow = range.firstRow - overlappingRegion.area.start.row
+        val expansion = calculator?.getExpansionForRegion(
+            overlappingRegion.collection, overlappingRegion.area.start.row, overlappingRegion.area.start.col
+        )
+
+        return when (overlappingRegion.direction) {
+            RepeatDirection.DOWN -> expandCfForDownRepeat(range, overlappingRegion, itemCount, expansion)
+            RepeatDirection.RIGHT -> expandCfForRightRepeat(range, overlappingRegion, itemCount, expansion)
+        }
+    }
+
+    /** DOWN repeat 조건부 서식: 행 방향으로 아이템별 복제 */
+    private fun expandCfForDownRepeat(
+        range: CellRangeAddress,
+        region: RepeatRegionSpec,
+        itemCount: Int,
+        expansion: PositionCalculator.RepeatExpansion?
+    ): List<CellRangeAddress> {
+        val actualStartRow = expansion?.finalStartRow ?: region.area.start.row
+        val relativeStartRow = range.firstRow - region.area.start.row
         val rowSpan = range.lastRow - range.firstRow
 
         return (0 until itemCount).map { itemIdx ->
-            (overlappingRegion.area.start.row + (itemIdx * overlappingRegion.area.rowRange.count) + relativeStartRow).let { newFirstRow ->
+            (actualStartRow + (itemIdx * region.area.rowRange.count) + relativeStartRow).let { newFirstRow ->
                 CellRangeAddress(newFirstRow, newFirstRow + rowSpan, range.firstColumn, range.lastColumn)
             }
+        }
+    }
+
+    /** RIGHT repeat 조건부 서식: 열 방향으로 아이템별 복제 */
+    private fun expandCfForRightRepeat(
+        range: CellRangeAddress,
+        region: RepeatRegionSpec,
+        itemCount: Int,
+        expansion: PositionCalculator.RepeatExpansion?
+    ): List<CellRangeAddress> {
+        val actualStartRow = expansion?.finalStartRow ?: region.area.start.row
+        val actualStartCol = expansion?.finalStartCol ?: region.area.start.col
+        val relativeStartRow = range.firstRow - region.area.start.row
+        val relativeStartCol = range.firstColumn - region.area.start.col
+        val rowSpan = range.lastRow - range.firstRow
+        val colSpan = range.lastColumn - range.firstColumn
+
+        return (0 until itemCount).map { itemIdx ->
+            val newFirstRow = actualStartRow + relativeStartRow
+            val newFirstCol = actualStartCol + (itemIdx * region.area.colRange.count) + relativeStartCol
+            CellRangeAddress(newFirstRow, newFirstRow + rowSpan, newFirstCol, newFirstCol + colSpan)
         }
     }
 

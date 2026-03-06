@@ -13,8 +13,8 @@ import java.io.ByteArrayOutputStream
 /**
  * 범위를 취급하는 마커의 중복 감지 테스트
  *
- * - repeat 마커: 같은 컬렉션 + 같은 대상 범위(시트+영역) → 중복
- * - image 마커: 같은 이름 + 같은 위치(시트+셀) + 같은 크기 → 중복
+ * - repeat 마커: 같은 컬렉션 + 같은 대상 범위(시트+영역) -> 중복
+ * - image 마커: 같은 이름 + 같은 위치(시트+셀) + 같은 크기 -> 중복
  *
  * 중복 시 경고 로그를 출력하고 마지막 마커만 유지한다.
  */
@@ -287,7 +287,7 @@ class DuplicateRepeatDetectionTest {
         @Test
         @DisplayName("position이 없는 image 마커는 중복 체크 대상이 아니다")
         fun noPositionNeverDuplicate() {
-            // position 없이 같은 이름으로 두 곳에 선언 → 각각 마커 셀 위치에 삽입되므로 중복 아님
+            // position 없이 같은 이름으로 두 곳에 선언 -> 각각 마커 셀 위치에 삽입되므로 중복 아님
             val template = createTemplate {
                 createSheet("Sheet1").apply {
                     createRow(0).createCell(0).setCellValue("\${image(logo)}")
@@ -311,8 +311,8 @@ class DuplicateRepeatDetectionTest {
         @Test
         @DisplayName("다른 시트에서 시트 접두사로 같은 대상 위치를 참조하면 중복이다")
         fun crossSheetDuplicateWithSheetPrefix() {
-            // Sheet1: ${image(logo, B1:C2)} — 대상 시트 = Sheet1
-            // Sheet2: ${image(logo, 'Sheet1'!B1:C2)} — 대상 시트 = Sheet1
+            // Sheet1: ${image(logo, B1:C2)} -- 대상 시트 = Sheet1
+            // Sheet2: ${image(logo, 'Sheet1'!B1:C2)} -- 대상 시트 = Sheet1
             val template = createTemplate {
                 createSheet("Sheet1").apply {
                     createRow(0).createCell(0).setCellValue("\${image(logo, B1:C2)}")

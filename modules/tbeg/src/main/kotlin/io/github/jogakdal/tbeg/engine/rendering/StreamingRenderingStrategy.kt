@@ -15,7 +15,7 @@ import java.io.ByteArrayOutputStream
 import java.util.*
 
 /**
- * SXSSF 기반 스트리밍 렌더링 전략.
+ * 기본 렌더링 전략.
  *
  * 특징:
  * - 명세 기반 순차 생성
@@ -31,10 +31,10 @@ import java.util.*
  * - 이미 작성된 행 접근 불가
  * - 차트/피벗 테이블은 별도 처리 필요
  */
-internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
-    override val name: String = "SXSSF"
+internal class StreamingRenderingStrategy : AbstractRenderingStrategy() {
+    override val name: String = "Default"
 
-    // 템플릿에서 추출한 스타일을 SXSSF 워크북에 매핑
+    // 템플릿에서 추출한 스타일을 스트리밍 워크북에 매핑
     private var styleMap: Map<Short, CellStyle> = emptyMap()
 
     // ========== 추상 메서드 구현 ==========
@@ -80,7 +80,7 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
         context: RenderingContext
     ) {
         val sxssfSheet = sheet as SXSSFSheet
-        processSheetSxssf(sxssfSheet, sheetIndex, blueprint, data, imageLocations, context)
+        processSheet(sxssfSheet, sheetIndex, blueprint, data, imageLocations, context)
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -102,9 +102,9 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
     override fun finalizeWorkbook(workbook: Workbook): ByteArray =
         ByteArrayOutputStream().apply { workbook.write(this) }.toByteArray().removeAbsPath()
 
-    // ========== SXSSF 특화 로직 ==========
+    // ========== 스트리밍 특화 로직 ==========
 
-    /** SXSSF에서 수식 평가 및 calcChain 정리 */
+    /** 수식 평가 및 calcChain 정리 */
     private fun evaluateFormulasAndClearCalcChain(workbook: SXSSFWorkbook) {
         runCatching { SXSSFFormulaEvaluator.evaluateAllFormulaCells(workbook, false) }
         clearCalcChain(workbook.xssfWorkbook)
@@ -155,7 +155,7 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
         }
     }
 
-    private fun processSheetSxssf(
+    private fun processSheet(
         sheet: SXSSFSheet,
         sheetIndex: Int,
         blueprint: SheetSpec,
@@ -163,7 +163,6 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
         imageLocations: MutableList<ImageLocation>,
         context: RenderingContext
     ) {
-        blueprint.columnWidths.forEach { (col, width) -> sheet.setColumnWidth(col, width) }
         context.sheetLayoutApplier.applyHeaderFooter(
             sheet.workbook as SXSSFWorkbook, sheetIndex, blueprint.headerFooter, data, context.evaluateText
         )
@@ -181,7 +180,11 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
             PositionCalculator.extractCollectionSizes(data, repeatRegions)
         }
         val templateLastRow = blueprint.rows.maxOfOrNull { it.templateRowIndex } ?: 0
-        val calculator = PositionCalculator(repeatRegions, collectionSizes, templateLastRow)
+        val calculator = PositionCalculator(
+            repeatRegions, collectionSizes, templateLastRow,
+            mergedRegions = blueprint.mergedRegions,
+            bundleRegions = blueprint.bundleRegions
+        )
         calculator.calculate()
 
         // 같은 행에 여러 RepeatRegion이 있을 수 있으므로 groupBy
@@ -189,6 +192,9 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
 
         // 스트리밍 모드 분기
         val hasRightRepeat = repeatRegions.any { it.direction == RepeatDirection.RIGHT }
+
+        // 열 너비 적용 (RIGHT repeat 확장 시 확장 열에도 템플릿 열 너비 복제)
+        applyColumnWidths(sheet, blueprint.columnWidths, hasRightRepeat, calculator)
         val effectiveData = if (context.streamingDataSource != null && hasRightRepeat) {
             buildRightRepeatData(data, repeatRegions, context)
         } else data
@@ -204,6 +210,10 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
             processSheetWithPendingRows(ctx)
         }
 
+        // 자동 셀 병합 적용
+        (ctx.downMergeTracker.finalizeAll() + ctx.rightMergeTracker.finalizeAll())
+            .forEach { sheet.addMergedRegion(it) }
+
         // 전체 행 오프셋 계산 (병합 영역, 조건부 서식용)
         val maxRowOffset = calculator.getExpansions()
             .filter { it.region.direction == RepeatDirection.DOWN }
@@ -214,7 +224,7 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
 
         // 조건부 서식 적용
         context.sheetLayoutApplier.applyConditionalFormattings(
-            sheet, blueprint.conditionalFormattings, blueprint.repeatRegions, data, maxRowOffset, collectionSizes
+            sheet, blueprint.conditionalFormattings, blueprint.repeatRegions, data, maxRowOffset, collectionSizes, calculator
         )
 
         // 빈 컬렉션의 emptyRange 조건부 서식 적용
@@ -233,16 +243,68 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
     }
 
     /**
+     * 열 너비를 적용한다.
+     *
+     * RIGHT repeat이 있으면:
+     * 1. repeat 확장 열에 템플릿 repeat 열의 너비를 복제
+     * 2. repeat 밖 열은 확장에 의한 시프트량을 반영한 최종 위치에 적용
+     */
+    private fun applyColumnWidths(
+        sheet: SXSSFSheet,
+        columnWidths: Map<Int, Int>,
+        hasRightRepeat: Boolean,
+        calculator: PositionCalculator
+    ) {
+        if (!hasRightRepeat) {
+            columnWidths.forEach { (col, width) -> sheet.setColumnWidth(col, width) }
+            return
+        }
+
+        val rightExpansions = calculator.getExpansions()
+            .filter { it.region.direction == RepeatDirection.RIGHT }
+        val repeatTemplateCols = rightExpansions
+            .flatMap { it.region.area.colRange.toList() }.toSet()
+
+        // 1. non-repeat 열 -> 확장에 의한 시프트를 반영한 최종 위치
+        // 같은 colRange의 repeat은 중복 합산하지 않고 MAX만 취한다
+        for ((templateCol, width) in columnWidths) {
+            if (templateCol in repeatTemplateCols) continue
+            val colOffset = rightExpansions
+                .filter { it.colExpansion > 0 && templateCol > it.region.area.end.col }
+                .groupBy { it.region.area.colRange }
+                .values.sumOf { group -> group.maxOf { it.colExpansion } }
+            sheet.setColumnWidth(templateCol + colOffset, width)
+        }
+
+        // 2. repeat 열 -> 모든 확장 아이템에 복제
+        for (expansion in rightExpansions) {
+            for (templateColOffset in 0 until expansion.region.area.colRange.count) {
+                val templateCol = expansion.region.area.start.col + templateColOffset
+                val width = columnWidths[templateCol] ?: continue
+                for (itemIdx in 0 until expansion.itemCount) {
+                    sheet.setColumnWidth(
+                        calculator.getColForRepeatItem(expansion, itemIdx, templateColOffset), width
+                    )
+                }
+            }
+        }
+    }
+
+    /**
      * pendingRows 방식: 모든 셀 정보를 수집한 후 행 순서로 출력
      *
      * RIGHT 방향 repeat(가로 확장)이 있는 경우 사용
      */
     private fun processSheetWithPendingRows(ctx: RowWriteContext) {
         val pendingRows = TreeMap<Int, MutableList<PendingCell>>()
-        // 셀이 없지만 높이가 설정된 행의 높이 맵 (actualRow → height)
+        // 셀이 없지만 높이가 설정된 행의 높이 맵 (actualRow -> height)
         val rowHeights = mutableMapOf<Int, Short>()
         // 이미 처리된 repeat 시작 행 추적
         val processedRepeatStartRows = mutableSetOf<Int>()
+        // 시트의 모든 RIGHT repeat 열 범위 (행 범위가 겹치는 다른 repeat의 열도 건너뛰기 위해)
+        val allRightRepeatColRanges = ctx.blueprint.repeatRegions
+            .filter { it.direction == RepeatDirection.RIGHT }
+            .map { it.area.colRange }
 
         // 모든 행 정보 수집
         for (rowSpec in ctx.blueprint.rows) {
@@ -253,13 +315,10 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
                 // repeat 영역 시작 행
                 regions != null && processedRepeatStartRows.add(templateRow) -> {
                     var isFirstRepeatInRow = true
+                    val allRepeatColRanges = regions.map { it.area.colRange }
 
                     for (region in regions) {
                         val items = ctx.data[region.collection] as? Collection<*> ?: emptyList<Any>()
-
-                        val allRepeatColRanges = ctx.regionsByStartRow[region.area.start.row]
-                            ?.map { it.area.colRange }
-                            ?: listOf(region.area.colRange)
 
                         when (region.direction) {
                             RepeatDirection.DOWN -> collectDownRepeatCells(
@@ -269,15 +328,21 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
                                 val actualRow = ctx.calculator.getFinalPosition(
                                     region.area.start.row, region.area.start.col
                                 ).row
-                                writeRowSxssfWithRightExpansion(ctx, actualRow, region, items)
+                                writeRightRepeatCellsOnly(ctx, actualRow, region, items)
                             }
                         }
 
                         isFirstRepeatInRow = false
                     }
+
+                    // RIGHT repeat의 non-repeat 셀을 직접 기록
+                    val rightRegions = regions.filter { it.direction == RepeatDirection.RIGHT }
+                    if (rightRegions.isNotEmpty()) {
+                        writeRightNonRepeatCells(ctx, rightRegions, allRightRepeatColRanges)
+                    }
                 }
 
-                // repeat 영역 내부 행 (continuation) → 건너뜀
+                // repeat 영역 내부 행 (continuation) -> 건너뜀
                 templateRow in ctx.repeatRowIndices -> Unit
 
                 // 정적 행
@@ -466,7 +531,7 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
     /**
      * 수집된 pendingRows를 행 순서대로 작성한다 (TreeMap이므로 이미 정렬됨)
      *
-     * @param rowHeights 셀이 없지만 높이가 설정된 정적 행의 높이 맵 (actualRow → height)
+     * @param rowHeights 셀이 없지만 높이가 설정된 정적 행의 높이 맵 (actualRow -> height)
      */
     private fun writePendingCells(
         ctx: RowWriteContext,
@@ -497,9 +562,16 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
                     val repeatInfo = RepeatInfo(
                         pendingCell.repeatIndex, pendingCell.totalRowOffset, pendingCell.repeatItemIndex
                     )
-                    processCellContentSxssfWithCalculator(
+                    val mergeTracker = if (!pendingCell.isStaticRow) {
+                        when (pendingCell.repeatDirection) {
+                            RepeatDirection.DOWN -> ctx.downMergeTracker
+                            RepeatDirection.RIGHT -> ctx.rightMergeTracker
+                        }
+                    } else null
+                    processCellContentWithCalculator(
                         ctx, cell, pendingCell.content, pendingCell.itemData ?: ctx.data,
-                        repeatInfo, pendingCell.isStaticRow, pendingCell.columnIndex, actualRow
+                        repeatInfo, pendingCell.isStaticRow, pendingCell.columnIndex, actualRow,
+                        mergeTracker
                     )
                 }
             }
@@ -583,12 +655,17 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
             )
 
             // repeat 범위 내 셀 처리
+            val mergeTracker = when (region.direction) {
+                RepeatDirection.DOWN -> ctx.downMergeTracker
+                RepeatDirection.RIGHT -> ctx.rightMergeTracker
+            }
             rowSpec.cells
                 .filter { it.columnIndex in region.area.colRange }
                 .forEach { cellSpec ->
                     val cell = row.createCellWithStyle(cellSpec.columnIndex, cellSpec.styleIndex)
-                    processCellContentSxssfWithCalculator(
-                        ctx, cell, cellSpec.content, itemData, repeatInfo, false, cellSpec.columnIndex, actualRow
+                    processCellContentWithCalculator(
+                        ctx, cell, cellSpec.content, itemData, repeatInfo, false, cellSpec.columnIndex, actualRow,
+                        mergeTracker
                     )
                 }
 
@@ -602,7 +679,7 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
                     .filter { spec -> allRepeatColRanges.none { spec.columnIndex in it } }
                     .forEach { cellSpec ->
                         val cell = row.createCellWithStyle(cellSpec.columnIndex, cellSpec.styleIndex)
-                        processCellContentSxssfWithCalculator(
+                        processCellContentWithCalculator(
                             ctx, cell, cellSpec.content, ctx.data, RepeatInfo.NONE, true, cellSpec.columnIndex, actualRow
                         )
                     }
@@ -639,7 +716,7 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
                 ?.filter { it.columnIndex !in region.area.colRange }
                 ?.forEach { cellSpec ->
                     val cell = row.createCellWithStyle(cellSpec.columnIndex, cellSpec.styleIndex)
-                    processCellContentSxssfWithCalculator(
+                    processCellContentWithCalculator(
                         ctx, cell, cellSpec.content, ctx.data, RepeatInfo.NONE,
                         true, cellSpec.columnIndex, actualRow
                     )
@@ -732,19 +809,23 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
             // 셀이 없지만 높이가 있는 행 처리
             if (staticCells.isEmpty()) {
                 if (rowSpec.height != null) {
-                    val rowInfo = ctx.calculator.getRowInfoForColumn(actualRow, 0)
-                    if (rowInfo is RowInfo.Static && rowInfo.templateRowIndex == rowSpec.templateRowIndex) {
+                    // 순방향 검증: 이 template 행의 실제 위치가 currentRow와 일치하는지 확인
+                    val expectedRow = ctx.calculator.getFinalPosition(rowSpec.templateRowIndex, 0).row
+                    if (expectedRow == actualRow) {
                         rowHeight = maxOf(rowHeight ?: 0, rowSpec.height)
                     }
                 }
                 continue
             }
 
+            var anyCellMatched = false
             for (cellSpec in staticCells) {
                 val rowInfo = ctx.calculator.getRowInfoForColumn(actualRow, cellSpec.columnIndex)
                 if (rowInfo is RowInfo.Static && rowInfo.templateRowIndex == rowSpec.templateRowIndex) {
+                    // 순방향 검증: 역변환이 일치해도 실제 셀 위치와 다를 수 있다
+                    if (ctx.calculator.getFinalPosition(rowSpec.templateRowIndex, cellSpec.columnIndex).row != actualRow) continue
                     if (row.getCell(cellSpec.columnIndex) == null) {
-                        rowSpec.height?.let { h -> rowHeight = maxOf(rowHeight ?: 0, h) }
+                        anyCellMatched = true
 
                         // emptyRange 영역의 셀은 빈 셀 + 기본 스타일로 처리
                         if (ctx.calculator.isInEmptyRange(rowSpec.templateRowIndex, cellSpec.columnIndex)) {
@@ -752,12 +833,23 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
                             cell.setBlank()
                         } else {
                             val cell = row.createCellWithStyle(cellSpec.columnIndex, cellSpec.styleIndex)
-                            processCellContentSxssfWithCalculator(
+                            processCellContentWithCalculator(
                                 ctx, cell, cellSpec.content, ctx.data, RepeatInfo.NONE,
                                 true, cellSpec.columnIndex, actualRow
                             )
                         }
                     }
+                }
+            }
+
+            // 행 높이: 같은 template row의 셀이 여러 actual row에 분산될 수 있으므로,
+            // 모든 셀의 최종 위치 중 MAX에서만 적용 (Fixed 요소가 있는 열이 "주" 위치)
+            if (anyCellMatched && rowSpec.height != null) {
+                val maxExpectedRow = staticCells.maxOf {
+                    ctx.calculator.getFinalPosition(rowSpec.templateRowIndex, it.columnIndex).row
+                }
+                if (actualRow == maxExpectedRow) {
+                    rowHeight = maxOf(rowHeight ?: 0, rowSpec.height)
                 }
             }
         }
@@ -780,10 +872,9 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
             ?: return data
 
         val result = data.toMutableMap()
-        val collectionNames = repeatRegions.map { it.collection }.toSet()
 
-        collectionNames
-            .filterNot { result.containsKey(it) }
+        repeatRegions.map { it.collection }.toSet()
+            .filter { it !in result }
             .forEach { name ->
                 dataProvider.getItems(name)?.asSequence()?.toList()?.let { result[name] = it }
             }
@@ -810,7 +901,9 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
         val context: RenderingContext,
         val calculator: PositionCalculator,
         val xssfWorkbook: XSSFWorkbook,
-        val emptyRangeMergedRegions: MutableList<CellRangeAddress> = mutableListOf()
+        val emptyRangeMergedRegions: MutableList<CellRangeAddress> = mutableListOf(),
+        val downMergeTracker: MergeTracker = MergeTracker(RepeatDirection.DOWN),
+        val rightMergeTracker: MergeTracker = MergeTracker(RepeatDirection.RIGHT)
     ) {
         /** repeat 영역에 속한 행 인덱스 (건너뛰기용, 캐시) */
         val repeatRowIndices: Set<Int> by lazy {
@@ -876,7 +969,7 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
     /**
      * StaticRow의 각 셀을 PositionCalculator로 계산된 위치에 수집한다.
      *
-     * SXSSF는 순차적 행 작성만 지원하므로, 셀 정보만 수집하고
+     * 순차적 행 작성만 지원하므로, 셀 정보만 수집하고
      * 실제 작성은 processSheetWithPendingRows의 정렬된 루프에서 수행된다.
      * emptyRange 영역의 셀 처리는 writePendingCells()에서 셀 단위로 수행된다.
      */
@@ -886,10 +979,10 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
         pendingCells: MutableMap<Int, MutableList<PendingCell>>
     ) {
         rowSpec.cells.forEach { cellSpec ->
-            val actualRow = ctx.calculator.getFinalPosition(rowSpec.templateRowIndex, cellSpec.columnIndex).row
-            pendingCells.getOrPut(actualRow) { mutableListOf() }.add(
+            val finalPos = ctx.calculator.getFinalPosition(rowSpec.templateRowIndex, cellSpec.columnIndex)
+            pendingCells.getOrPut(finalPos.row) { mutableListOf() }.add(
                 PendingCell(
-                    columnIndex = cellSpec.columnIndex,
+                    columnIndex = finalPos.col,
                     styleIndex = cellSpec.styleIndex,
                     content = cellSpec.content,
                     height = rowSpec.height,
@@ -901,7 +994,7 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
     }
 
     /**
-     * 대기 중인 셀 정보 (SXSSF 순차 작성용)
+     * 대기 중인 셀 정보 (순차 작성용)
      */
     private data class PendingCell(
         val columnIndex: Int,
@@ -913,11 +1006,12 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
         val itemData: Map<String, Any>? = null,
         val repeatIndex: Int = 0,
         val repeatItemIndex: Int = 0,
-        val totalRowOffset: Int = 0
+        val totalRowOffset: Int = 0,
+        val repeatDirection: RepeatDirection = RepeatDirection.DOWN
     )
 
-    /** SXSSF용 셀 내용 처리 (PositionCalculator 기반) */
-    private fun processCellContentSxssfWithCalculator(
+    /** 셀 내용 처리 (PositionCalculator 기반) */
+    private fun processCellContentWithCalculator(
         ctx: RowWriteContext,
         cell: Cell,
         content: CellContent,
@@ -925,9 +1019,10 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
         repeatInfo: RepeatInfo,
         isStaticRow: Boolean,
         columnIndex: Int,
-        actualRowIndex: Int
+        actualRowIndex: Int,
+        mergeTracker: MergeTracker? = null
     ) = when (content) {
-        is CellContent.Formula -> processFormulaSxssfWithCalculator(
+        is CellContent.Formula -> processFormulaWithCalculator(
             ctx, cell, content, repeatInfo.index, isStaticRow, columnIndex, actualRowIndex
         )
 
@@ -959,11 +1054,11 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
 
         else -> processCellContent(
             cell, content, data, ctx.sheetIndex, ctx.imageLocations, ctx.context,
-            repeatInfo.totalRowOffset, 0, repeatInfo.itemIndex
+            repeatInfo.totalRowOffset, 0, repeatInfo.itemIndex, mergeTracker
         )
     }
 
-    /** SXSSF에서 이미지 마커를 처리한다 (PositionCalculator 기반) */
+    /** 이미지 마커를 처리한다 (PositionCalculator 기반) */
     private fun processImageMarkerWithCalculator(
         cell: Cell,
         content: CellContent.ImageMarker,
@@ -1007,8 +1102,8 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
     private fun adjustCellRefWithCalculator(ref: String, calculator: PositionCalculator) =
         calculator.getFinalPosition(parseCellRef(ref)).toCellRefString()
 
-    /** SXSSF에서 수식을 처리한다 (PositionCalculator 기반) */
-    private fun processFormulaSxssfWithCalculator(
+    /** 수식을 처리한다 (PositionCalculator 기반) */
+    private fun processFormulaWithCalculator(
         ctx: RowWriteContext,
         cell: Cell,
         content: CellContent.Formula,
@@ -1023,7 +1118,10 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
             if (repeatIndex > 0) {
                 formula = FormulaAdjuster.adjustForRepeatIndex(formula, repeatIndex)
             }
-            formula = FormulaAdjuster.adjustWithPositionCalculator(formula, ctx.calculator)
+            // repeat 영역 내 참조는 건너뛰고 나머지만 위치 조정 (확장은 expandFormulaRanges에서 처리)
+            formula = FormulaAdjuster.adjustWithPositionCalculatorSkippingRepeatAreas(
+                formula, ctx.calculator, ctx.blueprint.repeatRegions
+            )
             formula = expandFormulaRanges(ctx, formula, columnIndex, actualRowIndex, content.formula)
         } else {
             val rowInfo = ctx.calculator.getRowInfoForColumn(actualRowIndex, columnIndex)
@@ -1032,9 +1130,20 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
                 formula = FormulaAdjuster.adjustRefsOutsideRepeat(
                     formula, rowInfo.repeatRegion.area, ctx.calculator
                 )
-                if (repeatIndex > 0) {
+
+                // base shift: repeat의 실제 시작 행이 템플릿 시작 행보다 아래로 밀린 양
+                val expansion = ctx.calculator.getExpansionForRegion(
+                    rowInfo.repeatRegion.collection,
+                    rowInfo.repeatRegion.area.start.row,
+                    rowInfo.repeatRegion.area.start.col
+                )
+                val baseShift = (expansion?.finalStartRow ?: rowInfo.repeatRegion.area.start.row) -
+                    rowInfo.repeatRegion.area.start.row
+                val totalShift = repeatIndex + baseShift
+
+                if (totalShift > 0) {
                     formula = FormulaAdjuster.adjustForRepeatIndex(
-                        formula, repeatIndex, rowInfo.repeatRegion.area
+                        formula, totalShift, rowInfo.repeatRegion.area
                     )
                 }
             } else if (repeatIndex > 0) {
@@ -1080,8 +1189,13 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
         return result
     }
 
-    /** RIGHT 방향 반복 영역을 처리한다 (가로 확장) */
-    private fun writeRowSxssfWithRightExpansion(
+    /**
+     * RIGHT 방향 반복 영역의 repeat 셀만 기록한다 (non-repeat 셀은 별도 수집).
+     *
+     * 같은 행에 여러 RIGHT repeat이 있을 때 행 덮어쓰기를 방지하기 위해
+     * getRow ?: createRow를 사용하고, non-repeat 셀은 [writeRightNonRepeatCells]에서 직접 기록한다.
+     */
+    private fun writeRightRepeatCellsOnly(
         ctx: RowWriteContext,
         startRowIndex: Int,
         region: RepeatRegionSpec,
@@ -1099,24 +1213,10 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
             val rowSpec = ctx.blueprint.rowsByTemplateIndex[templateRowIdx]
             val cellSpecs = rowSpec?.cells ?: continue
 
-            val row = ctx.sheet.createRow(currentRowIndex)
+            val row = ctx.sheet.getRow(currentRowIndex) ?: ctx.sheet.createRow(currentRowIndex)
             rowSpec.height?.let { row.height = it }
 
-            // 반복 영역 밖의 셀들
-            cellSpecs.filter { it.columnIndex !in region.area.colRange }.forEach { cellSpec ->
-                val actualColIndex = if (cellSpec.columnIndex > region.area.end.col) {
-                    cellSpec.columnIndex + colShiftAmount
-                } else {
-                    cellSpec.columnIndex
-                }
-                val cell = row.createCellWithStyle(actualColIndex, cellSpec.styleIndex)
-                val adjustedContent = adjustContentForRightExpansion(
-                    cellSpec, region, items, colShiftAmount, ctx.sheet, currentRowIndex, actualColIndex, ctx.calculator
-                )
-                writeCellContentSxssf(ctx, cell, adjustedContent, colOffset = colShiftAmount)
-            }
-
-            // 각 아이템에 대해 열 방향으로 확장
+            // 각 아이템에 대해 열 방향으로 확장 (repeat 범위 내 셀만)
             items.forEachIndexed { itemIdx, item ->
                 val itemData = createItemData(ctx.data, region.variable, item)
 
@@ -1126,60 +1226,113 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
                         ctx.calculator.getColForRepeatItem(it, itemIdx, templateColOffset)
                     } ?: (region.area.start.col + (itemIdx * region.area.colRange.count) + templateColOffset)
 
-                    val cell = row.createCellWithStyle(targetColIdx, cellSpec.styleIndex)
-                    writeCellContentSxssf(ctx, cell, cellSpec.content, itemData, colShiftAmount, itemIdx)
-                }
-            }
-        }
-    }
-
-    /** 오른쪽 확장 시 수식을 조정한다 */
-    private fun adjustContentForRightExpansion(
-        cellSpec: CellSpec,
-        region: RepeatRegionSpec,
-        items: Collection<*>,
-        colShiftAmount: Int,
-        sheet: SXSSFSheet,
-        currentRowIndex: Int,
-        actualColIndex: Int,
-        calculator: PositionCalculator
-    ): CellContent {
-        val content = cellSpec.content
-        if (content !is CellContent.Formula) return content
-
-        var formula = content.formula
-
-        // 열 이동에 따른 수식 참조 조정
-        if (colShiftAmount > 0) {
-            formula = FormulaAdjuster.adjustForColumnExpansion(formula, region.area.end.col + 1, colShiftAmount)
-        }
-
-        // 반복 영역 오른쪽 수식의 범위 확장
-        if (cellSpec.columnIndex > region.area.end.col && items.size > 1) {
-            calculator.getExpansionFor(region.collection)?.let { expansion ->
-                val (expandedFormula, isSequential) = FormulaAdjuster.expandToRangeWithCalculator(
-                    formula, expansion, items.size
-                )
-                if (expandedFormula != formula) {
-                    validateFormulaExpansion(
-                        items.size, isSequential, sheet.sheetName,
-                        toCellRef(currentRowIndex, actualColIndex), formula
+                    // 수식 열 참조를 반복 인덱스에 맞게 시프트
+                    // baseColShift: 선행 RIGHT repeat에 의한 기본 열 오프셋
+                    // outOfAreaShift: repeat 영역 오른쪽 참조의 시프트량 (자체 확장 + 선행 확장)
+                    val baseColShift = expansion?.let { it.finalStartCol - region.area.start.col } ?: 0
+                    val outOfAreaShift = baseColShift + (expansion?.colExpansion ?: 0)
+                    val colShift = (itemIdx * region.area.colRange.count) + baseColShift
+                    val adjustedContent = adjustContentForColumnShift(
+                        cellSpec.content, colShift, region.area, outOfAreaShift
                     )
-                    formula = expandedFormula
+
+                    val cell = row.createCellWithStyle(targetColIdx, cellSpec.styleIndex)
+                    writeCellContent(
+                        ctx, cell, adjustedContent, itemData, colShiftAmount, itemIdx,
+                        ctx.rightMergeTracker
+                    )
                 }
             }
         }
-
-        return CellContent.Formula(formula)
     }
 
-    private fun writeCellContentSxssf(
+    /**
+     * RIGHT repeat 행의 non-repeat 셀을 직접 기록한다.
+     *
+     * repeat 셀이 이미 기록된 후 호출되므로, getRow로 기존 행을 가져와 셀을 추가한다.
+     * 수식은 [FormulaAdjuster.adjustFormulaForRightNonRepeat]를 통해 단일 패스로 조정된다.
+     */
+    private fun writeRightNonRepeatCells(
+        ctx: RowWriteContext,
+        rightRegions: List<RepeatRegionSpec>,
+        allRepeatColRanges: List<ColRange>
+    ) {
+        // 모든 RIGHT repeat 행 범위의 합집합
+        val coveredRows = rightRegions.flatMap { it.area.rowRange.toList() }.toSortedSet()
+
+        // expansion provider: region -> (expansion, itemCount)
+        val expansionProvider = { region: RepeatRegionSpec ->
+            val expansion = ctx.calculator.getExpansionForRegion(
+                region.collection, region.area.start.row, region.area.start.col
+            )
+            val itemCount = ctx.context.collectionSizes[region.collection]
+                ?: (ctx.data[region.collection] as? Collection<*>)?.size
+            if (expansion != null && itemCount != null) expansion to itemCount else null
+        }
+
+        for (templateRow in coveredRows) {
+            val rowSpec = ctx.blueprint.rowsByTemplateIndex[templateRow] ?: continue
+
+            rowSpec.cells
+                .filter { spec -> allRepeatColRanges.none { spec.columnIndex in it } }
+                .forEach { cellSpec ->
+                    val finalPos = ctx.calculator.getFinalPosition(templateRow, cellSpec.columnIndex)
+                    val row = ctx.sheet.getRow(finalPos.row) ?: ctx.sheet.createRow(finalPos.row)
+                    val adjustedContent = adjustContentForRightNonRepeat(
+                        cellSpec.content, ctx.calculator, ctx.blueprint.repeatRegions, expansionProvider
+                    )
+                    val cell = row.createCellWithStyle(finalPos.col, cellSpec.styleIndex)
+                    writeCellContent(ctx, cell, adjustedContent)
+                }
+        }
+    }
+
+    /** RIGHT repeat의 non-repeat 셀 수식을 단일 패스로 조정한다 */
+    private fun adjustContentForRightNonRepeat(
+        content: CellContent,
+        calculator: PositionCalculator,
+        repeatRegions: List<RepeatRegionSpec>,
+        expansionProvider: (RepeatRegionSpec) -> Pair<PositionCalculator.RepeatExpansion, Int>?
+    ) = when (content) {
+        is CellContent.Formula -> CellContent.Formula(
+            FormulaAdjuster.adjustFormulaForRightNonRepeat(
+                content.formula, calculator, repeatRegions, expansionProvider
+            )
+        )
+        is CellContent.FormulaWithVariables -> CellContent.FormulaWithVariables(
+            FormulaAdjuster.adjustFormulaForRightNonRepeat(
+                content.formula, calculator, repeatRegions, expansionProvider
+            ),
+            content.variableNames
+        )
+        else -> content
+    }
+
+    /** RIGHT repeat 수식의 열 참조를 반복 인덱스에 맞게 시프트한다 */
+    private fun adjustContentForColumnShift(
+        content: CellContent, colShift: Int, area: CellArea, outOfAreaShift: Int = 0
+    ): CellContent {
+        if (colShift == 0 && outOfAreaShift == 0) return content
+        return when (content) {
+            is CellContent.Formula -> CellContent.Formula(
+                FormulaAdjuster.adjustForRepeatColumnIndex(content.formula, colShift, area, outOfAreaShift)
+            )
+            is CellContent.FormulaWithVariables -> CellContent.FormulaWithVariables(
+                FormulaAdjuster.adjustForRepeatColumnIndex(content.formula, colShift, area, outOfAreaShift),
+                content.variableNames
+            )
+            else -> content
+        }
+    }
+
+    private fun writeCellContent(
         ctx: RowWriteContext,
         cell: Cell,
         content: CellContent,
         data: Map<String, Any>? = null,
         colOffset: Int = 0,
-        repeatItemIndex: Int = 0
+        repeatItemIndex: Int = 0,
+        mergeTracker: MergeTracker? = null
     ) {
         val effectiveData = data ?: ctx.data
         when (content) {
@@ -1190,7 +1343,7 @@ internal class SxssfRenderingStrategy : AbstractRenderingStrategy() {
                 processImageMarker(cell, content, ctx.sheetIndex, ctx.imageLocations, 0, colOffset, repeatItemIndex)
             else -> processCellContent(
                 cell, content, effectiveData, ctx.sheetIndex, ctx.imageLocations, ctx.context,
-                0, colOffset, repeatItemIndex
+                0, colOffset, repeatItemIndex, mergeTracker
             )
         }
     }
