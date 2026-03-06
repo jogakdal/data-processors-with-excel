@@ -10,8 +10,10 @@
    - [Automatic Adjustment of Related Elements](#28-automatic-adjustment-of-related-elements)
 3. [Image Insertion](#3-image-insertion)
 4. [Collection Size](#4-collection-size)
-5. [Variables in Formulas](#5-variables-in-formulas)
-6. [Formula-Style Markers](#6-formula-style-markers)
+5. [Automatic Cell Merge](#5-automatic-cell-merge)
+6. [Variables in Formulas](#6-variables-in-formulas)
+7. [Formula-Style Markers](#7-formula-style-markers)
+8. [Bundle](#8-bundle)
 
 ---
 
@@ -78,7 +80,7 @@ Repeats the specified range downward for each item in the collection.
 |   | A                                  | B               | C             |
 |---|------------------------------------|-----------------|---------------|
 | 1 | ${repeat(employees, A3:C3, emp)}   |                 |               |
-| 2 | Name                                 | Position          | Salary          |
+| 2 | Name                               | Position        | Salary        |
 | 3 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
 
 #### Data
@@ -100,10 +102,10 @@ mapOf(
 |   | A   | B  | C     |
 |---|-----|----|-------|
 | 1 |     |    |       |
-| 2 | Name          | Position          | Salary |
-| 3 | Yongho Hwang  | Director          | 8,000  |
-| 4 | Yongho Han    | Manager           | 6,500  |
-| 5 | Yongho Hong   | Assistant Manager | 4,500  |
+| 2 | Name              | Position          | Salary |
+| 3 | Yongho Hwang      | Director          | 8,000  |
+| 4 | Yongho Han        | Manager           | 6,500  |
+| 5 | Yongho Hong       | Assistant Manager | 4,500  |
 
 > [!NOTE]
 > The `${repeat(...)}` marker can be placed anywhere in the workbook (even on a different sheet) as long as it is outside the repeat range. The area specified by the range parameter is what gets repeated.
@@ -117,8 +119,8 @@ Specifying multiple rows in the range causes them to repeat together as a group.
 |   | A                                | B                   |
 |---|----------------------------------|---------------------|
 | 1 | ${repeat(employees, A2:B3, emp)} |                     |
-| 2 | Name: ${emp.name}                  | Position: ${emp.position} |
-| 3 | Salary: ${emp.salary}              |                           |
+| 2 | Name: ${emp.name}                | Position: ${emp.position} |
+| 3 | Salary: ${emp.salary}            |                           |
 
 ### 2.3 Rightward Repeat (RIGHT)
 
@@ -271,7 +273,7 @@ When the collection is empty, the contents of the specified cell range are displ
 | 1   | ${repeat(employees, A2:C2, emp, DOWN, A10:C10)} |                 |               |
 | 2   | ${emp.name}                                     | ${emp.position} | ${emp.salary} |
 | ... |                                                 |                 |               |
-| 10  | (No data available)                                |                 |               |
+| 10  | (No data available)                             |                 |               |
 
 #### Data (empty collection)
 
@@ -302,7 +304,7 @@ If the empty range is a single cell, the entire repeat region is merged and its 
 | 1   | ${repeat(employees, A2:C2, emp, DOWN, A10)} |                 |               |
 | 2   | ${emp.name}                                 | ${emp.position} | ${emp.salary} |
 | ... |                                             |                 |               |
-| 10  | No data available                                |                 |               |
+| 10  | No data available                           |                 |               |
 
 - **A10**: Write the message in a single cell (specify only A10, not A10:C10)
 
@@ -359,7 +361,7 @@ When a repeat region expands:
 |---|----------------------------------|---------------|
 | 1 | ${repeat(items, A2:B2, item)}    |               |
 | 2 | ${item.name}                     | ${item.value} |
-| 3 | Total                              | =SUM(B2:B2)   |
+| 3 | Total                            | =SUM(B2:B2)   |
 
 **Result** (3 items)
 
@@ -423,7 +425,12 @@ Inserts an image into the cell (or merged region) containing the marker.
 ```kotlin
 val provider = simpleDataProvider {
     value("company", "Hunet Inc.")
+
+    // Provide as ByteArray
     image("logo", logoBytes)
+
+    // Or provide as URL (auto-downloaded during rendering)
+    imageUrl("logo", "https://example.com/logo.png")
 }
 ```
 
@@ -486,6 +493,23 @@ Formula style:
 =TBEG_IMAGE(name=logo, position=B2, size=original)
 ```
 
+### 3.6 URL Images
+
+When an HTTP(S) URL string is specified as image data instead of a `ByteArray`, the image is automatically downloaded at Excel generation time and embedded in the file. The generated Excel file does not require network access when opened.
+
+```kotlin
+val provider = simpleDataProvider {
+    image("logo", logoBytes)                               // ByteArray
+    imageUrl("banner", "https://example.com/banner.png")   // URL
+}
+```
+
+**Caching behavior**:
+- Within a single `generate()` call, the same URL is downloaded only once (regardless of settings)
+- To enable caching across multiple `generate()` calls, use the `imageUrlCacheTtlSeconds` setting ([see Configuration Options](./configuration.md#imageurlcachettlseconds))
+
+**Failure handling**: If a download fails (network error, 404, etc.), a warning log is emitted and the image is skipped. Excel generation itself completes normally.
+
 ---
 
 ## 4. Collection Size
@@ -508,11 +532,71 @@ Displays the number of items in a collection.
 
 ---
 
-## 5. Variables in Formulas
+## 5. Automatic Cell Merge
+
+**Syntax**: `${merge(item.field)}` or `=TBEG_MERGE(item.field)`
+
+Automatically merges consecutive cells with the same value during repeat expansion.
+Data must be pre-sorted by the merge key field.
+
+- **DOWN repeat**: Merges vertically
+- **RIGHT repeat**: Merges horizontally
+
+### 5.1 Basic Usage
+
+#### Template
+
+|   | A                    | B           | C           | D                              |
+|---|----------------------|-------------|-------------|--------------------------------|
+| 1 | Department           | Name        | Rank        | ${repeat(employees, A2:C2, emp)} |
+| 2 | ${merge(emp.dept)}   | ${emp.name} | ${emp.rank} |                                |
+
+#### Data
+
+```kotlin
+mapOf(
+    "employees" to listOf(
+        mapOf("dept" to "Sales", "name" to "Yongho Hwang", "rank" to "Staff"),
+        mapOf("dept" to "Sales", "name" to "Yongho Han", "rank" to "Assistant Manager"),
+        mapOf("dept" to "Engineering", "name" to "Yongho Hong", "rank" to "Manager"),
+    )
+)
+```
+
+#### Result
+
+<table>
+  <tr><th></th><th>A</th><th>B</th><th>C</th></tr>
+  <tr><td>1</td><td>Department</td><td>Name</td><td>Rank</td></tr>
+  <tr><td>2</td><td rowspan="2">Sales</td><td>Yongho Hwang</td><td>Staff</td></tr>
+  <tr><td>3</td><td>Yongho Han</td><td>Assistant Manager</td></tr>
+  <tr><td>4</td><td>Engineering</td><td>Yongho Hong</td><td>Manager</td></tr>
+</table>
+
+> A2:A3 is automatically merged as "Sales".
+
+### 5.2 Multi-Level Merge
+
+Using merge markers on multiple columns causes each column to merge independently.
+
+```
+${merge(emp.dept)}   <- Column A (merge by department)
+${merge(emp.team)}   <- Column B (merge by team)
+${emp.name}          <- Column C (no merge)
+```
+
+### 5.3 Notes
+
+- Using a merge marker outside a repeat region performs simple value substitution only.
+- Null values are excluded from merge candidates.
+
+---
+
+## 6. Variables in Formulas
 
 Variables can be used within Excel formulas.
 
-### 5.1 HYPERLINK
+### 6.1 HYPERLINK
 
 **Syntax**: `=HYPERLINK("${url}", "${text}")`
 
@@ -520,7 +604,7 @@ Variables can be used within Excel formulas.
 =HYPERLINK("${linkUrl}", "${linkText}")
 ```
 
-### 5.2 Dynamic Ranges
+### 6.2 Dynamic Ranges
 
 **Syntax**: `=SUM(B${startRow}:B${endRow})`
 
@@ -550,7 +634,7 @@ mapOf("startRow" to 5, "endRow" to 10)
 
 ---
 
-## 6. Formula-Style Markers
+## 7. Formula-Style Markers
 
 Some markers can also be written in formula form.
 
@@ -559,20 +643,22 @@ Some markers can also be written in formula form.
 | `${repeat(col, range, var)}`     | `=TBEG_REPEAT(col, range, var)`   |
 | `${image(name)}`                 | `=TBEG_IMAGE(name)`               |
 | `${size(col)}`                   | `=TBEG_SIZE(col)`                 |
+| `${merge(item.field)}`           | `=TBEG_MERGE(item.field)`         |
+| `${bundle(range)}`               | `=TBEG_BUNDLE(range)`             |
 
 **Advantage**: When specifying ranges or cells, you can leverage Excel's cell reference features (clicking, drag-selecting, etc.).
 
 > [!NOTE]
 > Formula-style markers display as `#NAME?` errors in Excel. This is expected and they are processed correctly during generation.
 
-### 6.1 Formula-Style Repeat Markers
+### 7.1 Formula-Style Repeat Markers
 
 ```
 =TBEG_REPEAT(employees, A2:C2, emp)
 =TBEG_REPEAT(months, B1:B2, m, RIGHT)
 ```
 
-### 6.2 Formula-Style Image Markers
+### 7.2 Formula-Style Image Markers
 
 ```
 =TBEG_IMAGE(logo)
@@ -580,11 +666,90 @@ Some markers can also be written in formula form.
 =TBEG_IMAGE(logo, B2, 200:150)
 ```
 
-### 6.3 Formula-Style Size Markers
+### 7.3 Formula-Style Size Markers
 
 ```
 =TBEG_SIZE(employees)
 ```
+
+---
+
+## 8. Bundle
+
+**Syntax**: `${bundle(range)}` or `=TBEG_BUNDLE(range)`
+
+> You can also use named parameters: `${bundle(range=range)}`.
+
+Treats all elements within the specified range as a single unit, so that the entire bundle moves together during repeat expansion.
+
+### 8.1 Purpose
+
+When a table spanning multiple columns (with headers, data rows, total rows, etc.) exists, expanding only some columns' repeat regions can cause the table to become misaligned. Wrapping the entire table in a bundle ensures it always moves as a single unit.
+
+### 8.2 Basic Usage
+
+#### Template
+
+|     | A                             | B               | C    | D    | E      |
+|-----|-------------------------------|-----------------|------|------|--------|
+| 1   | ${repeat(depts, A2:B2, dept)} |                 |      |      |        |
+| 2   | ${dept.name}                  | ${dept.revenue} |      |      |        |
+| 3   | ${bundle(A4:E6)}              |                 |      |      |        |
+| 4   | Name                          | Revenue         | Cost | Profit | Total |
+| 5   | Yongho Hwang                  | 1000            | 500  | 500  | 2000   |
+| 6   | Total                         |                 |      |      | =SUM() |
+
+- Rows 1-2: `depts` repeat expands in columns A-B
+- Rows 4-6: Table wrapped in a bundle (entire columns A-E)
+
+Below is a comparison of results when depts has 3 items.
+
+#### Without bundle -- table becomes misaligned
+
+Only the repeat column range (A-B) shifts down, while columns outside the range (C-E) remain at their original rows.
+
+|     | A      | B     | C    | D    | E      |
+|-----|--------|-------|------|------|--------|
+| 2   | Dept A | 52000 |      |      |        |
+| 3   | Dept B | 38000 |      |      |        |
+| 4   | Dept C | 28000 | Cost | Profit | Total |
+| 5   |        |       | 500  | 500  | 2000   |
+| 6   | Name   | Revenue |    |      | =SUM() |
+| 7   | Yongho Hwang | 1000 |  |      |        |
+| 8   | Total  |       |      |      |        |
+
+Row 4: Column A has "Dept C" while columns C-E have headers (Cost/Profit/Total) -- different content ends up on the same row, breaking the table.
+
+#### With bundle -- table moves as a unit
+
+With `bundle(A4:E6)`, all columns A-E move as a single unit, so every column starts at the same row.
+
+|     | A      | B     | C    | D    | E      |
+|-----|--------|-------|------|------|--------|
+| 2   | Dept A | 52000 |      |      |        |
+| 3   | Dept B | 38000 |      |      |        |
+| 4   | Dept C | 28000 |      |      |        |
+| 5   |        |       |      |      |        |
+| 6   | Name   | Revenue | Cost | Profit | Total |
+| 7   | Yongho Hwang | 1000 | 500  | 500  | 2000   |
+| 8   | Total  |       |      |      | =SUM() |
+
+All columns A-E start at the same row, keeping the table intact.
+
+### 8.3 Marker Placement
+
+The bundle marker can be placed anywhere outside the bundle range. It can also be placed on a different sheet.
+
+```
+${bundle(A5:H12)}
+${bundle('Sheet2'!A5:H12)}
+=TBEG_BUNDLE(A5:H12)
+```
+
+### 8.4 Restrictions
+
+- **No boundary overlap**: If an element such as a repeat partially overlaps the bundle range boundary, an error occurs. Elements must be either fully inside or fully outside the bundle.
+- **No nesting**: Bundles cannot be placed inside other bundles.
 
 ---
 

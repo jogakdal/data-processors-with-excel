@@ -529,7 +529,7 @@ class ExcelGenerator @JvmOverloads constructor(
         return basePath.takeUnless { Files.exists(it) }
             ?: when (config.fileConflictPolicy) {
                 FileConflictPolicy.ERROR -> throw FileAlreadyExistsException(
-                    basePath.toFile(), null, "파일이 이미 존재합니다: $basePath"
+                    basePath.toFile(), null, "File already exists: $basePath"
                 )
                 FileConflictPolicy.SEQUENCE -> findAvailablePathWithSequence(outputDir, baseFileName)
             }
@@ -548,7 +548,7 @@ class ExcelGenerator @JvmOverloads constructor(
             .take(10000)
             .map { outputDir.resolve("${baseNameWithSuffix}_$it.xlsx") }
             .firstOrNull { !Files.exists(it) }
-            ?: throw IllegalStateException("시퀀스 번호가 한계(10000)를 초과했습니다: $baseNameWithSuffix")
+            ?: throw IllegalStateException("Sequence number exceeded limit (10000): $baseNameWithSuffix")
     }
 
     private fun generateFileName(baseFileName: String) = when (config.fileNamingMode) {

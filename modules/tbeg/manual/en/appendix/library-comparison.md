@@ -2,7 +2,7 @@
 
 # Appendix: Comparison with Other Libraries
 
-This document compares TBEG with two similar template-based libraries — JXLS and ExcelReportGenerator (ERG) — to help you choose the right tool for Excel report generation.
+This document compares TBEG with two similar template-based libraries -- JXLS and ExcelReportGenerator (ERG) -- to help you choose the right tool for Excel report generation.
 
 ---
 
@@ -31,7 +31,7 @@ A .NET-based Excel report generation library. It runs on ClosedXML and organizes
 A Kotlin/JVM-based Excel report generation library. Markers are written directly in Excel template cells, allowing you to use designer-created Excel forms as-is and simply bind data to them.
 
 - **Platform**: JVM (Kotlin/Java)
-- **Excel Engine**: Apache POI (XSSF/SXSSF)
+- **Excel Engine**: Apache POI
 - **Package**: `io.github.jogakdal:tbeg`
 
 ---
@@ -45,7 +45,7 @@ A Kotlin/JVM-based Excel report generation library. Markers are written directly
 | **Charts** | Not supported | Not supported | Auto-adjusted when data expands |
 | **Pivot Tables** | Relies on Excel refresh | Not supported | Auto-adjusted when data expands |
 | **Formula Auto-Adjustment** | Supported | Basic level | All reference types supported; auto-adjusted on expansion |
-| **Large Data Processing** | Streaming (with limitations) | Full in-memory load | Streaming mode (100K+ rows) |
+| **Large Data Processing** | Streaming (with limitations) | Full in-memory load | Efficient large data processing (100K+ rows) |
 | **Asynchronous Processing** | Not supported | Not supported | Background generation, progress tracking, cancellation |
 | **Built-in Aggregation** | GroupSum | Sum, Avg, Count, Min, Max | Uses Excel formulas |
 | **Grouping** | groupBy (each attribute) | GroupBy (auto cell merge) | Requires pre-grouped data |
@@ -79,7 +79,7 @@ A Kotlin/JVM-based Excel report generation library. Markers are written directly
 
 | | ERG | JXLS | TBEG |
 |---|---|---|---|
-| **Streaming** | Not supported (full in-memory load) | Supported (disabled by default, with limitations) | Enabled by default (handles 100K+ rows) |
+| **Streaming** | Not supported (full in-memory load) | Supported (disabled by default, with limitations) | Supported (handles 100K+ rows) |
 | **Asynchronous Processing** | Not supported | Not supported | Background generation, progress tracking, cancellation |
 
 ---
@@ -161,6 +161,7 @@ Parent/Children panel trees enable complex nested report structures, with per-pa
 | Multiple repeat regions in one sheet | O | O | O |
 | Cross-sheet repeat | X | X | O |
 | Empty collection replacement content | △ | X | O |
+| Automatic cell merge | △ | O | O |
 | Built-in grouping | O | O | X |
 | Conditional rendering | O | X | X |
 | Automatic multi-sheet generation | O | X | X |
@@ -238,3 +239,10 @@ Parent/Children panel trees enable complex nested report structures, with per-pa
 
 > [!TIP]
 > TBEG takes the approach of **leveraging Excel formulas** instead of built-in aggregation. By placing formulas such as `=SUM()` and `=AVERAGE()` in the template, formula ranges are automatically adjusted as data expands, giving you the advantage of being able to **inspect and verify calculation logic directly in Excel**.
+
+---
+
+## Next Steps
+
+- [User Guide](../user-guide.md) - Getting started with TBEG
+- [TBEG Manual Index](../index.md) - Full documentation overview

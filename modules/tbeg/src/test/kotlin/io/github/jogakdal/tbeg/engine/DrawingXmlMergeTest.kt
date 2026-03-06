@@ -146,9 +146,9 @@ class DrawingXmlMergeTest {
 
         val mapping = callCalculateRidMapping(currentRelsXml, originalRelsXml)
 
-        // 현재 max rId = 2, 차트 rId1 → rId3으로 매핑되어야 한다
+        // 현재 max rId = 2, 차트 rId1 -> rId3으로 매핑되어야 한다
         assertEquals(1, mapping.size, "차트 관계 1개가 매핑되어야 한다")
-        assertEquals("rId3", mapping["rId1"], "rId1 → rId3 매핑")
+        assertEquals("rId3", mapping["rId1"], "rId1 -> rId3 매핑")
     }
 
     @Test
@@ -172,8 +172,8 @@ class DrawingXmlMergeTest {
         val mapping = callCalculateRidMapping(currentRelsXml, originalRelsXml)
 
         assertEquals(2, mapping.size, "차트 관계 2개가 매핑되어야 한다")
-        assertEquals("rId2", mapping["rId1"], "rId1 → rId2")
-        assertEquals("rId3", mapping["rId2"], "rId2 → rId3")
+        assertEquals("rId2", mapping["rId1"], "rId1 -> rId2")
+        assertEquals("rId3", mapping["rId2"], "rId2 -> rId3")
     }
 
     // ========== 중복 방지 ==========
@@ -257,7 +257,7 @@ class DrawingXmlMergeTest {
             </xdr:twoCellAnchor>
         """)
 
-        // repeat: rows 3-5 (0-based, 3행), 5개 아이템 → expansion = (5-1)*3 = 12
+        // repeat: rows 3-5 (0-based, 3행), 5개 아이템 -> expansion = (5-1)*3 = 12
         val expansions = listOf(
             RepeatExpansionInfo(
                 templateStartRow = 3, templateEndRow = 5,
@@ -268,8 +268,8 @@ class DrawingXmlMergeTest {
 
         val result = callMergeDrawingXml(currentXml, originalXml, expansions = expansions)
 
-        // from row: 10 > 5 → 10 + 12 = 22
-        // to row: 25 > 5 → 25 + 12 = 37
+        // from row: 10 > 5 -> 10 + 12 = 22
+        // to row: 25 > 5 -> 25 + 12 = 37
         val fromRowPattern = Regex("""<xdr:from>.*?<xdr:row>(\d+)</xdr:row>""", RegexOption.DOT_MATCHES_ALL)
         val toRowPattern = Regex("""<xdr:to>.*?<xdr:row>(\d+)</xdr:row>""", RegexOption.DOT_MATCHES_ALL)
 

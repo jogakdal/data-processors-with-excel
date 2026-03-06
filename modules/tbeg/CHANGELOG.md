@@ -2,6 +2,49 @@
 
 # TBEG Changelog
 
+## 1.2.0
+
+### Breaking Changes
+
+- **XSSF (non-streaming) mode removed**: Now always operates in streaming mode
+  - `StreamingMode` enum: deprecated (to be removed in a future version)
+  - `TbegConfig.streamingMode`: deprecated (value is ignored)
+  - `TbegConfig.forSmallData()`: deprecated (behaves identically to `default()`)
+  - `TbegConfig.withStreamingMode()`: deprecated
+  - `TbegConfig.Builder.streamingMode()`: deprecated
+  - Spring configuration `streaming-mode`: deprecated (value is ignored)
+  - Internal class `XssfRenderingStrategy` removed
+  - `SxssfRenderingStrategy` renamed to `StreamingRenderingStrategy`
+
+### New Features
+
+- **Image URL support**: Specify an HTTP(S) URL string instead of `ByteArray` as image data, and it will be automatically downloaded at rendering time. Use with `imageUrl("logo", "https://...")` form
+  - Configure inter-call cache TTL with the `imageUrlCacheTtlSeconds` setting (default: 0, no caching)
+  - On download failure, a warning log is emitted and the image is skipped
+- **Automatic cell merge**: Automatically merges consecutive cells with the same value during repeat expansion. Use with `${merge(item.field)}` or `=TBEG_MERGE(item.field)` marker
+- **Bundle**: Groups elements within a specified range into a single unit that moves together during repeat expansion. Use with `${bundle(range)}` or `=TBEG_BUNDLE(range)` marker
+
+### Bug Fixes
+
+- **RIGHT repeat column width duplication fix**: Fixed an issue where column widths were not correctly duplicated when multiple RIGHT repeats shared the same column range
+- **RIGHT repeat non-repeat cell filtering fix**: Fixed to correctly exclude columns from other RIGHT repeat regions during non-repeat cell writing
+- **RIGHT repeat indirect overlap check fix**: Fixed a missing column overlap check between RIGHT repeats with overlapping row ranges
+
+<details>
+<summary>Internal Improvements</summary>
+
+- **Chaining-based position calculation**: PositionCalculator switched from ColumnGroup-based MAX approach to a chaining algorithm. Cross-column displacement propagation through merged cells and bundles is now accurate
+- **MergeTracker**: Added MergeTracker class to handle automatic cell merging
+- **TemplateAnalyzer 5-phase analysis**: Added bundle collection and validation phase (Phase 2.5)
+- **Dead zone handling**: Added logic to detect and correctly skip empty regions caused by displacement
+- **Forward verification**: Added verification logic to prevent reverse calculation ambiguity in `getFinalPosition()`
+- **Row height MAX application**: Applies maximum height when multiple template rows map to the same actual row through chaining
+- **`ensureCalculated()` pattern extraction**: Consolidated repeated lazy calculation calls in PositionCalculator's public methods into a single method
+- **RIGHT repeat column width application improvement**: Prevents duplicate application by grouping repeats with the same colRange via `groupBy` in `applyColumnWidths()`
+- Added unit/integration tests: `CellMergeTest`, `PositionCalculatorTest` chaining/bundle tests
+
+</details>
+
 ## 1.1.3
 
 ### New Features
@@ -30,7 +73,7 @@
 - Refactored `ChartProcessor`
 - Refactored `ImageInserter`
 - Extended `FormulaAdjuster`
-- Improved SXSSF/XSSF rendering strategies
+- Improved rendering strategies
 - Added Rich Sample (quarterly sales performance report demo)
 - Added unit/integration tests: `ChartRangeAdjusterTest`, `ChartRepeatIntegrationTest`, `DrawingXmlMergeTest`, `FormulaAdjusterTest`, `ImageInserterAlignmentTest`
 
@@ -40,8 +83,8 @@
 
 ### Bug Fixes
 
-- **Non-repeat area formula handling improvement**: Fixed an issue where formula cells in non-repeat areas were not processed correctly in XSSF mode
-- **Non-repeat area static row flag fix**: Fixed an issue where the `isStaticRow` flag for non-repeat area cells was not set correctly in SXSSF mode
+- **Non-repeat area formula handling improvement**: Fixed an issue where formula cells in non-repeat areas were not processed correctly
+- **Non-repeat area static row flag fix**: Fixed an issue where the `isStaticRow` flag for non-repeat area cells was not set correctly
 - **Cross-sheet duplicate marker grouping fix**: Fixed duplicate repeat marker detection to group by the target sheet rather than the sheet where the marker is located
 
 ## 1.1.1
@@ -65,9 +108,9 @@
 - **Common types introduction**: Introduced `IndexRange`/`RowRange`/`ColRange` range types and `CollectionSizes` value class
 - **`CellCoord` type publicized and expanded**: Converted `CellCoord` from a private class inside `TemplateAnalyzer` to a public type
 - **`CellArea` type introduction**: Introduced a cell area representation type and consolidated `RepeatRegionSpec` into a single `area: CellArea` property
-- Reorganized `TemplateAnalyzer` into a 4-phase analysis structure (collect → deduplicate repeats → build SheetSpec → deduplicate cell markers)
+- Reorganized `TemplateAnalyzer` into a 4-phase analysis structure (collect -> deduplicate repeats -> build SheetSpec -> deduplicate cell markers)
 - Internal code refactoring and KDoc updates
-- Added verification tests for multiple independent repeat regions on the same row (parameterized tests for XSSF/SXSSF modes)
+- Added verification tests for multiple independent repeat regions on the same row
 - Added duplicate marker detection tests (repeat: 7 cases + image: 6 cases)
 
 </details>
@@ -85,7 +128,7 @@
 
 ### Breaking Changes
 
-- **Configuration class renaming**: `ExcelGeneratorConfig` → `TbegConfig`
+- **Configuration class renaming**: `ExcelGeneratorConfig` -> `TbegConfig`
   - The old name is preserved as a type alias, so existing code continues to work as-is
 
 <details>
@@ -96,7 +139,7 @@
 - Conditional formatting processing logic improvements and utility extraction
 - BOM module addition
 - Kotlin/Java samples with 6 usage patterns (basic, lazy loading, async, large data, encryption, metadata)
-- XSSF vs SXSSF performance benchmark added
+- Performance benchmark added
 - Empty collection handling tests and parameterized test adoption
 
 </details>

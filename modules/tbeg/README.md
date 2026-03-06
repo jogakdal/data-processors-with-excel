@@ -10,6 +10,8 @@ A library that generates reports by binding data to Excel templates.
 - **Repeat data processing**: Expand list data into rows/columns with `${repeat(...)}` syntax
 - **Variable substitution**: Bind values to cells, charts, shapes, headers/footers, formula arguments, etc. with `${variableName}` syntax
 - **Image insertion**: Insert dynamic images into template cells
+- **Automatic cell merge**: Automatically merge consecutive cells with the same value in repeat data
+- **Bundle**: Group multiple elements into a single unit that moves together
 - **Formula auto-adjustment**: Automatically update formula ranges (SUM, AVERAGE, etc.) when data expands
 - **Conditional formatting duplication**: Automatically apply the original conditional formatting to repeated rows
 - **Chart data reflection**: Automatically reflect expanded data ranges in charts
@@ -77,10 +79,13 @@ val data = simpleDataProvider {
     value("period", "Jan 2026 ~ Mar 2026")
     value("author", "Yongho Hwang")
     value("reportDate", LocalDate.now().toString())
+    value("subtitle_emp", "Employee Performance Details")
     image("logo", logoBytes)
     image("ci", ciBytes)
+    imageUrl("chart", "https://example.com/chart.png")  // URL is also supported
     items("depts") { deptList.iterator() }
     items("products") { productList.iterator() }
+    items("employees") { employeeList.iterator() }
 }
 
 ExcelGenerator().use { generator ->
@@ -92,7 +97,7 @@ ExcelGenerator().use { generator ->
 
 ![Result](./src/main/resources/sample/screenshot_result.png)
 
-Variable substitution, image insertion, repeat data expansion, formula range adjustment, conditional formatting duplication, and chart data reflection — TBEG handles all of this automatically.
+Variable substitution, image insertion, repeat data expansion, automatic cell merge, bundle, formula range adjustment, conditional formatting duplication, and chart data reflection — TBEG handles all of this automatically.
 
 > For the full code and template download, see the [Comprehensive Example](./manual/en/examples/advanced-examples.md#11-comprehensive-example--quarterly-sales-performance-report).
 
@@ -112,14 +117,14 @@ Variable substitution, image insertion, repeat data expansion, formula range adj
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.1.3")
+    implementation("io.github.jogakdal:tbeg:1.2.0")
 }
 ```
 
 ```groovy
 // Gradle (Groovy DSL)
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.1.3'
+    implementation 'io.github.jogakdal:tbeg:1.2.0'
 }
 ```
 
@@ -128,7 +133,7 @@ dependencies {
 <dependency>
     <groupId>io.github.jogakdal</groupId>
     <artifactId>tbeg</artifactId>
-    <version>1.1.3</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 
@@ -186,39 +191,38 @@ In a Spring Boot environment, `ExcelGenerator` is automatically registered as a 
 | `${repeat(collection, range, variable)}` | Repeat processing | `${repeat(items, A2:C2, item)}` |
 | `${image(name)}` | Image insertion | `${image(logo)}` |
 | `${size(collection)}` | Collection size | `${size(items)}` |
+| `${merge(item.field)}` | Automatic cell merge | `${merge(emp.dept)}` |
+| `${bundle(range)}` | Bundle | `${bundle(A5:H12)}` |
 
 For detailed syntax, see the [Template Syntax Reference](./manual/en/reference/template-syntax.md).
 
-## Streaming Mode
+## Large-scale Data Processing
 
-A mode that improves memory efficiency and processing speed. The default value (`enabled`) is recommended.
-
-| Mode              | Description                              |
-|-------------------|------------------------------------------|
-| `enabled` (default) | Memory-efficient, fast processing speed |
-| `disabled`        | Keeps all rows in memory (no advantage)  |
+Internally leverages Apache POI's SXSSF to process large data in a memory-efficient manner.
 
 ### Performance Benchmark
 
 **Test environment**: Java 21, macOS, 3 columns repeat + SUM formula
 
-| Data Size    | disabled | enabled | Speed Improvement |
-|--------------|----------|---------|-------------------|
-| 1,000 rows   | 179ms    | 146ms   | 1.2x              |
-| 10,000 rows  | 1,887ms  | 519ms   | **3.6x**          |
-| 30,000 rows  | -        | 1,104ms | -                 |
-| 50,000 rows  | -        | 1,269ms | -                 |
-| 100,000 rows | -        | 2,599ms | -                 |
+| Data Size    | Non-streaming | Streaming | Speed Improvement |
+|--------------|---------------|-----------|-------------------|
+| 1,000 rows   | 179ms         | 146ms     | 1.2x              |
+| 10,000 rows  | 1,887ms       | 519ms     | **3.6x**          |
+| 30,000 rows  | -             | 1,104ms   | -                 |
+| 50,000 rows  | -             | 1,269ms   | -                 |
+| 100,000 rows | -             | 2,599ms   | -                 |
+
+> - The non-streaming approach keeps all rows in memory before writing them at once, which incurs GC overhead and memory copy costs even with small datasets. The streaming approach maintains only a 100-row buffer and writes sequentially, making it faster regardless of data size.
+> - Non-streaming was not measured for 10,000+ rows due to potential out-of-memory issues.
 
 ### Comparison with Other Libraries (30,000 rows)
 
 | Library    | Time      | Notes                                                       |
 |------------|-----------|-------------------------------------------------------------|
-| **TBEG**   | **1.1s**  | Streaming mode                                              |
+| **TBEG**   | **1.1s**  |                                                             |
 | JXLS       | 5.2s      | [Benchmark source](https://github.com/jxlsteam/jxls/discussions/203) |
 
-> [!TIP]
-> Run benchmark: `./gradlew :tbeg:runBenchmark`
+> TBEG calls the POI API directly and writes in a single pass with streaming, whereas JXLS goes through an abstraction layer performing multiple passes of template parsing, transformation, and writing — which is believed to account for this difference.
 
 For details on configuration options, see the [Configuration Options Reference](./manual/en/reference/configuration.md).
 
@@ -235,6 +239,7 @@ For details on configuration options, see the [Configuration Options Reference](
 - [Spring Boot Examples](./manual/en/examples/spring-boot-examples.md)
 - [Best Practices](./manual/en/best-practices.md)
 - [Troubleshooting](./manual/en/troubleshooting.md)
+- [Library Comparison](./manual/en/appendix/library-comparison.md)
 - [Developer Guide](./manual/en/developer-guide.md)
 
 ## Run Samples

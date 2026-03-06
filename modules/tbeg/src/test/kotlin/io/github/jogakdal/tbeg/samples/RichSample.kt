@@ -1,8 +1,6 @@
 package io.github.jogakdal.tbeg.samples
 
 import io.github.jogakdal.tbeg.ExcelGenerator
-import io.github.jogakdal.tbeg.StreamingMode
-import io.github.jogakdal.tbeg.TbegConfig
 import io.github.jogakdal.tbeg.simpleDataProvider
 import java.nio.file.Files
 import java.nio.file.Path
@@ -20,11 +18,16 @@ import java.time.LocalDate
  * - 차트 데이터 범위 자동 반영
  * - 차트 제목 변수 치환
  * - 숫자/퍼센트 서식
+ * - 자동 셀 병합 (부서/팀별 merge)
  */
 object RichSample {
 
     data class DeptResult(val deptName: String, val revenue: Long, val cost: Long, val target: Long)
     data class ProductCategory(val category: String, val revenue: Long)
+    data class Employee(
+        val dept: String, val team: String, val name: String, val rank: String,
+        val revenue: Long, val cost: Long, val target: Long
+    )
 
     @JvmStatic
     fun main(args: Array<String>) {
@@ -40,6 +43,7 @@ object RichSample {
             value("period", "Jan 2026 ~ Mar 2026")
             value("author", "Yongho Hwang")
             value("reportDate", LocalDate.now().toString())
+            value("subtitle_emp", "Employee Performance Details")
             image("logo", loadImage("hunet_logo.png") ?: byteArrayOf())
             image("ci", loadImage("hunet_ci.png") ?: byteArrayOf())
 
@@ -61,15 +65,28 @@ object RichSample {
                     ProductCategory("Contents License", 15000),
                 ).iterator()
             }
+
+            items("employees") {
+                listOf(
+                    Employee("Common Platform", "Strategy",  "Hwang Yongho",  "Manager",  18000, 11000, 17000),
+                    Employee("Common Platform", "Strategy",  "Park Sungjun",   "Senior",   15000,  9000, 14000),
+                    Employee("Common Platform", "Backend", "Choi Changmin",  "Senior",   12000,  7000, 13000),
+                    Employee("Common Platform", "Backend", "Kim Hyunkyung",   "Junior",    7000,  4000,  6000),
+                    Employee("IT Strategy",     "Planning", "Byun Jaemyung", "Manager",  20000, 12000, 20000),
+                    Employee("IT Strategy",     "Planning", "Kim Minchul",  "Senior",   11000,  6000, 12000),
+                    Employee("IT Strategy",     "Analysis", "Kim Minhee",    "Senior",    7000,  4000,  8000),
+                    Employee("Education Biz",   "Sales",    "Yoon Seojin", "Manager",  35000, 22000, 30000),
+                    Employee("Education Biz",   "Sales",    "Kang Minwoo", "Senior",   28000, 18000, 25000),
+                    Employee("Education Biz",   "Sales",    "Lim Soyeon",  "Junior",   15000, 10000, 15000),
+                    Employee("Education Biz",   "Support",  "Oh Junhyeok", "Senior",   17000, 11000, 20000),
+                ).iterator()
+            }
         }
 
-        // XSSF / SXSSF 양쪽 모드로 생성
-        for ((mode, suffix) in listOf(StreamingMode.DISABLED to "xssf", StreamingMode.ENABLED to "sxssf")) {
-            ExcelGenerator(TbegConfig(streamingMode = mode)).use { generator ->
-                val template = loadTemplate("rich_sample_template.xlsx")
-                val result = generator.generateToFile(template, provider, outputDir, "quarterly_report_$suffix")
-                println("[$suffix] Result: $result")
-            }
+        ExcelGenerator().use { generator ->
+            val template = loadTemplate("rich_sample_template.xlsx")
+            val result = generator.generateToFile(template, provider, outputDir, "quarterly_report")
+            println("Result: $result")
         }
 
         println("=" .repeat(60))

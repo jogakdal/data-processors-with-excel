@@ -57,7 +57,8 @@ data class SheetSpec(
     val headerFooter: HeaderFooterSpec? = null,
     val printSetup: PrintSetupSpec? = null,
     val conditionalFormattings: List<ConditionalFormattingSpec> = emptyList(),
-    val repeatRegions: List<RepeatRegionSpec> = emptyList()
+    val repeatRegions: List<RepeatRegionSpec> = emptyList(),
+    val bundleRegions: List<BundleRegionSpec> = emptyList()
 ) {
     /** templateRowIndex로 RowSpec을 빠르게 조회하기 위한 맵 */
     val rowsByTemplateIndex: Map<Int, RowSpec> by lazy {
@@ -191,6 +192,35 @@ sealed class CellContent {
         val collectionName: String,
         val originalText: String
     ) : CellContent()
+
+    /**
+     * 자동 병합 마커 -- ${merge(item.field)} 또는 =TBEG_MERGE(item.field)
+     *
+     * repeat 영역 내에서 연속된 같은 값의 셀을 자동으로 병합한다.
+     *
+     * @param itemVariable 아이템 변수명 (예: "emp")
+     * @param fieldPath 필드 경로 (예: "dept")
+     * @param originalText 원본 텍스트
+     */
+    data class MergeField(
+        val itemVariable: String,
+        val fieldPath: String,
+        val originalText: String
+    ) : CellContent()
+
+    /**
+     * Bundle 마커 -- ${bundle(range)} 또는 =TBEG_BUNDLE(range)
+     *
+     * 지정 범위 내의 모든 요소를 하나의 넓은 요소로 묶어
+     * 밀려남 계산 시 독립된 단위로 참여하게 한다.
+     *
+     * @param range 번들 범위 (예: "A1:H10")
+     * @param originalText 원본 텍스트
+     */
+    data class BundleMarker(
+        val range: String,
+        val originalText: String
+    ) : CellContent()
 }
 
 /**
@@ -200,6 +230,11 @@ enum class RepeatDirection {
     DOWN,   // 아래로 확장 (기본값)
     RIGHT   // 오른쪽으로 확장
 }
+
+/**
+ * Bundle 영역 정보 -- 밀려남 계산에서 하나의 단위로 취급되는 범위
+ */
+data class BundleRegionSpec(val area: CellArea)
 
 /**
  * 반복 영역 정보
@@ -212,65 +247,6 @@ data class RepeatRegionSpec(
     val emptyRange: EmptyRangeSpec? = null,           // 컬렉션이 비어있을 때 표시할 범위
     val emptyRangeContent: EmptyRangeContent? = null   // 컬렉션이 비어있을 때 표시할 내용 (미리 읽음)
 )
-
-/**
- * 열 그룹 - 열 범위가 겹치는 repeat 영역들의 모음
- *
- * 같은 열 그룹 내의 repeat 영역들은 서로 영향을 주지만,
- * 다른 열 그룹의 repeat 영역들과는 독립적으로 확장된다.
- */
-data class ColumnGroup(
-    val groupId: Int,
-    val colRange: ColRange,
-    val repeatRegions: List<RepeatRegionSpec>
-) {
-    companion object {
-        /**
-         * repeat 영역들을 열 그룹으로 분류
-         */
-        fun fromRepeatRegions(regions: List<RepeatRegionSpec>): List<ColumnGroup> {
-            if (regions.isEmpty()) return emptyList()
-
-            // DOWN 방향 repeat만 그룹화 대상
-            val downRepeats = regions.filter { it.direction == RepeatDirection.DOWN }
-            if (downRepeats.isEmpty()) return emptyList()
-
-            // Union-Find로 겹치는 영역들을 그룹화
-            val groups = mutableListOf<MutableList<RepeatRegionSpec>>()
-
-            for (region in downRepeats) {
-                // 기존 그룹 중 열 범위가 겹치는 그룹 찾기
-                val overlappingGroups = groups.filter { group ->
-                    group.any { it.area.overlapsColumns(region.area) }
-                }
-
-                when (overlappingGroups.size) {
-                    0 -> {
-                        // 새 그룹 생성
-                        groups.add(mutableListOf(region))
-                    }
-                    1 -> {
-                        // 기존 그룹에 추가
-                        overlappingGroups[0].add(region)
-                    }
-                    else -> {
-                        // 여러 그룹 병합
-                        val merged = mutableListOf(region)
-                        overlappingGroups.forEach { merged.addAll(it) }
-                        groups.removeAll(overlappingGroups)
-                        groups.add(merged)
-                    }
-                }
-            }
-
-            return groups.mapIndexed { index, regionsInGroup ->
-                val minCol = regionsInGroup.minOf { it.area.start.col }
-                val maxCol = regionsInGroup.maxOf { it.area.end.col }
-                ColumnGroup(index, ColRange(minCol, maxCol), regionsInGroup.toList())
-            }
-        }
-    }
-}
 
 /**
  * 조건부 서식 정보 (SXSSF 모드용)
@@ -344,7 +320,7 @@ data class EmptyRangeSpec(
 /**
  * 빈 컬렉션일 때 표시할 셀 내용 (미리 읽어둔 스냅샷)
  *
- * @property cells 행/열 순서로 저장된 셀 스냅샷 (행 인덱스 → 열 인덱스 순)
+ * @property cells 행/열 순서로 저장된 셀 스냅샷 (행 인덱스 -> 열 인덱스 순)
  * @property mergedRegions 병합 영역 목록 (상대 좌표: emptyRange 시작 기준)
  * @property rowHeights 행 높이 목록
  * @property conditionalFormattings 조건부 서식 목록 (상대 좌표: emptyRange 시작 기준)

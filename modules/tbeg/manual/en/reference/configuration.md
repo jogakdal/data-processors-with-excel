@@ -21,7 +21,7 @@ io.github.jogakdal.tbeg.TbegConfig
 
 | Option                      | Type                  | Default               | Description                                          |
 |-----------------------------|-----------------------|-----------------------|------------------------------------------------------|
-| `streamingMode`             | `StreamingMode`       | `ENABLED`             | Streaming mode setting                               |
+| ~~`streamingMode`~~         | `StreamingMode`       | `ENABLED`             | **deprecated** -- value is ignored                   |
 | `fileNamingMode`            | `FileNamingMode`      | `TIMESTAMP`           | File naming mode                                     |
 | `timestampFormat`           | `String`              | `"yyyyMMdd_HHmmss"`  | Timestamp format for filenames                       |
 | `fileConflictPolicy`        | `FileConflictPolicy`  | `SEQUENCE`            | Policy when filename conflicts occur                 |
@@ -30,22 +30,19 @@ io.github.jogakdal.tbeg.TbegConfig
 | `pivotIntegerFormatIndex`   | `Short`               | `3`                   | Integer number format index (`#,##0`)                |
 | `pivotDecimalFormatIndex`   | `Short`               | `4`                   | Decimal number format index (`#,##0.00`)             |
 | `missingDataBehavior`       | `MissingDataBehavior` | `WARN`                | Behavior when data is missing                        |
+| `imageUrlCacheTtlSeconds`   | `Long`                | `0`                   | Image URL cache TTL (seconds, 0 = no caching)       |
 
 ---
 
 ### Option Details
 
-#### streamingMode
+#### streamingMode (deprecated)
 
-Configures the streaming mode.
-
-| Value      | Description                                          |
-|------------|------------------------------------------------------|
-| `ENABLED`  | Memory-efficient, optimized for large data (default) |
-| `DISABLED` | Uses the POI native API with shiftRows-based row insertion |
+> **deprecated**: Starting from 1.2.0, TBEG always operates in streaming mode. This option is ignored.
 
 ```kotlin
-TbegConfig(streamingMode = StreamingMode.ENABLED)
+// deprecated -- no need to configure
+// TbegConfig(streamingMode = StreamingMode.ENABLED)
 ```
 
 #### fileNamingMode
@@ -133,6 +130,22 @@ Behavior when data corresponding to a variable/collection defined in the templat
 TbegConfig(missingDataBehavior = MissingDataBehavior.THROW)
 ```
 
+#### imageUrlCacheTtlSeconds
+
+TTL (in seconds) for caching downloaded image data when image data is specified as a URL.
+
+| Value | Behavior |
+|-------|----------|
+| `0`   | No caching between calls (default). Downloads every time even for the same URL |
+| `> 0` | Caches for the specified duration. Effective when generating with the same URL multiple times |
+
+> [!NOTE]
+> Within a single `generate()` call, the same URL is never downloaded more than once, regardless of this TTL setting.
+
+```kotlin
+TbegConfig(imageUrlCacheTtlSeconds = 60)  // Cache for 60 seconds
+```
+
 ---
 
 ### Creation Methods
@@ -141,7 +154,6 @@ TbegConfig(missingDataBehavior = MissingDataBehavior.THROW)
 
 ```kotlin
 val config = TbegConfig(
-    streamingMode = StreamingMode.ENABLED,
     progressReportInterval = 500
 )
 val generator = ExcelGenerator(config)
@@ -151,7 +163,6 @@ val generator = ExcelGenerator(config)
 
 ```java
 TbegConfig config = TbegConfig.builder()
-    .streamingMode(StreamingMode.ENABLED)
     .progressReportInterval(500)
     .build();
 
@@ -171,8 +182,8 @@ io.github.jogakdal.tbeg.spring.TbegProperties
 
 ```yaml
 tbeg:
-  # Streaming mode: enabled, disabled
-  streaming-mode: enabled
+  # streaming-mode: deprecated (value is ignored starting from 1.2.0)
+  # streaming-mode: enabled
 
   # File naming mode: none, timestamp
   file-naming-mode: timestamp
@@ -197,13 +208,16 @@ tbeg:
 
   # Behavior when data is missing: warn, throw
   missing-data-behavior: warn
+
+  # Image URL cache TTL (seconds, 0 = no caching)
+  image-url-cache-ttl-seconds: 0
 ```
 
 ### Property Mapping
 
 | application.yml Key           | TbegConfig Property            |
 |-------------------------------|--------------------------------|
-| `streaming-mode`              | `streamingMode`                |
+| ~~`streaming-mode`~~          | ~~`streamingMode`~~ (deprecated) |
 | `file-naming-mode`            | `fileNamingMode`               |
 | `timestamp-format`            | `timestampFormat`              |
 | `file-conflict-policy`        | `fileConflictPolicy`           |
@@ -212,24 +226,23 @@ tbeg:
 | `pivot-integer-format-index`  | `pivotIntegerFormatIndex`      |
 | `pivot-decimal-format-index`  | `pivotDecimalFormatIndex`      |
 | `missing-data-behavior`       | `missingDataBehavior`          |
+| `image-url-cache-ttl-seconds` | `imageUrlCacheTtlSeconds`      |
 
 ---
 
 ## 3. Enum Types
 
-### StreamingMode
+### StreamingMode (deprecated)
+
+> **deprecated**: Starting from 1.2.0, TBEG always operates in streaming mode. This enum will be removed in a future version.
 
 ```kotlin
+@Deprecated("Always operates in streaming mode")
 enum class StreamingMode {
-    DISABLED,  // Uses the POI native API
-    ENABLED    // Memory-efficient (default)
+    DISABLED,
+    ENABLED
 }
 ```
-
-| Value      | Recommended Use Case                          |
-|------------|-----------------------------------------------|
-| `DISABLED` | Small data with 1,000 rows or fewer           |
-| `ENABLED`  | Large data with 10,000+ rows, memory-constrained environments |
 
 ### FileNamingMode
 
@@ -293,17 +306,19 @@ A configuration optimized for processing large datasets.
 
 ```kotlin
 val config = TbegConfig.forLargeData()
-// streamingMode = ENABLED
 // progressReportInterval = 500
 ```
 
-### forSmallData()
+### forSmallData() (deprecated)
 
-A configuration optimized for processing small datasets.
+> **deprecated**: Starting from 1.2.0, this behaves identically to `default()`. Use `default()` or `TbegConfig()` instead.
 
 ```kotlin
+// deprecated
 val config = TbegConfig.forSmallData()
-// streamingMode = DISABLED
+
+// Recommended
+val config = TbegConfig.default()
 ```
 
 ---
@@ -314,7 +329,6 @@ val config = TbegConfig.forSmallData()
 
 ```kotlin
 val config = TbegConfig(
-    streamingMode = StreamingMode.ENABLED,
     progressReportInterval = 1000
 )
 ```
@@ -351,5 +365,3 @@ val config = TbegConfig(
 
 - [API Reference](./api-reference.md) - ExcelGenerator API details
 - [User Guide](../user-guide.md) - Complete guide
-- [Troubleshooting](../troubleshooting.md) - Problem resolution
-- [Best Practices](../best-practices.md) - Template design and performance optimization

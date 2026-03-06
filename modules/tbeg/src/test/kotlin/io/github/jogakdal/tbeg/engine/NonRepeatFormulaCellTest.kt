@@ -2,7 +2,6 @@
 
 package io.github.jogakdal.tbeg.engine
 
-import io.github.jogakdal.tbeg.StreamingMode
 import io.github.jogakdal.tbeg.engine.rendering.TemplateRenderingEngine
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
@@ -10,8 +9,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.EnumSource
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 
@@ -23,9 +20,9 @@ import java.io.ByteArrayOutputStream
  * - 수식이 repeat 영역을 참조하면 범위 확장이 필요하다
  *
  * 관련 코드:
- * - SxssfRenderingStrategy.collectNonRepeatCells (라인 381)
- * - SxssfRenderingStrategy.writeRepeatCellsForRow (라인 577)
- * - SxssfRenderingStrategy.writeEmptyRangeForStreaming (라인 615)
+ * - StreamingRenderingStrategy.collectNonRepeatCells
+ * - StreamingRenderingStrategy.writeRepeatCellsForRow
+ * - StreamingRenderingStrategy.writeEmptyRangeForStreaming
  */
 @DisplayName("repeat 행의 비반복 수식 셀 조정 테스트")
 class NonRepeatFormulaCellTest {
@@ -71,19 +68,18 @@ class NonRepeatFormulaCellTest {
             ByteArrayOutputStream().also { workbook.write(it) }.toByteArray()
         }
 
-        @ParameterizedTest(name = "{0} 모드")
-        @EnumSource(StreamingMode::class)
+        @Test
         @DisplayName("repeat 범위 밖 수식의 범위가 확장되어야 한다")
-        fun formulaRangeExpansion(mode: StreamingMode) {
-            val engine = TemplateRenderingEngine(mode)
+        fun formulaRangeExpansion() {
+            val engine = TemplateRenderingEngine()
             val result = engine.process(ByteArrayInputStream(createTemplate()), data)
 
             val formula = extractFormula(result, 1, 3) // D2 (0-indexed: row 1, col 3)
 
-            println("[$mode] D2 수식: $formula")
+            println("D2 수식: $formula")
 
-            // 5명 데이터이므로 B2:B2 → B2:B6 확장
-            assertEquals("SUM(B2:B6)", formula, "[$mode] repeat 영역을 참조하는 수식의 범위가 확장되어야 한다")
+            // 5명 데이터이므로 B2:B2 -> B2:B6 확장
+            assertEquals("SUM(B2:B6)", formula, "repeat 영역을 참조하는 수식의 범위가 확장되어야 한다")
         }
     }
 
@@ -123,18 +119,17 @@ class NonRepeatFormulaCellTest {
             ByteArrayOutputStream().also { workbook.write(it) }.toByteArray()
         }
 
-        @ParameterizedTest(name = "{0} 모드")
-        @EnumSource(StreamingMode::class)
+        @Test
         @DisplayName("두 repeat 사이의 수식 범위가 확장되어야 한다")
-        fun formulaBetweenRepeats(mode: StreamingMode) {
-            val engine = TemplateRenderingEngine(mode)
+        fun formulaBetweenRepeats() {
+            val engine = TemplateRenderingEngine()
             val result = engine.process(ByteArrayInputStream(createTemplate()), data)
 
             val formula = extractFormula(result, 1, 2) // C2 (0-indexed: row 1, col 2)
 
-            println("[$mode] C2 수식: $formula")
+            println("C2 수식: $formula")
 
-            assertEquals("SUM(B2:B6)", formula, "[$mode] repeat 영역을 참조하는 수식의 범위가 확장되어야 한다")
+            assertEquals("SUM(B2:B6)", formula, "repeat 영역을 참조하는 수식의 범위가 확장되어야 한다")
         }
     }
 
@@ -169,19 +164,18 @@ class NonRepeatFormulaCellTest {
             ByteArrayOutputStream().also { workbook.write(it) }.toByteArray()
         }
 
-        @ParameterizedTest(name = "{0} 모드")
-        @EnumSource(StreamingMode::class)
+        @Test
         @DisplayName("정적 행의 수식 범위가 올바르게 확장된다 (기존 동작)")
-        fun staticRowFormula(mode: StreamingMode) {
-            val engine = TemplateRenderingEngine(mode)
+        fun staticRowFormula() {
+            val engine = TemplateRenderingEngine()
             val result = engine.process(ByteArrayInputStream(createTemplate()), data)
 
-            // 5명 데이터: 마커1행 + 데이터5행 + 합계1행 = 7행 → 합계는 row 6 (0-indexed)
+            // 5명 데이터: 마커1행 + 데이터5행 + 합계1행 = 7행 -> 합계는 row 6 (0-indexed)
             val formula = extractFormula(result, 6, 1) // B7 (0-indexed: row 6, col 1)
 
-            println("[$mode] B7 수식: $formula")
+            println("B7 수식: $formula")
 
-            assertEquals("SUM(B2:B6)", formula, "[$mode] 정적 행의 수식 범위가 확장되어야 한다")
+            assertEquals("SUM(B2:B6)", formula, "정적 행의 수식 범위가 확장되어야 한다")
         }
     }
 

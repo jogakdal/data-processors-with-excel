@@ -182,7 +182,7 @@ class ImageInserterAlignmentTest {
         // 너비를 채우므로 hAlign(CENTER)은 마진과 동일
         assertEquals(((cellWidthPx - imageWidthPx) / 2 * EMU_PER_PIXEL).toLong(), anchor.colOff,
             "fitToWidth에서 hAlign은 실질적으로 무시됨")
-        // vAlign BOTTOM → 다음 행 기준 음수 오프셋
+        // vAlign BOTTOM -> 다음 행 기준 음수 오프셋
         assertEquals(1, anchor.row, "BOTTOM: 다음 행(endRow+1) 기준")
         assertTrue(anchor.rowOff < 0, "vAlign BOTTOM이 적용되어 음수 오프셋이어야 함")
     }
@@ -206,7 +206,7 @@ class ImageInserterAlignmentTest {
         // 높이를 채우므로 vAlign(CENTER)은 마진과 동일
         assertEquals(((cellHeightPx - imageHeightPx) / 2 * EMU_PER_PIXEL).toLong(), anchor.rowOff,
             "fitToHeight에서 vAlign은 실질적으로 무시됨")
-        // hAlign RIGHT → 다음 열 기준 음수 오프셋
+        // hAlign RIGHT -> 다음 열 기준 음수 오프셋
         assertEquals(1, anchor.col, "RIGHT: 다음 열(endCol+1) 기준")
         assertTrue(anchor.colOff < 0, "hAlign RIGHT가 적용되어 음수 오프셋이어야 함")
     }

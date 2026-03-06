@@ -47,8 +47,7 @@ io.github.jogakdal.tbeg/
 │   └── rendering/                      # Rendering engine
 │       ├── RenderingStrategy.kt
 │       ├── AbstractRenderingStrategy.kt
-│       ├── XssfRenderingStrategy.kt
-│       ├── SxssfRenderingStrategy.kt
+│       ├── StreamingRenderingStrategy.kt
 │       ├── TemplateRenderingEngine.kt
 │       ├── TemplateAnalyzer.kt
 │       ├── PositionCalculator.kt
@@ -72,7 +71,7 @@ Template + Data
 ───────────────────────────────────────────────────────────────
                        TbegPipeline
 ───────────────────────────────────────────────────────────────
-   1. ChartExtractProcessor       - Extract charts (prevent SXSSF loss)
+   1. ChartExtractProcessor       - Extract charts (prevent streaming loss)
    2. PivotExtractProcessor       - Extract pivot table info
    3. TemplateRenderProcessor     - Render templates (data binding)
    4. NumberFormatProcessor       - Apply number formatting
@@ -91,7 +90,7 @@ Template + Data
 TBEG's core philosophy is **Excel-native features first**.
 
 - Features that Excel already does well (aggregation, conditional formatting, charts, etc.) are not reimplemented
-- TBEG provides **dynamic data binding** (variable substitution, repeat expansion, image insertion) — things Excel cannot do on its own
+- TBEG provides **dynamic data binding** (variable substitution, repeat expansion, image insertion) -- things Excel cannot do on its own
 - After data expansion, TBEG **preserves and adjusts** Excel-native features so they work as intended (formula range expansion, conditional formatting duplication, chart data range adjustment)
 
 This principle serves as the foundation for all implementation decisions including the pipeline, rendering strategies, and position calculations.
@@ -156,7 +155,7 @@ class TemplateRenderProcessor : ExcelProcessor {
         }
         context.requiredNames = blueprint.extractRequiredNames()
 
-        val engine = TemplateRenderingEngine(context.config.streamingMode)
+        val engine = TemplateRenderingEngine()
         context.resultBytes = engine.process(
             ByteArrayInputStream(context.resultBytes),
             context.dataProvider,
@@ -173,7 +172,7 @@ class TemplateRenderProcessor : ExcelProcessor {
 
 ### 3.1 Strategy Pattern
 
-Different strategies are used depending on the rendering mode (XSSF/SXSSF).
+Rendering is handled by a single strategy, `StreamingRenderingStrategy`. It supports memory-efficient processing of large datasets via streaming.
 
 ```kotlin
 internal interface RenderingStrategy {
@@ -186,26 +185,16 @@ internal interface RenderingStrategy {
     ): ByteArray
 }
 
-internal class XssfRenderingStrategy : RenderingStrategy
-internal class SxssfRenderingStrategy : RenderingStrategy
+internal class StreamingRenderingStrategy : RenderingStrategy
 ```
 
-### 3.2 XSSF vs SXSSF
-
-| Characteristic | XSSF | SXSSF |
-|----------------|------|-------|
-| Memory | Loads entire workbook into memory | Window-based streaming |
-| Row insertion | Supports shiftRows() | Sequential output only |
-| Formula references | Auto-adjusted | Auto-adjusted |
-| Large datasets | Limited | Suitable |
-
-### 3.3 AbstractRenderingStrategy
+### 3.2 AbstractRenderingStrategy
 
 Common logic is extracted into an abstract class.
 
 ```kotlin
 internal abstract class AbstractRenderingStrategy : RenderingStrategy {
-    // Abstract methods — must be implemented by subclasses
+    // Abstract methods -- must be implemented by subclasses
     protected abstract fun <T> withWorkbook(
         templateBytes: ByteArray,
         block: (workbook: Workbook, xssfWorkbook: XSSFWorkbook) -> T
@@ -217,7 +206,7 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
     )
     protected abstract fun finalizeWorkbook(workbook: Workbook): ByteArray
 
-    // Hook methods — optional override
+    // Hook methods -- optional override
     protected open fun beforeProcessSheets(workbook: Workbook, blueprint: WorkbookSpec, ...)
     protected open fun afterProcessSheets(workbook: Workbook, context: RenderingContext)
 
@@ -257,7 +246,7 @@ ${repeat(employees, A3:C3, emp, DOWN)}
 ### 4.3 Usage Example
 
 ```kotlin
-// Parse a marker — return type is CellContent (sealed interface)
+// Parse a marker -- return type is CellContent (sealed interface)
 val content = UnifiedMarkerParser.parse("\${repeat(employees, A3:C3, emp, DOWN)}")
 
 // Branch based on CellContent subtype
@@ -284,6 +273,8 @@ when (content) {
 | `repeat` | Expand repeated data | collection, range | var, direction(=DOWN), empty |
 | `image` | Insert image | name | position, size(=fit) |
 | `size` | Output collection size | collection | |
+| `merge` | Automatic cell merge | field | |
+| `bundle` | Element grouping | range | |
 
 ---
 
@@ -314,7 +305,7 @@ val count: Int? = sizes["employees"]  // 10
 
 #### CellArea
 
-A data class representing a cell area (start/end coordinates). Used in `RepeatRegionSpec`, `ColumnGroup`, and other components to hold area information.
+A data class representing a cell area (start/end coordinates). Used in `RepeatRegionSpec`, `BundleRegionSpec`, and other components to hold area information.
 
 ```kotlin
 // Create from CellCoord
@@ -350,13 +341,15 @@ When adding a new range marker that requires duplicate detection, add it to the 
 
 ### 5.2 PositionCalculator
 
-Calculates the positions of multiple repeat regions.
+Calculates the positions of multiple repeat regions using a chaining algorithm.
 
 ```kotlin
 class PositionCalculator(
     repeatRegions: List<RepeatRegionSpec>,
     collectionSizes: CollectionSizes,
-    templateLastRow: Int = -1
+    templateLastRow: Int = -1,
+    mergedRegions: List<CellRangeAddress> = emptyList(),
+    bundleRegions: List<BundleRegionSpec> = emptyList()
 ) {
     // Calculate all repeat expansion information
     fun calculate(): List<RepeatExpansion>
@@ -387,23 +380,27 @@ data class RepeatExpansion(
 )
 ```
 
-### 5.4 Position Calculation Rules
+### 5.4 Position Calculation Rules (Chaining Algorithm)
 
-1. **Independent elements**: If not affected by any repeat, the template position is preserved.
-2. **Single influence**: If affected by only one repeat, the position shifts by that expansion amount.
-3. **Multiple influences**: If affected by multiple repeats, the maximum offset is applied.
+All element positions (repeat, merged cells, bundle) are determined by the **chaining algorithm**.
 
-### 5.5 Column Groups
+1. **Element collection**: repeat -> Expandable, merged cells outside repeat -> Fixed, bundle -> Bundle
+2. **Top-down sequential calculation**: For each element, find the nearest resolved element above in the same column range and calculate the displacement
+3. **Multi-column elements**: For elements spanning multiple columns, take the **MAX** of each column's calculated result as the final position
 
-Repeats sharing the same column range affect each other, while repeats in different column groups expand independently.
+#### Core Rules
 
-```kotlin
-data class ColumnGroup(
-    val groupId: Int,
-    val colRange: ColRange,
-    val repeatRegions: List<RepeatRegionSpec>
-)
-```
+- **Independent elements**: If there is no expanding element above, the template position is preserved
+- **Displacement propagation**: If an element above is displaced, elements below it are also displaced
+- **Cross-column propagation**: Displacement from repeats in other columns propagates through multi-column elements (merged cells, bundles)
+
+### 5.5 Bundle
+
+Groups elements within a specified range into a single unit for displacement calculation.
+
+- Internal displacement is calculated as if it were an independent sheet
+- Once a bundle's size is determined, it participates in the chaining as a wide element
+- Boundary overlap and nesting are prohibited
 
 ---
 
@@ -411,7 +408,7 @@ data class ColumnGroup(
 
 ### 6.1 StreamingDataSource
 
-Consumes iterators sequentially in SXSSF mode.
+Consumes iterators sequentially during streaming rendering.
 
 ```kotlin
 internal class StreamingDataSource(
@@ -426,15 +423,12 @@ internal class StreamingDataSource(
 
 ### 6.2 Memory Optimization Principles
 
-| Mode | Memory Policy |
-|------|--------------|
-| SXSSF | Only the current item is kept in memory |
-| XSSF | Entire dataset can be loaded into memory |
+Only the currently processed item is kept in memory, enabling efficient processing of large datasets.
 
 ### 6.3 DataProvider Requirements
 
-- `getItems()` must be able to provide the same data again.
-- If the same collection is used in multiple repeats, `getItems()` will be called again.
+- `getItems()` must be able to provide the same data again
+- If the same collection is used in multiple repeats, `getItems()` will be called again
 
 ---
 
@@ -521,7 +515,7 @@ src/test/
 │   │   └── TemplateRenderingEngineSample.kt
 │   ├── benchmark/                          # Benchmark code
 │   │   ├── PerformanceBenchmark.kt         # Large-scale benchmark
-│   │   └── PerformanceBenchmarkTest.kt     # XSSF vs SXSSF comparison
+│   │   └── PerformanceBenchmarkTest.kt     # Processing speed benchmark
 │   └── ...                                 # Test code
 ├── java/io/github/jogakdal/tbeg/samples/     # Sample code (Java)
 │   ├── TbegJavaSample.java

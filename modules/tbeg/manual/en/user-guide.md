@@ -20,7 +20,7 @@
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.1.3")
+    implementation("io.github.jogakdal:tbeg:1.2.0")
 }
 ```
 
@@ -29,18 +29,21 @@ dependencies {
 ```groovy
 // build.gradle
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.1.3'
+    implementation 'io.github.jogakdal:tbeg:1.2.0'
 }
 ```
 
 #### Maven
 
 ```xml
-<dependency>
-    <groupId>io.github.jogakdal</groupId>
-    <artifactId>tbeg</artifactId>
-    <version>1.1.3</version>
-</dependency>
+<!-- pom.xml -->
+<dependencies>
+    <dependency>
+        <groupId>io.github.jogakdal</groupId>
+        <artifactId>tbeg</artifactId>
+        <version>1.2.0</version>
+    </dependency>
+</dependencies>
 ```
 
 ### 1.2 Creating Your First Excel File
@@ -115,6 +118,8 @@ TBEG uses special markers in Excel templates to bind data.
 | `${repeat(collection, range, variable)}` | Repeat processing | `${repeat(employees, A3:C3, emp)}` |
 | `${image(name)}`           | Image insertion              | `${image(logo)}`                   |
 | `${size(collection)}`      | Collection size              | `${size(employees)}`               |
+| `${merge(item.field)}`     | Automatic cell merge         | `${merge(emp.dept)}`               |
+| `${bundle(range)}`         | Bundle                       | `${bundle(A5:H12)}`               |
 
 For detailed syntax, see the [Template Syntax Reference](./reference/template-syntax.md).
 
@@ -188,6 +193,9 @@ fun main() {
     val provider = simpleDataProvider {
         value("company", "Hunet Inc.")
         image("logo", logoBytes)
+
+        // You can also specify images via URL (automatically downloaded during rendering)
+        imageUrl("banner", "https://example.com/banner.png")
     }
 
     ExcelGenerator().use { generator ->
@@ -197,6 +205,8 @@ fun main() {
     }
 }
 ```
+
+> URL images are downloaded during the `generate()` call and embedded in the Excel file. Within the same call, identical URLs are downloaded only once. Even if the download fails, Excel generation completes normally. For detailed settings, see [Image URL Syntax](./reference/template-syntax.md#36-url-images) and [Cache Configuration](./reference/configuration.md#imageurlcachettlseconds).
 
 ### 2.4 Saving Files
 
@@ -250,8 +260,11 @@ val provider = simpleDataProvider {
         employeeRepository.findAll().iterator()
     }
 
-    // Image
+    // Image (ByteArray)
     image("logo", logoBytes)
+
+    // Image (URL - automatically downloaded during rendering)
+    imageUrl("banner", "https://example.com/banner.png")
 
     // Document metadata
     metadata {
@@ -406,25 +419,9 @@ return ResponseEntity.accepted().body(mapOf("jobId" to job.jobId))
 
 ## 5. Large-Scale Data Processing
 
-### 5.1 Streaming Mode
+### 5.1 Streaming Processing
 
-TBEG uses streaming mode (SXSSF) by default to process large datasets in a memory-efficient manner.
-
-```kotlin
-import io.github.jogakdal.tbeg.ExcelGenerator
-import io.github.jogakdal.tbeg.TbegConfig
-import io.github.jogakdal.tbeg.StreamingMode
-
-// Streaming mode (default)
-val config = TbegConfig(
-    streamingMode = StreamingMode.ENABLED
-)
-
-// Non-streaming mode (small datasets, complex formulas)
-val configNonStreaming = TbegConfig(
-    streamingMode = StreamingMode.DISABLED
-)
-```
+TBEG processes large datasets in a memory-efficient manner. It provides optimal performance with its default behavior, without requiring any special configuration.
 
 ### 5.2 Lazy Loading + Providing Count (Recommended)
 
@@ -510,7 +507,6 @@ class ReportService(
 
 ```kotlin
 val config = TbegConfig(
-    streamingMode = StreamingMode.ENABLED,    // Enable streaming mode
     progressReportInterval = 1000              // Report progress every 1000 rows
 )
 

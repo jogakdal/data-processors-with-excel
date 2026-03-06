@@ -35,19 +35,19 @@ This document defines the architecture, implementation principles, and developme
 │                      TbegPipeline                           │
 │                                                             │
 │  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐     │
-│  │ChartExtract  │ → │PivotExtract  │ → │TemplateRender│     │
+│  │ ChartExtract │ → │ PivotExtract │ → │TemplateRender│     │
 │  └──────────────┘   └──────────────┘   └──────┬───────┘     │
 │                                               │             │
 │                                               ▼             │
 │                                    ┌──────────────────┐     │
 │                                    │ RenderingEngine  │     │
-│                                    │ ┌──────┬───────┐ │     │
-│                                    │ │ XSSF │ SXSSF │ │     │
-│                                    │ └──────┴───────┘ │     │
+│                                    │ ┌──────────────┐ │     │
+│                                    │ │   Default    │ │     │
+│                                    │ └──────────────┘ │     │
 │                                    └──────────────────┘     │
 │                                               │             │
 │  ┌──────────────┐   ┌──────────────┐   ┌──────▼───────┐     │
-│  │  Metadata    │ ← │ ChartRestore │ ← │ NumberFormat │     │
+│  │   Metadata   │ ← │ ChartRestore │ ← │ NumberFormat │     │
 │  └──────────────┘   └──────────────┘   └──────────────┘     │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -57,21 +57,20 @@ This document defines the architecture, implementation principles, and developme
 
 | Order | Processor          | Class                         | Role                                      | Execution Condition |
 |-------|--------------------|-------------------------------|--------------------------------------------|---------------------|
-| 1     | ChartExtract       | `ChartExtractProcessor`       | Extract chart info and temporarily remove   | SXSSF mode          |
+| 1     | ChartExtract       | `ChartExtractProcessor`       | Extract chart info and temporarily remove   | Always              |
 | 2     | PivotExtract       | `PivotExtractProcessor`       | Extract pivot table info                    | Always              |
-| 3     | TemplateRender     | `TemplateRenderProcessor`     | Template rendering (XSSF/SXSSF strategy)   | Always              |
+| 3     | TemplateRender     | `TemplateRenderProcessor`     | Template rendering                          | Always              |
 | 4     | NumberFormat       | `NumberFormatProcessor`       | Auto-apply number formats                   | Always              |
 | 5     | XmlVariableReplace | `XmlVariableReplaceProcessor` | Variable substitution within XML            | Always              |
 | 6     | PivotRecreate      | `PivotRecreateProcessor`      | Recreate pivot tables                       | When pivots exist   |
 | 7     | ChartRestore       | `ChartRestoreProcessor`       | Restore charts and adjust data ranges       | When charts exist   |
 | 8     | Metadata           | `MetadataProcessor`           | Apply document metadata                     | Always              |
 
-### Rendering Strategy (Strategy Pattern)
+### Rendering Strategy
 
-| Strategy | Class                      | Condition                | Characteristics                    |
-|----------|----------------------------|--------------------------|------------------------------------|
-| SXSSF    | `SxssfRenderingStrategy`   | Streaming mode (default) | 100-row buffer, memory efficient   |
-| XSSF     | `XssfRenderingStrategy`    | Non-streaming mode       | Full in-memory load, all features  |
+| Class                          | Characteristics                                                        |
+|--------------------------------|------------------------------------------------------------------------|
+| `StreamingRenderingStrategy`   | Uses Apache POI SXSSF mode internally for memory-efficient processing  |
 
 ---
 
@@ -117,8 +116,7 @@ src/main/kotlin/io/github/jogakdal/tbeg/
 │   └── rendering/                          # Rendering strategies
 │       ├── RenderingStrategy.kt            # Rendering strategy interface
 │       ├── AbstractRenderingStrategy.kt    # Common logic
-│       ├── XssfRenderingStrategy.kt        # XSSF (non-streaming)
-│       ├── SxssfRenderingStrategy.kt       # SXSSF (streaming)
+│       ├── StreamingRenderingStrategy.kt     # Default rendering strategy
 │       ├── TemplateRenderingEngine.kt      # Rendering engine
 │       ├── TemplateAnalyzer.kt             # Template analyzer
 │       ├── parser/                         # Marker parser (unified)
@@ -168,20 +166,20 @@ src/main/kotlin/io/github/jogakdal/tbeg/
 
 ### Rendering Engine
 
-| Class                       | Role                                                  |
-|-----------------------------|-------------------------------------------------------|
-| `TemplateRenderingEngine`   | Selects and executes rendering strategy                |
-| `TemplateAnalyzer`          | Template analysis (marker parsing, duplicate marker detection)  |
-| `WorkbookSpec`              | Analyzed template specification (SheetSpec, RowSpec, CellSpec, RepeatRegionSpec, ColumnGroup) |
-| `PositionCalculator`        | Cell position calculation during repeat expansion      |
-| `FormulaAdjuster`           | Automatic formula reference expansion                  |
+| Class                       | Role                                                                                  |
+|-----------------------------|---------------------------------------------------------------------------------------|
+| `TemplateRenderingEngine`   | Selects and executes rendering strategy                                                |
+| `TemplateAnalyzer`          | Template analysis (marker parsing, duplicate marker detection)                         |
+| `WorkbookSpec`              | Analyzed template specification (SheetSpec, RowSpec, CellSpec, RepeatRegionSpec, BundleRegionSpec) |
+| `PositionCalculator`        | Cell position calculation during repeat expansion (chaining algorithm)                 |
+| `FormulaAdjuster`           | Automatic formula reference expansion                                                  |
 
 ### Streaming Support
 
-| Class                      | Role                                        |
-|----------------------------|---------------------------------------------|
-| `SxssfRenderingStrategy`   | SXSSF-based streaming rendering             |
-| `StreamingDataSource`      | Sequential data consumption via Iterator    |
+| Class                          | Role                                        |
+|--------------------------------|---------------------------------------------|
+| `StreamingRenderingStrategy`   | Streaming-based rendering                   |
+| `StreamingDataSource`          | Sequential data consumption via Iterator    |
 
 ### Async Processing
 
@@ -318,6 +316,34 @@ Total employees: ${size(employees)}
 =TBEG_SIZE(employees)
 ```
 
+### Automatic Cell Merge
+
+**Text markers:**
+```
+${merge(item.field)}
+```
+
+**Formula markers:**
+```
+=TBEG_MERGE(item.field)
+```
+
+**Parameters:**
+
+| Parameter | Description          | Example    |
+|-----------|----------------------|------------|
+| field     | In item.field format | `emp.dept` |
+
+During repeat expansion, consecutive cells with the same value are automatically merged.
+For DOWN repeats, vertical merging is applied; for RIGHT repeats, horizontal merging is applied.
+Data must be pre-sorted by the merge key.
+
+**Examples:**
+```
+${merge(emp.dept)}
+=TBEG_MERGE(emp.dept)
+```
+
 ### Variables in Formulas
 
 Variables can also be used within formulas:
@@ -362,6 +388,8 @@ parser/
 | `repeat` | `collection`, `range`, `var`, `direction`, `empty`         |
 | `image`  | `name`, `position`, `size`                                 |
 | `size`   | `collection`                                               |
+| `merge`  | `field`                                                    |
+| `bundle` | `range`                                                    |
 
 **Parameter formats:**
 - Positional: `${repeat(employees, A2:C2, emp)}`
@@ -381,23 +409,24 @@ parser/
 
 ### Feature List
 
-| Feature                | Description                                  | Handled By                |
-|------------------------|----------------------------------------------|---------------------------|
+| Feature                  | Description                                  | Handled By                |
+|--------------------------|----------------------------------------------|---------------------------|
 | Duplicate marker detection | Warning and auto-removal for duplicate range markers | `TemplateAnalyzer`  |
-| Variable substitution  | Simple value binding                         | `TemplateRenderingEngine` |
-| Nested variables       | Object property access                       | `TemplateRenderingEngine` |
-| Repeat (DOWN)          | Row-direction expansion                      | `RenderingStrategy`       |
-| Repeat (RIGHT)         | Column-direction expansion                   | `RenderingStrategy`       |
-| Empty collection       | Replacement content via empty parameter      | `RenderingStrategy`       |
-| Image insertion        | Dynamic images                               | `ImageInserter`           |
-| Charts                 | Automatic data range expansion               | `ChartProcessor`          |
-| Pivot tables           | Automatic source range expansion             | `PivotTableProcessor`     |
-| Formula expansion      | Auto-expansion of repeat region references   | `FormulaAdjuster`         |
-| Merged cells           | Automatic position adjustment                | `PositionCalculator`      |
-| Conditional formatting | Automatic range adjustment                   | `FormulaAdjuster`         |
-| Header/Footer          | Variable substitution support                | `XmlVariableProcessor`    |
-| File encryption        | Open password setting                        | `ExcelGenerator`          |
-| Async processing       | Background generation + progress tracking    | `GenerationJob`           |
+| Variable substitution    | Simple value binding                         | `TemplateRenderingEngine` |
+| Nested variables         | Object property access                       | `TemplateRenderingEngine` |
+| Repeat (DOWN)            | Row-direction expansion                      | `RenderingStrategy`       |
+| Repeat (RIGHT)           | Column-direction expansion                   | `RenderingStrategy`       |
+| Empty collection         | Replacement content via empty parameter      | `RenderingStrategy`       |
+| Image insertion          | Dynamic images                               | `ImageInserter`           |
+| Automatic cell merge     | Auto-merge consecutive cells with same value | `MergeTracker`            |
+| Charts                   | Automatic data range expansion               | `ChartProcessor`          |
+| Pivot tables             | Automatic source range expansion             | `PivotTableProcessor`     |
+| Formula expansion        | Auto-expansion of repeat region references   | `FormulaAdjuster`         |
+| Merged cells             | Automatic position adjustment                | `PositionCalculator`      |
+| Conditional formatting   | Automatic range adjustment                   | `FormulaAdjuster`         |
+| Header/Footer            | Variable substitution support                | `XmlVariableProcessor`    |
+| File encryption          | Open password setting                        | `ExcelGenerator`          |
+| Async processing         | Background generation + progress tracking    | `GenerationJob`           |
 
 ---
 
@@ -437,14 +466,19 @@ Example: Single-row repeat (templateRow 6)
 ```
 
 #### 1.3 Row Height Conflict Resolution
-When multiple template rows map to the same actualRow (from different column groups), `maxOf` is used to apply the tallest height.
+When multiple template rows map to the same actualRow (due to chaining producing different shifts across different columns), `maxOf` is used to apply the tallest height.
 
 - Reason: In Excel, row height applies to the entire row, so all cells must be displayed properly
 - Ensures consistent results regardless of processing order
 
-#### 1.4 Column Group Independence
+#### 1.4 Chaining-Based Position Calculation
 Repeats in different column ranges have their positions calculated independently.
 **Even when multiple independent repeats exist on the same row**, they are managed as separate `RepeatRegionSpec` instances and expanded independently as long as their column ranges do not overlap.
+
+Shift propagation is handled by the **chaining algorithm**:
+- Each element (repeat, merged cell, bundle) finds the nearest resolved element above it in its column range to calculate the shift amount
+- **Wide elements** (elements spanning multiple columns -- merged cells, bundles) propagate shifts across columns
+- Static cells in gap columns (columns not belonging to any repeat) are not shifted unless connected by a wide element
 
 ```
 Example 1: Repeats placed on different rows
@@ -467,17 +501,19 @@ Example 2: Repeats placed on the same row
 
 Range-handling markers (repeat, image) that are declared multiple times for the same target produce a warning log, and only the last marker is retained.
 
-#### TemplateAnalyzer 4-Phase Analysis Structure
+#### TemplateAnalyzer 5-Phase Analysis Structure
 
 ```
 analyzeWorkbook(workbook)
   Phase 1: Collect repeat markers from all sheets (collectRepeatRegions)
   Phase 2: Deduplicate repeat markers (deduplicateRepeatRegions)
-  Phase 3: Build SheetSpec (analyzeSheet — uses deduplicated repeat list)
+  Phase 2.5: Collect and validate bundle markers (collectBundleRegions, validateBundleRegions)
+  Phase 3: Build SheetSpec (analyzeSheet — uses deduplicated repeat/bundle list)
   Phase 4: Deduplicate cell-level range markers (deduplicateCellMarkers)
 ```
 
 - **Phase 1-2**: Since repeat markers are extracted into `RepeatRegionSpec` and separated from cells, deduplication occurs before SheetSpec is built
+- **Phase 2.5**: Bundle markers are collected and validated for nesting/boundary overlap
 - **Phase 3-4**: Markers that remain in cells (e.g., image) are deduplicated as a post-processing step after SheetSpec creation (duplicate markers are replaced with `CellContent.Empty`)
 
 #### Duplication Criteria
@@ -495,7 +531,7 @@ Since duplicate repeats on the same region yield `overlaps() == true`, failure t
 ```
 TemplateAnalyzer.analyzeWorkbook()
   -> Phase 2: Remove duplicate repeats (warning log)     <- first
-      |
+      v
 RenderingStrategy.processSheet()
   -> validateNoOverlap(blueprint.repeatRegions)           <- later
 ```
@@ -514,29 +550,23 @@ If the collection is empty, one blank row (or column) is output in the repeat re
 
 #### emptyRange Size Handling
 
-| emptyRange Size       | Handling                                                    |
-|-----------------------|-------------------------------------------------------------|
-| Single cell (smaller) | Merge the entire repeat region and insert the content       |
-| Multiple cells (smaller) | Output only the emptyRange portion; rest as blank cells  |
-| Larger                | Output only up to the repeat region size; truncate the rest |
+| emptyRange Size         | Handling                                                    |
+|-------------------------|-------------------------------------------------------------|
+| Single cell (smaller)   | Merge the entire repeat region and insert the content       |
+| Multiple cells (smaller)| Output only the emptyRange portion; rest as blank cells     |
+| Larger                  | Output only up to the repeat region size; truncate the rest |
 
 #### Processing Location
 
-| Mode                  | Handler Function                                          |
-|-----------------------|-----------------------------------------------------------|
-| XSSF                  | `XssfRenderingStrategy.writeEmptyRangeContent()`          |
-| SXSSF (streaming)     | `SxssfRenderingStrategy.writeRepeatCellsForRow()`         |
-| SXSSF (pendingRows)   | `SxssfRenderingStrategy.collectEmptyRangeContentCells()`  |
+| Processing Path   | Handler Function                                                 |
+|-------------------|------------------------------------------------------------------|
+| streaming         | `StreamingRenderingStrategy.writeRepeatCellsForRow()`            |
+| pendingRows       | `StreamingRenderingStrategy.collectEmptyRangeContentCells()`     |
 
-### 2. Memory Management Principles (SXSSF Mode)
+### 2. Memory Management Principles
 
 #### 2.1 No Full Collection Memory Loading
-In SXSSF mode, entire collections are not loaded into memory to support large data processing.
-
-| Mode  | Memory Policy                                  | Reason                      |
-|-------|------------------------------------------------|-----------------------------|
-| SXSSF | Does not load entire collection into memory    | For large data processing   |
-| XSSF  | Full memory loading allowed                    | For small data only         |
+Entire collections are not loaded into memory to support large data processing.
 
 #### 2.2 DataProvider Re-invocation
 When the same collection is used across multiple repeat regions, the DataProvider is called again.
@@ -577,7 +607,7 @@ Example: =SUM(C6) -> =SUM(C6:C105) (when expanded by 100 items)
 - `SheetExpansionInfo` includes per-sheet `expansions` and `collectionSizes`
 - Sheet name extraction: `Sheet1!` -> `"Sheet1"`, `'Sheet Name'!` -> `"Sheet Name"`
 
-**Reference shifting outside repeat regions (SXSSF):**
+**Reference shifting outside repeat regions:**
 
 When a formula **inside** a repeat region references a cell **outside** the region, the reference is handled identically regardless of the presence of `$`:
 - Not shifted during the copy step (`adjustForRepeatIndex`)
@@ -593,14 +623,181 @@ K8 (index 1): J8/J11   <- J7 -> J8 (copy offset), J11 unchanged
 K9 (index 2): J9/J11   <- J7 -> J9 (copy offset), J11 unchanged
 ```
 
-#### 3.2 Static Element Position Shifting
-Static elements (formulas, merged cells, conditional formatting, etc.) affected by repeat expansion are shifted by the expansion amount.
+#### 3.2 Element Shifting Principles
 
-#### 3.3 PositionCalculator Position Determination Rules
+These principles determine where elements are shifted to when repeat expansion occurs.
 
-1. Elements not affected by any repeat: Stay at the template position
-2. Elements affected by only one repeat: Shifted by that repeat's expansion
-3. Elements affected by two or more repeats: Moved to the most shifted position
+**Core principle: When an element above is shifted, all elements below it are also shifted.** This applies regardless of element type or size.
+
+The **cause** of shifting is the size change of expanding elements (repeats), but the **propagation** of shifting occurs through all elements in a chain fashion.
+
+##### 3.2.1 Terminology
+
+| Term | Definition |
+|------|------------|
+| **Element** | Any item with a position on the template sheet: single cell, merged cell, repeat range, image anchor, chart anchor, etc. |
+| **Expanding element** | An element whose size varies depending on the data count. Currently only repeat qualifies |
+| **Parent element** | For each column of the given element, the nearest element directly above. **Any element** -- single cell, merged cell, or repeat -- can be a parent candidate |
+| **Absolute gap** | The fixed distance between the start row of the given element and the end row of the parent element in the template |
+| **Rendered end** | The last row occupied by the element in the final output |
+
+##### 3.2.2 Parent Element Lookup Rules
+
+1. Search independently for **each column** the element occupies
+2. Traverse upward to find the nearest (directly above) **element**
+3. **Type/size agnostic**: Any element -- single cell, merged cell, repeat, image, chart -- qualifies as a parent candidate
+4. When multiple candidates exist in the same column, only the **nearest (lowest)** one is selected
+
+```
+Example:
+  Row 1:  [repeat]       <- element
+  Row 5:  [single cell]  <- element
+  Row 8:  [merged cell]  <- element
+  Row 12: [image]        <- this element's parent = merged cell (nearest element)
+```
+
+##### 3.2.3 Shifted Position Calculation
+
+```
+Final start position = parent element's rendered end + absolute gap
+Absolute gap = this element's template start row - parent element's template end row
+```
+
+Since the parent element's rendered end must be determined first, calculation proceeds **top-down sequentially** (dependency chain).
+
+##### 3.2.4 Multi-Column Element Parent Handling (MAX)
+
+Elements spanning multiple columns search for parents independently in each column.
+The **maximum (MAX)** among each column's results is adopted as the final position.
+
+```
+Example:
+  Col A-D:  Row 1: [repeat] -> 100 items expanded -> rendered end = Row 100
+  Col E-H:  (no repeat)
+  Col A-H:  Row 5: [merged cell] (spans all 8 columns)
+
+  Merged cell's parent:
+    Column A: repeat (rendered end 100) -> 100 + (5-1) = 104
+    Column E: no parent -> 5 (not shifted)
+    MAX -> 104 (merged cell final start = Row 104)
+```
+
+##### 3.2.5 Rendered End Calculation
+
+| Element Type | Rendered End |
+|--------------|-------------|
+| **Expanding element (repeat)** | Final start + (data count x template row count) - 1 |
+| **Regular element** | Final start + (template size - 1) |
+
+- Expanding elements: Size changes based on data, so the rendered end may differ from the template
+- Regular elements (including single cells): Size is fixed, so they simply shift by the shifted amount. For single cells, rendered end = final start
+
+##### 3.2.6 When No Parent Element Exists
+
+- If no element exists above in a given column, that column experiences no shift
+- If **all columns** have no parent, the template position is retained (no shift)
+
+##### 3.2.7 Cross-Column Shift Propagation
+
+This is the essential core scenario where chaining is required.
+Through elements spanning multiple columns (merged cells, bundles), shifts propagate even between repeats in different columns, preserving the layout.
+
+```
+Template:
+  Col A-D:  Row 1:    [repeat] (A1:D1)          <- expands in columns A-D only
+  Col A-H:  Row 5-10: [divider merge] (A5:H10)  <- spans all of A-H
+  Col E-H:  Row 12:   [element X] (E12:H12)     <- columns E-H only
+
+repeat -> 100 items expanded:
+
+  X Without chaining (referencing only repeats):
+    divider -> Row 104 (shifted by A-column repeat), rendered end = Row 109
+    element X -> Row 12 (no repeat in column E, so no shift)
+    -> element X remains above the divider -- layout broken!
+
+  V With chaining (propagating through all elements):
+    divider -> Row 104, rendered end = Row 109
+    element X -> parent = divider -> 109 + (12-10) = Row 111
+    -> element X correctly positioned below the divider
+```
+
+##### 3.2.8 Horizontal Expansion
+
+The same principles apply to RIGHT-direction repeats. Simply substitute the directions:
+
+| Vertical Expansion | Horizontal Expansion |
+|-------------------|---------------------|
+| Row | Column |
+| Above | Left |
+| Below | Right |
+| Rendered end row | Rendered end column |
+
+##### 3.2.9 No Horizontal/Vertical Overlap
+
+Configurations where horizontal and vertical expansions intersect in 2D space are not supported. An error is raised.
+
+##### 3.2.10 Scope of Application
+
+- Applied in the streaming rendering strategy (`StreamingRenderingStrategy`)
+
+##### 3.2.11 Bundle (Element Bundle)
+
+Bundles group all elements within a specified range into a single wide element, applying shift policies consistently.
+A bundle has no effect other than shift policy.
+
+**Syntax:**
+
+```
+${bundle(A15:H20)}
+=TBEG_BUNDLE(A15:H20)
+```
+
+**Marker placement:** Anywhere outside the bundle range (even on a different sheet)
+
+**Behavior model:**
+
+1. **Internal isolation**: The inside of a bundle is treated like an independent sheet
+   - Parent element lookup for internal elements stops at the bundle boundary
+   - Elements in the bundle's first row have no parent (as if they were at the top of a sheet)
+   - Elements outside the bundle are not considered as parent candidates for internal elements
+
+2. **Internal shift calculation**: The shift policies described in this section (3.2) apply identically inside the bundle
+   - Internal repeat expansion, element chaining, MAX rule, etc. all apply
+
+3. **Bundle size determination**: Row count of the bundle range + expansion amount after applying internal shift policies
+   - If multiple parallel repeats exist inside, the MAX is applied
+
+4. **External participation**: Once the size is determined, the bundle participates in the shift chain as a single wide element
+   - Bundle's column range = the bundle range's column range
+   - Bundle's rendered end = bundle's final start + final size - 1
+
+**Example:**
+
+```
+Template:
+  Col A-D:  Row 1:    [repeat(depts)] (A1:D1)     <- 5 items (expansion +4)
+  Col A-H:  Row 5-12: ${bundle(A5:H12)}     <- element bundle (8 rows)
+              Row 5:  "Employee Performance" (title)
+              Row 6:  Header row
+              Row 7:  [repeat(employees)] (A7:H7)  <- 11 items (expansion +10)
+              Row 12: SUM row
+
+Without bundle:
+  A-column elements are shifted by depts, but E-H column elements are not -> table misaligned
+
+With bundle:
+  1) Internal calculation: employees +10 rows -> bundle final size = 8 + 10 = 18 rows
+  2) External: bundle(A-H, 18 rows) participates as a wide element
+     Column A parent = depts (rendered end 5) -> bundle start = 5 + (5-1) = 9
+     Column E parent = none -> 5
+     MAX -> bundle final start = Row 9, rendered end = Row 26
+  3) Internal elements move together with the bundle -> entire table shifts as one unit
+```
+
+**Constraints:**
+
+- **No boundary overlap**: An error occurs if an element partially overlaps the bundle range
+- **No bundle nesting**: An error occurs if a bundle contains another bundle
 
 ### 4. Number Format Principles
 
@@ -644,35 +841,33 @@ List of properties that must be preserved during style copying:
 
 ### TbegConfig Defaults
 
-| Option                      | Default               | Description                        |
-|-----------------------------|-----------------------|------------------------------------|
-| `streamingMode`             | `ENABLED`             | ENABLED (SXSSF) / DISABLED (XSSF) |
-| `fileNamingMode`            | `TIMESTAMP`           | TIMESTAMP / NONE                   |
-| `timestampFormat`           | `"yyyyMMdd_HHmmss"`  | DateTimeFormatter pattern          |
-| `fileConflictPolicy`        | `SEQUENCE`            | SEQUENCE / ERROR                   |
-| `progressReportInterval`    | `100`                 | Progress report interval (rows)    |
-| `preserveTemplateLayout`    | `true`                | Preserve template layout           |
-| `pivotIntegerFormatIndex`   | `3`                   | Integer format index (`#,##0`)     |
-| `pivotDecimalFormatIndex`   | `4`                   | Decimal format index (`#,##0.00`)  |
-| `missingDataBehavior`       | `WARN`                | WARN / THROW                       |
+| Option                      | Default               | Description                                |
+|-----------------------------|-----------------------|--------------------------------------------|
+| `streamingMode`             | `ENABLED`             | **deprecated** (value is ignored)          |
+| `fileNamingMode`            | `TIMESTAMP`           | TIMESTAMP / NONE                           |
+| `timestampFormat`           | `"yyyyMMdd_HHmmss"`  | DateTimeFormatter pattern                  |
+| `fileConflictPolicy`        | `SEQUENCE`            | SEQUENCE / ERROR                           |
+| `progressReportInterval`    | `100`                 | Progress report interval (rows)            |
+| `preserveTemplateLayout`    | `true`                | Preserve template layout                   |
+| `pivotIntegerFormatIndex`   | `3`                   | Integer format index (`#,##0`)             |
+| `pivotDecimalFormatIndex`   | `4`                   | Decimal format index (`#,##0.00`)          |
+| `missingDataBehavior`       | `WARN`                | WARN / THROW                               |
 
 ### Preset Configurations
 
 ```kotlin
 // Optimized for large data processing
 TbegConfig.forLargeData()
-// streamingMode = ENABLED, progressReportInterval = 500
+// progressReportInterval = 500
 
-// For small data
+// For small data (deprecated -- identical to default())
 TbegConfig.forSmallData()
-// streamingMode = DISABLED
 ```
 
 ### Spring Boot Configuration (application.yml)
 
 ```yaml
 tbeg:
-  streaming-mode: enabled
   file-naming-mode: timestamp
   timestamp-format: yyyyMMdd_HHmmss
   file-conflict-policy: sequence
@@ -685,7 +880,7 @@ tbeg:
 
 ## Limitations
 
-### SXSSF (Streaming) Mode
+### Supported Features
 
 | Item                                 | Supported | Notes                                         |
 |--------------------------------------|-----------|-----------------------------------------------|
@@ -704,11 +899,11 @@ tbeg:
 
 ### Internal Constants
 
-| Constant          | Value       | Location                         |
-|-------------------|-------------|----------------------------------|
-| SXSSF buffer size | 100 rows    | `SxssfRenderingStrategy.kt:49`  |
-| Image margin      | 1px         | `ImageInserter.kt`              |
-| EMU conversion    | 9525 EMU/px | `ImageInserter.kt`              |
+| Constant          | Value       | Location                          |
+|-------------------|-------------|-----------------------------------|
+| SXSSF buffer size | 100 rows    | `StreamingRenderingStrategy.kt`   |
+| Image margin      | 1px         | `ImageInserter.kt`                |
+| EMU conversion    | 9525 EMU/px | `ImageInserter.kt`                |
 
 ---
 
@@ -736,7 +931,7 @@ Optimizes reflection performance.
 
 Prevents formula recalculation errors.
 
-- Both XSSF/SXSSF call `clearCalcChain()`
+- `clearCalcChain()` is called
 - Triggers formula recalculation when the file is opened in Excel
 
 ---
@@ -853,17 +1048,17 @@ src/test/
 
 **Test environment**: Java 21, macOS, 3-column repeat + SUM formula
 
-| Data Size     | DISABLED (XSSF) | ENABLED (SXSSF) | Speedup    |
-|---------------|-----------------|-----------------|------------|
-| 1,000 rows    | 172ms           | 147ms           | 1.2x       |
-| 10,000 rows   | 1,801ms         | 663ms           | **2.7x**   |
-| 30,000 rows   | -               | 1,057ms         | -          |
-| 50,000 rows   | -               | 1,202ms         | -          |
-| 100,000 rows  | -               | 3,154ms         | -          |
+| Data Size     | Time      |
+|---------------|-----------|
+| 1,000 rows    | 147ms     |
+| 10,000 rows   | 663ms     |
+| 30,000 rows   | 1,057ms   |
+| 50,000 rows   | 1,202ms   |
+| 100,000 rows  | 3,154ms   |
 
 ### Comparison with Other Libraries (30,000 rows)
 
 | Library    | Time        | Notes                                                           |
 |------------|-------------|-----------------------------------------------------------------|
-| **TBEG**   | **1.1 sec** | Streaming mode                                                  |
+| **TBEG**   | **1.1 sec** |                                                                 |
 | JXLS       | 5.2 sec     | [Benchmark source](https://github.com/jxlsteam/jxls/discussions/203) |

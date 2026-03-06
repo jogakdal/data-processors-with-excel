@@ -12,7 +12,7 @@ import org.openxmlformats.schemas.drawingml.x2006.chart.*
  * repeat 확장에 따른 차트 데이터 범위 자동 조정
  *
  * 차트 시리즈의 셀 참조(`<c:f>` 태그)를 repeat 확장 결과에 맞게 갱신한다.
- * XSSF/SXSSF 양쪽 모드에서 공용으로 사용한다.
+ * 렌더링 전략에서 공용으로 사용한다.
  */
 internal object ChartRangeAdjuster {
 
@@ -305,9 +305,9 @@ internal object ChartRangeAdjuster {
      * 차트 수식 내 범위 참조를 조정한다.
      *
      * 조정 규칙 (DOWN 방향):
-     * - 범위 시작 행이 repeat 영역 뒤면 → expansionAmount만큼 시프트
-     * - 범위 끝 행이 repeat 영역 안이면 → 확장 (itemCount * templateRowCount - 1)
-     * - 범위 끝 행이 repeat 영역 뒤면 → expansionAmount만큼 시프트
+     * - 범위 시작 행이 repeat 영역 뒤면 -> expansionAmount만큼 시프트
+     * - 범위 끝 행이 repeat 영역 안이면 -> 확장 (itemCount * templateRowCount - 1)
+     * - 범위 끝 행이 repeat 영역 뒤면 -> expansionAmount만큼 시프트
      *
      * expansions는 **템플릿 행 기준으로 정렬**되어 있어야 하며,
      * 누적 오프셋을 적용하여 다중 repeat를 처리한다.
@@ -426,14 +426,14 @@ internal object ChartRangeAdjuster {
             .toSortedMap(compareBy { it.first })
 
         for ((_, group) in grouped) {
-            val templateStartRow1 = group.first().templateStartRow + 1  // 0-based → 1-based
+            val templateStartRow1 = group.first().templateStartRow + 1  // 0-based -> 1-based
             val templateEndRow1 = group.first().templateEndRow + 1
 
             val expansionAmount = group.maxOf { (it.itemCount - 1) * it.templateRowCount }
 
             // 시작 행 조정
             if (startRow > templateEndRow1) {
-                // repeat 영역 뒤의 시작점 → 누적 오프셋 + 이번 확장
+                // repeat 영역 뒤의 시작점 -> 누적 오프셋 + 이번 확장
                 adjustedStart = startRow + cumulativeOffset + expansionAmount
             } else {
                 adjustedStart = startRow + cumulativeOffset
@@ -442,10 +442,10 @@ internal object ChartRangeAdjuster {
             // 끝 행 조정
             val maxExpandedTotal = group.maxOf { it.itemCount * it.templateRowCount }
             if (endRow in templateStartRow1..templateEndRow1) {
-                // repeat 영역 안의 끝점 → 확장
+                // repeat 영역 안의 끝점 -> 확장
                 adjustedEnd = templateStartRow1 + cumulativeOffset + maxExpandedTotal - 1
             } else if (endRow > templateEndRow1) {
-                // repeat 영역 뒤의 끝점 → 시프트
+                // repeat 영역 뒤의 끝점 -> 시프트
                 adjustedEnd = endRow + cumulativeOffset + expansionAmount
             } else {
                 adjustedEnd = endRow + cumulativeOffset

@@ -1,9 +1,6 @@
 package io.github.jogakdal.tbeg.samples
 
 import io.github.jogakdal.tbeg.ExcelGenerator
-import io.github.jogakdal.tbeg.TbegConfig
-import io.github.jogakdal.tbeg.SimpleDataProvider
-import io.github.jogakdal.tbeg.StreamingMode
 import io.github.jogakdal.tbeg.simpleDataProvider
 import java.nio.file.Files
 import java.nio.file.Path
@@ -22,21 +19,12 @@ import java.time.LocalDate
  * - `${image.name}` - 이미지 삽입
  * - 수식 내 변수 치환: `HYPERLINK("${url}", "${text}")`
  *
- * ## 처리 방식
- * - **비스트리밍 모드(XSSF)**: 템플릿 변환 방식 (shiftRows + copyRowFrom)
- * - **스트리밍 모드(SXSSF)**: 명세 기반 순차 생성 (메모리 효율적)
- *
  * ## Spring Boot 설정 예시
  * ```kotlin
  * @Configuration
  * class ExcelConfig {
  *     @Bean
- *     fun excelGenerator(): ExcelGenerator {
- *         val config = TbegConfig(
- *             streamingMode = StreamingMode.ENABLED
- *         )
- *         return ExcelGenerator(config)
- *     }
+ *     fun excelGenerator() = ExcelGenerator()
  * }
  * ```
  */
@@ -54,87 +42,31 @@ object TemplateRenderingEngineSample {
         println("TemplateRenderingEngine 샘플 실행")
         println("=".repeat(60))
 
-        // 1. 비스트리밍 모드 (XSSF)
-        runXssfExample(outputDir)
+        // 1. 기본 예제
+        runBasicExample(outputDir)
 
-        // 2. 스트리밍 모드 (SXSSF)
-        runSxssfExample(outputDir)
-
-        // 3. 대용량 스트리밍 테스트
-        runLargeSxssfExample(outputDir)
+        // 2. 대용량 테스트
+        runLargeExample(outputDir)
 
         println("\n" + "=".repeat(60))
         println("샘플 폴더: ${outputDir.toAbsolutePath()}")
         println("=".repeat(60))
     }
 
-    // ==================== 1. 비스트리밍 모드 (XSSF) ====================
+    // ==================== 1. 기본 예제 ====================
 
     /**
-     * 비스트리밍 모드 (XSSF)
+     * 기본 예제
      *
-     * 템플릿 변환 방식으로 처리합니다.
-     * - shiftRows()로 행 삽입 공간 확보
-     * - copyRowFrom()으로 템플릿 행 복사 (수식 자동 조정)
-     * - 소량 데이터에 적합
+     * 템플릿에 데이터를 바인딩하여 Excel 파일을 생성한다.
      */
-    private fun runXssfExample(outputDir: Path) {
-        println("\n[1] 비스트리밍 모드 (XSSF)")
+    private fun runBasicExample(outputDir: Path) {
+        println("\n[1] 기본 예제")
         println("-".repeat(40))
 
-        val config = TbegConfig(
-            streamingMode = StreamingMode.DISABLED
-        )
-
-        ExcelGenerator(config).use { generator ->
-            val data = mapOf(
-                "title" to "템플릿 렌더링 테스트 (XSSF)",
-                "date" to LocalDate.now().toString(),
-                "linkText" to "(주)휴넷 홈페이지",
-                "url" to "https://www.hunet.co.kr",
-                "employees" to listOf(
-                    Employee("황용호", "부장", 8000),
-                    Employee("한용호", "과장", 6500),
-                    Employee("홍용호", "대리", 4500),
-                    Employee("허용호", "사원", 3500)
-                ),
-                "logo" to loadImage("hunet_logo.png"),
-                "ci" to loadImage("hunet_ci.png")
-            ).filterValues { it != null }.mapValues { it.value!! }
-
-            val template = loadTemplate()
-            val resultPath = generator.generateToFile(
-                template = template,
-                dataProvider = SimpleDataProvider.of(data),
-                outputDir = outputDir,
-                baseFileName = "xssf_example"
-            )
-
-            println("\t결과: $resultPath")
-        }
-    }
-
-    // ==================== 2. 스트리밍 모드 (SXSSF) ====================
-
-    /**
-     * 스트리밍 모드 (SXSSF)
-     *
-     * 청사진 기반 순차 생성 방식으로 처리합니다.
-     * - 템플릿을 분석하여 명세(WorkbookSpec) 생성
-     * - 명세에 따라 순차적으로 행 출력
-     * - 메모리 효율적 (대용량 데이터에 적합)
-     */
-    private fun runSxssfExample(outputDir: Path) {
-        println("\n[2] 스트리밍 모드 (SXSSF)")
-        println("-".repeat(40))
-
-        val config = TbegConfig(
-            streamingMode = StreamingMode.ENABLED
-        )
-
-        ExcelGenerator(config).use { generator ->
+        ExcelGenerator().use { generator ->
             val dataProvider = simpleDataProvider {
-                value("title", "템플릿 렌더링 테스트 (SXSSF)")
+                value("title", "템플릿 렌더링 테스트")
                 value("date", LocalDate.now().toString())
                 value("linkText", "(주)휴넷 홈페이지")
                 value("url", "https://www.hunet.co.kr")
@@ -157,33 +89,29 @@ object TemplateRenderingEngineSample {
                 template = template,
                 dataProvider = dataProvider,
                 outputDir = outputDir,
-                baseFileName = "sxssf_example"
+                baseFileName = "basic_example"
             )
 
             println("\t결과: $resultPath")
         }
     }
 
-    // ==================== 3. 대용량 스트리밍 테스트 ====================
+    // ==================== 2. 대용량 테스트 ====================
 
     /**
-     * 대용량 스트리밍 테스트
+     * 대용량 테스트
      *
-     * 스트리밍 모드에서 대용량 데이터를 처리합니다.
+     * 대용량 데이터를 처리한다.
      * - 메모리 사용량을 최소화하면서 대량의 행 생성
      * - 실제 환경에서는 DB 스트리밍 쿼리와 연동
      */
-    private fun runLargeSxssfExample(outputDir: Path) {
-        println("\n[3] 대용량 스트리밍 테스트")
+    private fun runLargeExample(outputDir: Path) {
+        println("\n[2] 대용량 테스트")
         println("-".repeat(40))
-
-        val config = TbegConfig(
-            streamingMode = StreamingMode.ENABLED
-        )
 
         val dataCount = 1000
 
-        ExcelGenerator(config).use { generator ->
+        ExcelGenerator().use { generator ->
             val dataProvider = simpleDataProvider {
                 value("title", "템플릿 렌더링 대용량 테스트 (${dataCount}건)")
                 value("date", LocalDate.now().toString())
@@ -205,7 +133,7 @@ object TemplateRenderingEngineSample {
                 template = template,
                 dataProvider = dataProvider,
                 outputDir = outputDir,
-                baseFileName = "large_sxssf_example"
+                baseFileName = "large_example"
             )
             val duration = System.currentTimeMillis() - startTime
 

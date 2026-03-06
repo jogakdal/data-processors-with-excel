@@ -36,7 +36,7 @@ class CountProviderConsistencyTest {
     }
 
     @Test
-    fun `SXSSF mode - count provided vs count null should produce identical results`() {
+    fun `count provided vs count null should produce identical results`() {
         val employeeCount = 100
         val mergedEmployeeCount = 50
 
@@ -46,42 +46,15 @@ class CountProviderConsistencyTest {
         // 2. count를 제공하지 않는 DataProvider (null 반환)
         val withoutCountProvider = createDataProviderWithoutCount(employeeCount, mergedEmployeeCount)
 
-        // SXSSF 모드로 생성
-        val sxssfConfig = TbegConfig(streamingMode = StreamingMode.ENABLED)
-        ExcelGenerator(sxssfConfig).use { sxssfGenerator ->
+        ExcelGenerator().use { gen ->
             val template1 = TestUtils.loadTemplate()
-            val bytesWithCount = sxssfGenerator.generate(template1, withCountProvider)
+            val bytesWithCount = gen.generate(template1, withCountProvider)
 
             val template2 = TestUtils.loadTemplate()
-            val bytesWithoutCount = sxssfGenerator.generate(template2, withoutCountProvider)
+            val bytesWithoutCount = gen.generate(template2, withoutCountProvider)
 
             // 두 결과 비교
-            assertExcelFilesEqual(bytesWithCount, bytesWithoutCount, "SXSSF 모드")
-        }
-    }
-
-    @Test
-    fun `XSSF mode - count provided vs count null should produce identical results`() {
-        val employeeCount = 100
-        val mergedEmployeeCount = 50
-
-        // 1. count를 제공하는 DataProvider
-        val withCountProvider = createDataProviderWithCount(employeeCount, mergedEmployeeCount)
-
-        // 2. count를 제공하지 않는 DataProvider (null 반환)
-        val withoutCountProvider = createDataProviderWithoutCount(employeeCount, mergedEmployeeCount)
-
-        // XSSF 모드로 생성
-        val xssfConfig = TbegConfig(streamingMode = StreamingMode.DISABLED)
-        ExcelGenerator(xssfConfig).use { xssfGenerator ->
-            val template1 = TestUtils.loadTemplate()
-            val bytesWithCount = xssfGenerator.generate(template1, withCountProvider)
-
-            val template2 = TestUtils.loadTemplate()
-            val bytesWithoutCount = xssfGenerator.generate(template2, withoutCountProvider)
-
-            // 두 결과 비교
-            assertExcelFilesEqual(bytesWithCount, bytesWithoutCount, "XSSF 모드")
+            assertExcelFilesEqual(bytesWithCount, bytesWithoutCount, "count 제공 vs 미제공")
         }
     }
 

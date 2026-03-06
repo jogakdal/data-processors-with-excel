@@ -22,17 +22,16 @@ class MissingTemplateDataException(
             collections: Set<String>,
             images: Set<String>
         ): String = buildString {
-            append("템플릿에 필요한 데이터가 누락되었습니다.")
+            append("Required template data is missing.")
             if (variables.isNotEmpty()) {
-                append("\n  - 변수: ${variables.joinToString(", ")}")
+                append("\n  - Variables: ${variables.joinToString(", ")}")
             }
             if (collections.isNotEmpty()) {
-                append("\n  - 컬렉션: ${collections.joinToString(", ")}")
+                append("\n  - Collections: ${collections.joinToString(", ")}")
             }
             if (images.isNotEmpty()) {
-                append("\n  - 이미지: ${images.joinToString(", ")}")
+                append("\n  - Images: ${images.joinToString(", ")}")
             }
         }
-
     }
 }

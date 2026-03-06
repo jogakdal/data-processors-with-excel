@@ -9,6 +9,7 @@
 4. [Saving to File](#4-saving-to-file)
 5. [Password Protection](#5-password-protection)
 6. [Document Metadata](#6-document-metadata)
+7. [Automatic Cell Merge](#7-automatic-cell-merge)
 
 ---
 
@@ -447,6 +448,53 @@ public class WithMetadata {
 | company | Company | File > Info > Company |
 | manager | Manager | File > Info > Manager |
 | created | Created date/time | File > Info > Created |
+
+---
+
+## 7. Automatic Cell Merge
+
+Automatically merges consecutive cells with the same value in repeated data.
+
+### Template (merge_report.xlsx)
+
+|   | A                    | B           | C           | D                                |
+|---|----------------------|-------------|-------------|----------------------------------|
+| 1 | Department           | Name        | Position    | ${repeat(employees, A2:C2, emp)} |
+| 2 | ${merge(emp.dept)}   | ${emp.name} | ${emp.rank} |                                  |
+
+### Kotlin Code
+
+```kotlin
+val data = mapOf(
+    "employees" to listOf(
+        mapOf("dept" to "Sales", "name" to "Yongho Hwang", "rank" to "Staff"),
+        mapOf("dept" to "Sales", "name" to "Yongho Han", "rank" to "Assistant Manager"),
+        mapOf("dept" to "Development", "name" to "Yongho Hong", "rank" to "Manager"),
+        mapOf("dept" to "Development", "name" to "Yongho Heo", "rank" to "Staff"),
+        mapOf("dept" to "Development", "name" to "Yongho Kim", "rank" to "Assistant Manager"),
+    )
+)
+
+ExcelGenerator().use { generator ->
+    val result = generator.generate(templateStream, data)
+    File("merge_report.xlsx").writeBytes(result)
+}
+```
+
+### Result
+
+<table>
+  <tr><th></th><th>A</th><th>B</th><th>C</th></tr>
+  <tr><td>1</td><td>Department</td><td>Name</td><td>Position</td></tr>
+  <tr><td>2</td><td rowspan="2">Sales</td><td>Yongho Hwang</td><td>Staff</td></tr>
+  <tr><td>3</td><td>Yongho Han</td><td>Assistant Manager</td></tr>
+  <tr><td>4</td><td rowspan="3">Development</td><td>Yongho Hong</td><td>Manager</td></tr>
+  <tr><td>5</td><td>Yongho Heo</td><td>Staff</td></tr>
+  <tr><td>6</td><td>Yongho Kim</td><td>Assistant Manager</td></tr>
+</table>
+
+> Cells A2:A3 are automatically merged as "Sales", and A4:A6 as "Development".
+> The data must be pre-sorted by the merge criteria (department).
 
 ---
 

@@ -6,12 +6,8 @@ import io.github.jogakdal.tbeg.engine.rendering.ChartRangeAdjuster.RepeatExpansi
 /**
  * 템플릿 렌더링 전략 인터페이스.
  *
- * XSSF(비스트리밍)와 SXSSF(스트리밍) 모드를 추상화하여
- * 동일한 인터페이스로 템플릿 렌더링을 수행한다.
- *
  * ## 구현체
- * - [XssfRenderingStrategy]: XSSF 기반 비스트리밍 렌더링
- * - [SxssfRenderingStrategy]: SXSSF 기반 스트리밍 렌더링
+ * - [StreamingRenderingStrategy]: 기본 렌더링 전략
  */
 internal interface RenderingStrategy {
     /**
@@ -41,25 +37,25 @@ internal interface RenderingStrategy {
  *
  * @property analyzer 템플릿 분석기
  * @property imageInserter 이미지 삽입기
- * @property repeatExpansionProcessor 반복 영역 확장 프로세서
  * @property sheetLayoutApplier 시트 레이아웃 적용기
  * @property evaluateText 텍스트 내 변수 평가 함수
  * @property resolveFieldPath 객체 필드 경로 해석 함수
- * @property streamingDataSource SXSSF 스트리밍용 데이터 소스 (SXSSF 모드에서만 설정)
- * @property collectionSizes 컬렉션 크기 맵 (위치 계산용, SXSSF 모드에서만 설정)
+ * @property streamingDataSource 스트리밍용 데이터 소스
+ * @property collectionSizes 컬렉션 크기 맵 (위치 계산용)
  */
 internal data class RenderingContext(
     val analyzer: TemplateAnalyzer,
     val imageInserter: ImageInserter,
-    val repeatExpansionProcessor: RepeatExpansionProcessor,
     val sheetLayoutApplier: SheetLayoutApplier,
     val evaluateText: (String, Map<String, Any>) -> String,
     val resolveFieldPath: (Any?, String) -> Any?,
     val streamingDataSource: StreamingDataSource? = null,
     val collectionSizes: CollectionSizes = CollectionSizes.EMPTY,
     /**
-     * 시트별 repeat 확장 정보 수집기 (SXSSF 차트 범위 조정용).
+     * 시트별 repeat 확장 정보 수집기 (차트 범위 조정용).
      * RenderingStrategy가 채우고, TemplateRenderingEngine이 외부로 전달한다.
      */
-    val repeatExpansionInfos: MutableMap<String, List<RepeatExpansionInfo>> = mutableMapOf()
+    val repeatExpansionInfos: MutableMap<String, List<RepeatExpansionInfo>> = mutableMapOf(),
+    /** 이미지 URL 다운로드 캐시 TTL (초). 0이면 호출 간 캐싱 안 함. */
+    val imageUrlCacheTtlSeconds: Long = 0
 )

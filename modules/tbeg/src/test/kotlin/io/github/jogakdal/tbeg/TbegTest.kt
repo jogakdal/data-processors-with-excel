@@ -83,15 +83,7 @@ class TbegTest {
     fun `TbegConfig default should have expected values`() {
         val config = TbegConfig.default()
 
-        assertEquals(StreamingMode.ENABLED, config.streamingMode)
         assertEquals("yyyyMMdd_HHmmss", config.timestampFormat)
-    }
-
-    @Test
-    fun `TbegConfig forLargeData should use streaming mode`() {
-        val config = TbegConfig.forLargeData()
-
-        assertEquals(StreamingMode.ENABLED, config.streamingMode)
     }
 
     @Test
@@ -819,7 +811,7 @@ class TbegTest {
 
             // 누락된 데이터 확인
             assertTrue(exception.missingVariables.isNotEmpty() || exception.missingCollections.isNotEmpty())
-            assertTrue(exception.message!!.contains("누락"))
+            assertTrue(exception.message!!.contains("missing", ignoreCase = true))
         }
     }
 

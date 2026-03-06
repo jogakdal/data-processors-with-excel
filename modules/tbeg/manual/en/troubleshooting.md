@@ -15,7 +15,7 @@
 
 ### `#NAME?` error is displayed
 
-**Symptom**: Cells containing formula-style markers (`=TBEG_REPEAT(...)`, `=TBEG_IMAGE(...)`, `=TBEG_SIZE(...)`) show a `#NAME?` error.
+**Symptom**: Cells containing formula-style markers (`=TBEG_REPEAT(...)`, `=TBEG_IMAGE(...)`, `=TBEG_SIZE(...)`, `=TBEG_MERGE(...)`, `=TBEG_BUNDLE(...)`) show a `#NAME?` error.
 
 **Cause**: These markers are not actual Excel functions, so Excel displays them as errors when the template file is opened.
 
@@ -52,7 +52,7 @@ This exception is thrown when a syntax error is found during template parsing. U
 | `MISSING_REQUIRED_PARAMETER` | Required parameter missing | `collection` and `range` are required for repeat |
 | `INVALID_RANGE_FORMAT` | Invalid cell range format | Use a valid range such as `A2:C2` |
 | `SHEET_NOT_FOUND` | Reference to a non-existent sheet | Verify the sheet name is correct (`'Sheet1'!A2:C2`) |
-| `INVALID_PARAMETER_VALUE` | Invalid parameter value | `direction` only accepts `DOWN` or `RIGHT` |
+| `INVALID_PARAMETER_VALUE` | Invalid parameter value | `direction` only accepts `DOWN` or `RIGHT`. Bundle nesting and boundary overlap are also reported with this error |
 
 > [!NOTE]
 > Mixing named parameters and positional parameters results in an `INVALID_REPEAT_SYNTAX` error. Use only one style within a single marker.
@@ -88,10 +88,9 @@ This exception is thrown when automatic formula reference adjustment fails durin
 This error occurs when the JVM runs out of memory while processing large datasets.
 
 **Resolution steps**:
-1. Verify streaming mode: `StreamingMode.ENABLED` (default)
-2. Use lazy loading in DataProvider (`items("name", count) { ... }`)
-3. Increase JVM heap memory: e.g., `-Xmx2g`
-4. Split the data across multiple output files
+1. Use lazy loading in DataProvider (`items("name", count) { ... }`)
+2. Increase JVM heap memory: e.g., `-Xmx2g`
+3. Split the data across multiple output files
 
 ---
 
@@ -104,6 +103,36 @@ This error occurs when the JVM runs out of memory while processing large dataset
 **Resolution**: TBEG automatically adjusts chart data source ranges. If this issue occurs:
 - Verify that the chart's data source references the repeat area correctly
 - Verify that the chart and the repeat area are on the same sheet
+
+---
+
+### Merge results are not as expected
+
+**Symptom**: After merging with `${merge(item.field)}`, the same values are split into multiple merge groups.
+
+**Cause**: The merge marker only merges **consecutive** cells with the same value. If the same value appears in non-adjacent positions, they become separate merge groups.
+
+**Resolution**: Pre-sort the data by the merge key field.
+
+```kotlin
+// Before sorting: [Sales Team 1, Sales Team 2, Sales Team 1] -> Sales Team 1 is split into 2 groups
+// After sorting: [Sales Team 1, Sales Team 1, Sales Team 2] -> Sales Team 1 is merged into one group
+val employees = employeeRepository.findAll().sortedBy { it.department }
+```
+
+---
+
+### Bundle range error occurs
+
+**Symptom**: An `INVALID_PARAMETER_VALUE` error with a bundle-related message is displayed.
+
+**Cause and Resolution**:
+
+| Cause | Resolution |
+|-------|------------|
+| Repeat overlaps bundle boundary | Adjust the bundle range to fully contain the repeat region |
+| Bundles are nested | Bundles cannot be nested. Separate the ranges |
+| Invalid bundle range format | Use a valid range such as `A1:B10` |
 
 ---
 
@@ -131,13 +160,7 @@ This error occurs when the JVM runs out of memory while processing large dataset
 
 Check the following steps in order.
 
-**Step 1: Verify streaming mode**
-
-```kotlin
-val config = TbegConfig(streamingMode = StreamingMode.ENABLED) // default
-```
-
-**Step 2: Verify count is provided**
+**Step 1: Verify count is provided**
 
 Providing count prevents double traversal of data, improving performance.
 
@@ -147,7 +170,7 @@ items("employees", employeeCount) {
 }
 ```
 
-**Step 3: Use lazy loading**
+**Step 2: Use lazy loading**
 
 Instead of loading all data upfront, leverage lambdas.
 
@@ -157,7 +180,7 @@ items("employees") {
 }
 ```
 
-**Step 4: Use DB streaming**
+**Step 3: Use DB streaming**
 
 Use JPA Stream or MyBatis Cursor to stream large datasets from the database.
 

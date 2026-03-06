@@ -39,8 +39,8 @@ object ParameterParser {
         // 혼용 검사
         if (hasNamed && hasPositional) {
             throw IllegalArgumentException(
-                "위치 기반과 명시적 파라미터를 혼용할 수 없습니다. " +
-                "모든 파라미터에 이름을 명시하거나, 모두 위치 기반으로 작성하세요: $paramString"
+                "Cannot mix positional and named parameters. " +
+                "Use either all named parameters or all positional parameters: $paramString"
             )
         }
 

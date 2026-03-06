@@ -3,22 +3,20 @@ package io.github.jogakdal.tbeg
 /**
  * Excel 생성 시 스트리밍 모드 설정.
  *
- * Apache POI의 SXSSF(Streaming Usermodel API) 사용 여부를 결정한다.
+ * 1.2.0부터 항상 스트리밍 모드로 동작하며, 이 enum은 향후 버전에서 제거된다.
  */
+@Deprecated("Since 1.2.0, only streaming mode is supported. This enum will be removed in a future version.")
 enum class StreamingMode {
     /**
      * 스트리밍 모드 비활성화.
      *
-     * 항상 XSSFWorkbook을 사용한다.
-     * 모든 Excel 기능을 완전히 지원하며, 수식 참조가 자동으로 조정된다.
+     * 1.2.0부터 DISABLED는 무시되며 항상 스트리밍 모드로 동작한다.
      */
+    @Deprecated("Since 1.2.0, DISABLED is ignored and streaming mode is always used.")
     DISABLED,
 
     /**
      * 스트리밍 모드 활성화 (기본값).
-     *
-     * SXSSFWorkbook을 사용하여 대용량 데이터의 메모리 사용량을 줄인다.
-     * 수식 참조는 자동으로 확장된다 (아래 행 참조 수식 포함).
      */
     ENABLED
 }

@@ -130,7 +130,7 @@ class ImageInserter {
     ) {
         val imageTypeStr = imageBytes.detectImageTypeForPoi()
         val pictureType = IMAGE_TYPE_MAP[imageTypeStr]
-            ?: throw IllegalArgumentException("지원하지 않는 이미지 형식: $imageTypeStr")
+            ?: throw IllegalArgumentException("Unsupported image format: $imageTypeStr")
 
         val pictureIdx = workbook.addPicture(imageBytes, pictureType)
         val drawing = sheet.createDrawingPatriarch()
@@ -161,7 +161,7 @@ class ImageInserter {
         mergedRegion: CellRangeAddress?
     ): Pair<Double, Double> {
         val image = ImageIO.read(ByteArrayInputStream(imageBytes))
-            ?: throw IllegalArgumentException("이미지를 읽을 수 없습니다.")
+            ?: throw IllegalArgumentException("Unable to read image.")
         val originalWidth = image.width.toDouble()
         val originalHeight = image.height.toDouble()
         val marginPx = IMAGE_MARGIN_PX * 2.0
@@ -271,7 +271,7 @@ class ImageInserter {
         // XSSFDrawing 획득 (SXSSF 호환)
         val xssfDrawing = resolveXssfDrawing(workbook, sheet)
 
-        // 표준 API로 임시 이미지 생성 (drawing↔image PackageRelationship 설정 목적)
+        // 표준 API로 임시 이미지 생성 (drawing<->image PackageRelationship 설정 목적)
         val tempPicture = xssfDrawing.createPicture(
             XSSFClientAnchor(0, 0, 0, 0, 0, 0, 0, 0), pictureIdx
         )
@@ -310,7 +310,7 @@ class ImageInserter {
             is XSSFDrawing -> drawing
             else -> {
                 val xssfWorkbook = (workbook as? SXSSFWorkbook)?.xssfWorkbook
-                    ?: throw IllegalStateException("XSSFDrawing을 획득할 수 없습니다: ${workbook::class.simpleName}")
+                    ?: throw IllegalStateException("Unable to obtain XSSFDrawing: ${workbook::class.simpleName}")
                 xssfWorkbook.getSheet(sheet.sheetName).createDrawingPatriarch() as XSSFDrawing
             }
         }

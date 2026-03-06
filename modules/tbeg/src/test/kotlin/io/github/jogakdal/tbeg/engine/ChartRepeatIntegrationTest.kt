@@ -2,8 +2,6 @@ package io.github.jogakdal.tbeg.engine
 
 import io.github.jogakdal.tbeg.ExcelGenerator
 import io.github.jogakdal.tbeg.SimpleDataProvider
-import io.github.jogakdal.tbeg.StreamingMode
-import io.github.jogakdal.tbeg.TbegConfig
 import org.apache.poi.ss.util.CellRangeAddress
 import org.apache.poi.xddf.usermodel.chart.*
 import org.apache.poi.xssf.usermodel.XSSFClientAnchor
@@ -101,74 +99,15 @@ class ChartRepeatIntegrationTest {
     }
 
     @Test
-    fun `XSSF 모드 - repeat 확장 후 차트 범위가 모든 데이터를 포함한다`() {
+    fun `repeat 확장 후 차트 범위가 모든 데이터를 포함한다`() {
         val templateBytes = createChartTemplate()
         val dataProvider = createTestData()
 
-        val resultBytes = ExcelGenerator(TbegConfig(streamingMode = StreamingMode.DISABLED)).use {
+        val resultBytes = ExcelGenerator().use {
             it.generate(ByteArrayInputStream(templateBytes), dataProvider)
         }
 
-        // 결과 검증
-        XSSFWorkbook(ByteArrayInputStream(resultBytes)).use { workbook ->
-            val sheet = workbook.getSheetAt(0)
-
-            // 데이터 확장 확인 (5개 부서)
-            assertEquals("영업부", sheet.getRow(2)?.getCell(0)?.stringCellValue)
-            assertEquals("재무부", sheet.getRow(6)?.getCell(0)?.stringCellValue)
-
-            // 차트 범위 확인
-            val drawing = sheet.drawingPatriarch
-            assertNotNull(drawing)
-            assertTrue(drawing.charts.isNotEmpty(), "차트가 존재해야 한다")
-
-            val chart = drawing.charts[0]
-            val plotArea = chart.ctChart.plotArea
-
-            // Bar chart 시리즈의 범위 확인
-            val barChart = plotArea.barChartList[0]
-            assertNotNull(barChart)
-
-            // 모든 시리즈의 참조 출력 (디버깅)
-            barChart.serList.forEachIndexed { idx, ser ->
-                println("  Series $idx cat: ${ser.cat?.strRef?.f ?: ser.cat?.numRef?.f}")
-                println("  Series $idx val: ${ser.`val`?.numRef?.f}")
-            }
-
-            // 카테고리 범위: 끝 행이 7이어야 한다 (5개 아이템 * 1행 템플릿 → 행 3~7)
-            val catRef = barChart.serList[0].cat?.strRef?.f
-                ?: barChart.serList[0].cat?.numRef?.f
-            assertNotNull(catRef, "카테고리 참조가 존재해야 한다")
-            assertEndRow(catRef!!, 7, "카테고리")
-
-            // 값 범위: 끝 행이 7이어야 한다
-            val valRef = barChart.serList[0].`val`?.numRef?.f
-            assertNotNull(valRef, "값 참조가 존재해야 한다")
-            assertEndRow(valRef!!, 7, "매출")
-
-            // 앵커 위치 검증: repeat 확장(4행)에 따라 시프트되어야 한다
-            // 원본 anchor: row1=5, row2=20 → repeat(row2, 5items, 1row) → expansion=4
-            // 조정 후: row1=9, row2=24
-            val anchor = drawing.first().anchor as XSSFClientAnchor
-            assertEquals(9, anchor.row1, "차트 앵커 row1이 시프트되어야 한다 (5+4=9)")
-            assertEquals(24, anchor.row2, "차트 앵커 row2가 시프트되어야 한다 (20+4=24)")
-        }
-
-        // 파일 저장 (육안 확인용)
-        val outputPath = tempDir.resolve("chart_xssf_result.xlsx")
-        outputPath.toFile().writeBytes(resultBytes)
-    }
-
-    @Test
-    fun `SXSSF 모드 - repeat 확장 후 차트 범위가 모든 데이터를 포함한다`() {
-        val templateBytes = createChartTemplate()
-        val dataProvider = createTestData()
-
-        val resultBytes = ExcelGenerator(TbegConfig(streamingMode = StreamingMode.ENABLED)).use {
-            it.generate(ByteArrayInputStream(templateBytes), dataProvider)
-        }
-
-        // 결과를 XSSF로 다시 열어 차트 범위 확인
+        // 결과를 XSSF로 열어 차트 범위 확인
         XSSFWorkbook(ByteArrayInputStream(resultBytes)).use { workbook ->
             val sheet = workbook.getSheetAt(0)
 
@@ -176,7 +115,7 @@ class ChartRepeatIntegrationTest {
             assertEquals("영업부", sheet.getRow(2)?.getCell(0)?.stringCellValue)
             assertEquals("재무부", sheet.getRow(6)?.getCell(0)?.stringCellValue)
 
-            // 차트 범위 확인 - SXSSF 모드에서도 차트 XML이 조정되었는지
+            // 차트 범위 확인
             val drawing = sheet.drawingPatriarch
             assertNotNull(drawing)
             assertTrue(drawing.charts.isNotEmpty(), "차트가 존재해야 한다")
@@ -196,23 +135,23 @@ class ChartRepeatIntegrationTest {
             assertNotNull(valRef, "값 참조가 존재해야 한다")
             assertEndRow(valRef!!, 7, "매출")
 
-            // 앵커 위치 검증: SXSSF에서도 repeat 확장에 따라 시프트
+            // 앵커 위치 검증: repeat 확장(4행)에 따라 시프트되어야 한다
             val anchor = drawing.first().anchor as XSSFClientAnchor
             assertEquals(9, anchor.row1, "차트 앵커 row1이 시프트되어야 한다 (5+4=9)")
             assertEquals(24, anchor.row2, "차트 앵커 row2가 시프트되어야 한다 (20+4=24)")
         }
 
         // 파일 저장 (육안 확인용)
-        val outputPath = tempDir.resolve("chart_sxssf_result.xlsx")
+        val outputPath = tempDir.resolve("chart_result.xlsx")
         outputPath.toFile().writeBytes(resultBytes)
     }
 
     @Test
-    fun `SXSSF 모드 - 결과 파일이 유효한 xlsx이다`() {
+    fun `결과 파일이 유효한 xlsx이다`() {
         val templateBytes = createChartTemplate()
         val dataProvider = createTestData()
 
-        val resultBytes = ExcelGenerator(TbegConfig(streamingMode = StreamingMode.ENABLED)).use {
+        val resultBytes = ExcelGenerator().use {
             it.generate(ByteArrayInputStream(templateBytes), dataProvider)
         }
 
@@ -227,11 +166,11 @@ class ChartRepeatIntegrationTest {
     }
 
     @Test
-    fun `SXSSF 모드 - drawing rels에 중복 rId가 없다`() {
+    fun `drawing rels에 중복 rId가 없다`() {
         val templateBytes = createChartTemplate()
         val dataProvider = createTestData()
 
-        val resultBytes = ExcelGenerator(TbegConfig(streamingMode = StreamingMode.ENABLED)).use {
+        val resultBytes = ExcelGenerator().use {
             it.generate(ByteArrayInputStream(templateBytes), dataProvider)
         }
 
@@ -256,7 +195,7 @@ class ChartRepeatIntegrationTest {
 
     /** 차트 수식 참조의 끝 행이 expectedRow인지 검증 */
     private fun assertEndRow(ref: String, expectedRow: Int, label: String) {
-        // 범위의 끝 부분에서 행 번호 추출 (예: Sheet1!$A$3:$A$7 → 7)
+        // 범위의 끝 부분에서 행 번호 추출 (예: Sheet1!$A$3:$A$7 -> 7)
         val endRowPattern = Regex("""\$?[A-Z]+\$?(\d+)$""")
         val match = endRowPattern.find(ref)
         assertNotNull(match, "$label 참조에서 끝 행을 추출할 수 없다: $ref")
@@ -265,14 +204,14 @@ class ChartRepeatIntegrationTest {
     }
 
     @Test
-    fun `XSSF 모드 - 아이템이 1개이면 차트 범위가 변경되지 않는다`() {
+    fun `아이템이 1개이면 차트 범위가 변경되지 않는다`() {
         val templateBytes = createChartTemplate()
         val singleItem = SimpleDataProvider.Builder()
             .value("title", "단일 항목 보고서")
             .items("departments", listOf(mapOf("name" to "영업부", "sales" to 1500, "cost" to 800)))
             .build()
 
-        val resultBytes = ExcelGenerator(TbegConfig(streamingMode = StreamingMode.DISABLED)).use {
+        val resultBytes = ExcelGenerator().use {
             it.generate(ByteArrayInputStream(templateBytes), singleItem)
         }
 

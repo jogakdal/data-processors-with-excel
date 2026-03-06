@@ -45,8 +45,7 @@ io.github.jogakdal.tbeg/
 │   └── rendering/                      # 렌더링 엔진
 │       ├── RenderingStrategy.kt
 │       ├── AbstractRenderingStrategy.kt
-│       ├── XssfRenderingStrategy.kt
-│       ├── SxssfRenderingStrategy.kt
+│       ├── StreamingRenderingStrategy.kt
 │       ├── TemplateRenderingEngine.kt
 │       ├── TemplateAnalyzer.kt
 │       ├── PositionCalculator.kt
@@ -70,7 +69,7 @@ io.github.jogakdal.tbeg/
 ───────────────────────────────────────────────────────────────
                        TbegPipeline
 ───────────────────────────────────────────────────────────────
-   1. ChartExtractProcessor       - 차트 추출 (SXSSF 손실 방지)
+   1. ChartExtractProcessor       - 차트 추출 (스트리밍 처리 시 손실 방지)
    2. PivotExtractProcessor       - 피벗 테이블 정보 추출
    3. TemplateRenderProcessor     - 템플릿 렌더링 (데이터 바인딩)
    4. NumberFormatProcessor       - 숫자 서식 적용
@@ -154,7 +153,7 @@ class TemplateRenderProcessor : ExcelProcessor {
         }
         context.requiredNames = blueprint.extractRequiredNames()
 
-        val engine = TemplateRenderingEngine(context.config.streamingMode)
+        val engine = TemplateRenderingEngine()
         context.resultBytes = engine.process(
             ByteArrayInputStream(context.resultBytes),
             context.dataProvider,
@@ -171,7 +170,7 @@ class TemplateRenderProcessor : ExcelProcessor {
 
 ### 3.1 Strategy 패턴
 
-렌더링 모드(XSSF/SXSSF)에 따라 다른 전략을 사용합니다.
+렌더링은 `StreamingRenderingStrategy` 하나의 전략으로 처리한다. 스트리밍 방식으로 메모리 효율적인 대용량 처리를 지원한다.
 
 ```kotlin
 internal interface RenderingStrategy {
@@ -184,26 +183,16 @@ internal interface RenderingStrategy {
     ): ByteArray
 }
 
-internal class XssfRenderingStrategy : RenderingStrategy
-internal class SxssfRenderingStrategy : RenderingStrategy
+internal class StreamingRenderingStrategy : RenderingStrategy
 ```
 
-### 3.2 XSSF vs SXSSF
-
-| 특성    | XSSF           | SXSSF       |
-|-------|----------------|-------------|
-| 메모리   | 전체 워크북 메모리 로드  | 윈도우 기반 스트리밍 |
-| 행 삽입  | shiftRows() 지원 | 순차 출력만 가능   |
-| 수식 참조 | 자동 조정          | 자동 조정       |
-| 대용량   | 제한적            | 적합          |
-
-### 3.3 AbstractRenderingStrategy
+### 3.2 AbstractRenderingStrategy
 
 공통 로직을 추상 클래스로 분리합니다.
 
 ```kotlin
 internal abstract class AbstractRenderingStrategy : RenderingStrategy {
-    // 추상 메서드 — 서브클래스 구현 필수
+    // 추상 메서드 -- 서브클래스 구현 필수
     protected abstract fun <T> withWorkbook(
         templateBytes: ByteArray,
         block: (workbook: Workbook, xssfWorkbook: XSSFWorkbook) -> T
@@ -215,7 +204,7 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
     )
     protected abstract fun finalizeWorkbook(workbook: Workbook): ByteArray
 
-    // 훅 메서드 — 선택적 오버라이드
+    // 훅 메서드 -- 선택적 오버라이드
     protected open fun beforeProcessSheets(workbook: Workbook, blueprint: WorkbookSpec, ...)
     protected open fun afterProcessSheets(workbook: Workbook, context: RenderingContext)
 
@@ -255,7 +244,7 @@ ${repeat(employees, A3:C3, emp, DOWN)}
 ### 4.3 사용 예시
 
 ```kotlin
-// 마커 파싱 — 반환 타입은 CellContent (sealed interface)
+// 마커 파싱 -- 반환 타입은 CellContent (sealed interface)
 val content = UnifiedMarkerParser.parse("\${repeat(employees, A3:C3, emp, DOWN)}")
 
 // 반환값은 CellContent의 서브타입으로 분기
@@ -282,6 +271,8 @@ when (content) {
 | `repeat` | 반복 데이터 확장 | collection, range | var, direction(=DOWN), empty    |
 | `image`  | 이미지 삽입    | name              | position, size(=fit)            |
 | `size`   | 컬렉션 크기 출력 | collection        |                                 |
+| `merge`  | 자동 셀 병합   | field             |                                 |
+| `bundle` | 요소 묶음     | range             |                                 |
 
 ---
 
@@ -291,7 +282,7 @@ when (content) {
 
 #### CollectionSizes
 
-컬렉션 이름 → 아이템 수 매핑을 나타내는 value class이다. 위치 계산과 수식 확장에 사용된다.
+컬렉션 이름 -> 아이템 수 매핑을 나타내는 value class이다. 위치 계산과 수식 확장에 사용된다.
 
 ```kotlin
 // 팩토리 메서드
@@ -312,7 +303,7 @@ val count: Int? = sizes["employees"]  // 10
 
 #### CellArea
 
-셀 영역(start/end 좌표)을 표현하는 data class이다. `RepeatRegionSpec`과 `ColumnGroup` 등에서 영역 정보를 담는다.
+셀 영역(start/end 좌표)을 표현하는 data class이다. `RepeatRegionSpec`, `BundleRegionSpec` 등에서 영역 정보를 담는다.
 
 ```kotlin
 // CellCoord 기반 생성
@@ -348,13 +339,15 @@ area.overlaps(other)         // 2D 공간 겹침 여부
 
 ### 5.2 PositionCalculator
 
-다중 repeat 영역의 위치를 계산합니다.
+다중 repeat 영역의 위치를 체이닝 알고리즘으로 계산합니다.
 
 ```kotlin
 class PositionCalculator(
     repeatRegions: List<RepeatRegionSpec>,
     collectionSizes: CollectionSizes,
-    templateLastRow: Int = -1
+    templateLastRow: Int = -1,
+    mergedRegions: List<CellRangeAddress> = emptyList(),
+    bundleRegions: List<BundleRegionSpec> = emptyList()
 ) {
     // 모든 repeat 확장 정보 계산
     fun calculate(): List<RepeatExpansion>
@@ -385,23 +378,27 @@ data class RepeatExpansion(
 )
 ```
 
-### 5.4 위치 계산 규칙
+### 5.4 위치 계산 규칙 (체이닝 알고리즘)
 
-1. **독립 요소**: 어느 repeat에도 영향받지 않으면 템플릿 위치 유지
-2. **단일 영향**: 하나의 repeat에만 영향받으면 해당 확장량만큼 이동
-3. **다중 영향**: 여러 repeat에 영향받으면 최대 오프셋 적용
+모든 요소(repeat, 병합 셀, bundle)의 위치는 **체이닝 알고리즘**으로 결정됩니다.
 
-### 5.5 열 그룹
+1. **요소 수집**: repeat -> Expandable, repeat 밖 병합 셀 -> Fixed, bundle -> Bundle
+2. **위에서 아래로 순차 계산**: 각 요소의 열 범위에서 바로 위의 해결된 요소를 찾아 밀림량 계산
+3. **여러 열에 걸친 요소**: 각 열의 계산 결과 중 **MAX**를 최종 위치로 채택
 
-같은 열 범위의 repeat는 서로 영향을 주고, 다른 열 그룹의 repeat는 독립적으로 확장됩니다.
+#### 핵심 규칙
 
-```kotlin
-data class ColumnGroup(
-    val groupId: Int,
-    val colRange: ColRange,
-    val repeatRegions: List<RepeatRegionSpec>
-)
-```
+- **독립 요소**: 위쪽에 확장 요소가 없으면 템플릿 위치 유지
+- **밀림 전파**: 위의 요소가 밀리면, 그 아래의 요소도 밀린다
+- **교차 열 전파**: 여러 열에 걸친 요소(병합 셀, bundle)를 통해 다른 열의 repeat 밀림이 전파
+
+### 5.5 bundle (요소 묶음)
+
+지정된 범위 내의 요소를 하나의 단위로 묶어 밀림 계산에 참여시킵니다.
+
+- 내부는 독자적인 시트처럼 밀림이 계산됩니다
+- 크기가 확정된 bundle은 넓은 요소로서 체이닝에 참여합니다
+- 경계 걸침과 중첩은 금지됩니다
 
 ---
 
@@ -409,7 +406,7 @@ data class ColumnGroup(
 
 ### 6.1 StreamingDataSource
 
-SXSSF 모드에서 Iterator를 순차적으로 소비합니다.
+스트리밍 렌더링에서 Iterator를 순차적으로 소비한다.
 
 ```kotlin
 internal class StreamingDataSource(
@@ -424,10 +421,7 @@ internal class StreamingDataSource(
 
 ### 6.2 메모리 최적화 원칙
 
-| 모드    | 메모리 정책           |
-|-------|------------------|
-| SXSSF | 현재 아이템만 메모리 유지   |
-| XSSF  | 전체 데이터 메모리 로드 허용 |
+현재 처리 중인 아이템만 메모리에 유지하여 대용량 데이터를 효율적으로 처리한다.
 
 ### 6.3 DataProvider 조건
 
@@ -438,7 +432,7 @@ internal class StreamingDataSource(
 
 ## 7. 테스트 작성 가이드
 
-테스트 코드는 `src/test/kotlin/com/hunet/common/tbeg/`에 위치합니다.
+테스트 코드는 `src/test/kotlin/io/github/jogakdal/tbeg/`에 위치합니다.
 테스트용 템플릿은 `src/test/resources/templates/`에 위치합니다.
 
 ### 7.1 테스트 예시
@@ -511,7 +505,7 @@ class ExcelGeneratorIntegrationTest {
 
 ```
 src/test/
-├── kotlin/com/hunet/common/tbeg/
+├── kotlin/io/github/jogakdal/tbeg/
 │   ├── samples/                            # 샘플 코드 (Kotlin)
 │   │   ├── TbegSample.kt
 │   │   ├── EmptyCollectionSample.kt
@@ -519,9 +513,9 @@ src/test/
 │   │   └── TemplateRenderingEngineSample.kt
 │   ├── benchmark/                          # 벤치마크 코드
 │   │   ├── PerformanceBenchmark.kt         # 대용량 벤치마크
-│   │   └── PerformanceBenchmarkTest.kt     # XSSF vs SXSSF 비교
+│   │   └── PerformanceBenchmarkTest.kt     # 처리 속도 벤치마크
 │   └── ...                                 # 테스트 코드
-├── java/com/hunet/common/tbeg/samples/     # 샘플 코드 (Java)
+├── java/io/github/jogakdal/tbeg/samples/     # 샘플 코드 (Java)
 │   ├── TbegJavaSample.java
 │   └── TbegSpringBootJavaSample.java
 ```

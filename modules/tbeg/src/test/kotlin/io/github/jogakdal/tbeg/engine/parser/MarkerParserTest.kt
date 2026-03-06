@@ -52,7 +52,7 @@ class MarkerParserTest {
                 )
             }
 
-            assertTrue(exception.message!!.contains("혼용"))
+            assertTrue(exception.message!!.contains("Cannot mix"))
         }
 
         @Test

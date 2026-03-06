@@ -18,7 +18,9 @@
 8. [Rightward Repeat](#8-rightward-repeat)
 9. [Empty Collection Handling](#9-empty-collection-handling)
 10. [Internationalization (I18N)](#10-internationalization-i18n)
-11. [Comprehensive Example — Quarterly Sales Performance Report](#11-comprehensive-example--quarterly-sales-performance-report)
+11. [Comprehensive Example -- Quarterly Sales Performance Report](#11-comprehensive-example--quarterly-sales-performance-report)
+12. [Automatic Cell Merge in Practice](#12-automatic-cell-merge-in-practice)
+13. [Bundle](#13-bundle)
 
 > [!NOTE]
 > The examples in this document load templates from the `resources/templates/` directory.
@@ -136,10 +138,8 @@ val provider = simpleDataProvider {
 
 // 3. Generate Excel (the lambda is invoked here, loading the data)
 ExcelGenerator().use { generator ->
-    // Load template from resources/templates/ directory
     val template = javaClass.getResourceAsStream("/templates/template.xlsx")
         ?: throw IllegalStateException("Template not found")
-    // To read directly from file: val template = File("template.xlsx").inputStream()
 
     val result = generator.generate(template, provider)
     File("output.xlsx").writeBytes(result)
@@ -785,10 +785,8 @@ fun main() = runBlocking {
     }
 
     ExcelGenerator().use { generator ->
-        // Load template from resources/templates/ directory
         val template = object {}.javaClass.getResourceAsStream("/templates/template.xlsx")
             ?: throw IllegalStateException("Template not found")
-        // To read directly from file: val template = File("template.xlsx").inputStream()
 
         // Asynchronous generation
         val path = generator.generateToFileAsync(
@@ -822,10 +820,8 @@ public class AsyncWithFuture {
             .items("data", generateData())
             .build();
 
-        // Load template from resources/templates/ directory
         try (ExcelGenerator generator = new ExcelGenerator();
              InputStream template = AsyncWithFuture.class.getResourceAsStream("/templates/template.xlsx")) {
-            // To read directly from file: new FileInputStream("template.xlsx")
 
             CompletableFuture<Path> future = generator.generateToFileFuture(
                 template,
@@ -876,10 +872,8 @@ fun main() {
     }
 
     ExcelGenerator().use { generator ->
-        // Load template from resources/templates/ directory
         val template = object {}.javaClass.getResourceAsStream("/templates/template.xlsx")
             ?: throw IllegalStateException("Template not found")
-        // To read directly from file: val template = File("template.xlsx").inputStream()
 
         val job = generator.submitToFile(
             template = template,
@@ -950,10 +944,8 @@ fun main() {
     )
 
     ExcelGenerator().use { generator ->
-        // Load template from resources/templates/ directory
         val template = object {}.javaClass.getResourceAsStream("/templates/formula_template.xlsx")
             ?: throw IllegalStateException("Template not found")
-        // To read directly from file: val template = File("formula_template.xlsx").inputStream()
 
         val bytes = generator.generate(template, data)
         File("formula_output.xlsx").writeBytes(bytes)
@@ -985,15 +977,13 @@ import io.github.jogakdal.tbeg.ExcelGenerator
 
 fun main() {
     val data = mapOf(
-        "text" to "Visit Hunet website",
-        "url" to "https://www.hunet.co.kr"
+        "text" to "Visit Website",
+        "url" to "https://example.com"
     )
 
     ExcelGenerator().use { generator ->
-        // Load template from resources/templates/ directory
         val template = object {}.javaClass.getResourceAsStream("/templates/link_template.xlsx")
             ?: throw IllegalStateException("Template not found")
-        // To read directly from file: val template = File("link_template.xlsx").inputStream()
 
         val bytes = generator.generate(template, data)
         File("link_output.xlsx").writeBytes(bytes)
@@ -1042,10 +1032,8 @@ fun main() {
     )
 
     ExcelGenerator().use { generator ->
-        // Load template from resources/templates/ directory
         val template = object {}.javaClass.getResourceAsStream("/templates/multi_sheet_template.xlsx")
             ?: throw IllegalStateException("Template not found")
-        // To read directly from file: val template = File("multi_sheet_template.xlsx").inputStream()
 
         val bytes = generator.generate(template, data)
         File("multi_sheet_output.xlsx").writeBytes(bytes)
@@ -1090,10 +1078,8 @@ fun main() {
     }
 
     ExcelGenerator(config).use { generator ->
-        // Load template from resources/templates/ directory
         val template = object {}.javaClass.getResourceAsStream("/templates/template.xlsx")
             ?: throw IllegalStateException("Template not found")
-        // To read directly from file: val template = File("template.xlsx").inputStream()
 
         val path = generator.generateToFile(
             template = template,
@@ -1143,10 +1129,8 @@ fun main() {
     )
 
     ExcelGenerator().use { generator ->
-        // Load template from resources/templates/ directory
         val template = object {}.javaClass.getResourceAsStream("/templates/multi_repeat.xlsx")
             ?: throw IllegalStateException("Template not found")
-        // To read directly from file: val template = File("multi_repeat.xlsx").inputStream()
 
         val bytes = generator.generate(template, data)
         File("output.xlsx").writeBytes(bytes)
@@ -1190,10 +1174,8 @@ fun main() {
     }
 
     ExcelGenerator().use { generator ->
-        // Load template from resources/templates/ directory
         val template = object {}.javaClass.getResourceAsStream("/templates/multi_repeat.xlsx")
             ?: throw IllegalStateException("Template not found")
-        // To read directly from file: val template = File("multi_repeat.xlsx").inputStream()
 
         val bytes = generator.generate(template, provider)
         File("output.xlsx").writeBytes(bytes)
@@ -1246,10 +1228,8 @@ fun main() {
     )
 
     ExcelGenerator().use { generator ->
-        // Load template from resources/templates/ directory
         val template = object {}.javaClass.getResourceAsStream("/templates/right_repeat.xlsx")
             ?: throw IllegalStateException("Template not found")
-        // To read directly from file: val template = File("right_repeat.xlsx").inputStream()
 
         val bytes = generator.generate(template, data)
         File("output.xlsx").writeBytes(bytes)
@@ -1465,9 +1445,9 @@ fun buildI18nProvider(messageSource: MessageSource, locale: Locale) = simpleData
 
 ---
 
-## 11. Comprehensive Example — Quarterly Sales Performance Report
+## 11. Comprehensive Example -- Quarterly Sales Performance Report
 
-This example demonstrates variable substitution, image insertion, repeat data expansion, automatic formula adjustment, conditional formatting replication, and chart data range reflection — all within a single report.
+This example demonstrates variable substitution, image insertion, repeat data expansion, automatic formula adjustment, conditional formatting replication, chart data range reflection, automatic cell merge, and bundle -- all within a single report.
 
 ### Template
 
@@ -1477,9 +1457,11 @@ This example demonstrates variable substitution, image insertion, repeat data ex
 ![Template](../../src/main/resources/sample/screenshot_template.png)
 
 Template structure:
-- **Variable markers**: `${reportTitle}`, `${period}`, `${author}`, `${reportDate}`
-- **Image markers**: `${image(logo)}`, `${image(ci)}`
-- **Repeat markers**: `${repeat(depts, B7:G7, d)}` (department performance), `${repeat(products, I7:K7, p)}` (product categories)
+- **Variable markers**: `${reportTitle}`, `${period}`, `${author}`, `${reportDate}`, `${subtitle_emp}`
+- **Image markers**: `${image(logo,,-1:0)}`, `${image(ci)}`
+- **Repeat markers**: `${repeat(depts, B8:G8, d)}` (department performance), `${repeat(products, I8:K8, p)}` (product categories), `${repeat(employees, B31:K31, emp)}` (employee performance)
+- **Auto-merge markers**: `${merge(emp.dept)}` (department name merge), `${merge(emp.team)}` (team name merge)
+- **Bundle markers**: `${bundle(B30:K33)}` (protects employee performance area as an independent unit)
 - **Formulas**: SUM, AVERAGE (total/average rows), inter-cell calculations (Profit = Revenue - Cost, Achievement = Revenue / Target)
 - **Conditional formatting**: Achievement >= 100% -> green, < 100% -> red / Share >= 30% -> green, < 30% -> red
 - **Charts**: Department-level Revenue/Cost/Profit bar chart, product category pie chart
@@ -1495,6 +1477,10 @@ import java.time.LocalDate
 
 data class DeptResult(val deptName: String, val revenue: Long, val cost: Long, val target: Long)
 data class ProductCategory(val category: String, val revenue: Long)
+data class Employee(
+    val dept: String, val team: String, val name: String, val rank: String,
+    val revenue: Long, val cost: Long, val target: Long
+)
 
 fun main() {
     val data = simpleDataProvider {
@@ -1502,8 +1488,9 @@ fun main() {
         value("period", "Jan 2026 ~ Mar 2026")
         value("author", "Yongho Hwang")
         value("reportDate", LocalDate.now().toString())
-        image("logo", File("hunet_logo.png").readBytes())
-        image("ci", File("hunet_ci.png").readBytes())
+        value("subtitle_emp", "Employee Performance Details")
+        image("logo", File("logo.png").readBytes())
+        image("ci", File("ci.png").readBytes())
 
         items("depts") {
             listOf(
@@ -1523,6 +1510,22 @@ fun main() {
                 ProductCategory("Contents License", 15000),
             ).iterator()
         }
+
+        items("employees") {
+            listOf(
+                Employee("Common Platform", "Strategy", "Hwang Yongho", "Manager", 18000, 11000, 17000),
+                Employee("Common Platform", "Strategy", "Park Sungjun",  "Senior",  15000,  9000, 14000),
+                Employee("Common Platform", "Backend",  "Choi Changmin", "Senior",  12000,  7000, 13000),
+                Employee("Common Platform", "Backend",  "Kim Hyunkyung",  "Junior",   7000,  4000,  6000),
+                Employee("IT Strategy",     "Planning", "Byun Jaemyung","Manager", 20000, 12000, 20000),
+                Employee("IT Strategy",     "Planning", "Kim Minchul", "Senior",  11000,  6000, 12000),
+                Employee("IT Strategy",     "Analysis", "Kim Minhee",   "Senior",   7000,  4000,  8000),
+                Employee("Education Biz",   "Sales",    "Yoon Seojin",  "Manager", 35000, 22000, 30000),
+                Employee("Education Biz",   "Sales",    "Kang Minwoo",  "Senior",  28000, 18000, 25000),
+                Employee("Education Biz",   "Sales",    "Lim Soyeon",   "Junior",  15000, 10000, 15000),
+                Employee("Education Biz",   "Support",  "Oh Junhyeok",  "Senior",  17000, 11000, 20000),
+            ).iterator()
+        }
     }
 
     ExcelGenerator().use { generator ->
@@ -1537,17 +1540,156 @@ fun main() {
 ![Result](../../src/main/resources/sample/screenshot_result.png)
 
 What TBEG handled automatically:
-- **Variable substitution** — title, period, author, date
-- **Image insertion** — logo, CI
-- **Repeat data expansion** — departments expanded to 5 rows, products to 4 rows
-- **Automatic formula range adjustment** — `SUM(C7:C7)` -> `SUM(C7:C11)`, `AVERAGE(C7:C7)` -> `AVERAGE(C7:C11)`
-- **Conditional formatting replication** — achievement/share colors applied to all rows
-- **Chart data range reflection** — charts reference the expanded data range
+- **Variable substitution** -- title, period, author, date, employee performance subtitle
+- **Image insertion** -- logo, CI
+- **Repeat data expansion** -- departments expanded to 5 rows, products to 4 rows, employees to 11 rows
+- **Automatic cell merge** -- consecutive cells with the same department/team name are automatically merged
+- **Bundle** -- employee performance area is protected from department performance expansion
+- **Automatic formula range adjustment** -- `SUM(C8:C8)` -> `SUM(C8:C12)`, `AVERAGE(C8:C8)` -> `AVERAGE(C8:C12)`
+- **Conditional formatting replication** -- achievement/share colors applied to all rows
+- **Chart data range reflection** -- charts reference the expanded data range
+
+---
+
+## 12. Automatic Cell Merge in Practice
+
+An example of automatically merging the same department names in a departmental sales report.
+
+### Template (dept_merge_template.xlsx)
+
+|   | A                                      | B               | C             | D              |
+|---|----------------------------------------|-----------------|---------------|----------------|
+| 1 | ${repeat(sales, A3:D3, s)}             |                 |               |                |
+| 2 | Department                             | Person          | Amount        | Note           |
+| 3 | ${merge(s.dept)}                       | ${s.name}       | ${s.amount}   | ${s.note}      |
+
+- **A3**: `${merge(s.dept)}` automatically merges consecutive cells with the same department name
+- Other columns are regular fields that output individual values in each row without merging
+
+### Kotlin Code
+
+```kotlin
+import io.github.jogakdal.tbeg.ExcelGenerator
+
+data class SalesRecord(val dept: String, val name: String, val amount: Int, val note: String)
+
+fun main() {
+    // Sort by merge criteria (dept)
+    val data = mapOf(
+        "sales" to listOf(
+            SalesRecord("Common Platform Team", "Yongho Hwang", 12000, ""),
+            SalesRecord("Common Platform Team", "Yongho Han", 9500, ""),
+            SalesRecord("Common Platform Team", "Yongho Hong", 8000, "New"),
+            SalesRecord("IT Strategy Team", "Cheolsu Kim", 15000, ""),
+            SalesRecord("IT Strategy Team", "Younghee Lee", 11000, ""),
+        )
+    )
+
+    ExcelGenerator().use { generator ->
+        val template = object {}.javaClass.getResourceAsStream("/templates/dept_merge_template.xlsx")
+            ?: throw IllegalStateException("Template not found")
+
+        val bytes = generator.generate(template, data)
+        File("dept_merge_output.xlsx").writeBytes(bytes)
+    }
+}
+```
+
+### Result
+
+<table>
+<tr><th></th><th>A</th><th>B</th><th>C</th><th>D</th></tr>
+<tr><td>1</td><td></td><td></td><td></td><td></td></tr>
+<tr><td>2</td><td>Department</td><td>Person</td><td>Amount</td><td>Note</td></tr>
+<tr><td>3</td><td rowspan="3">Common Platform Team</td><td>Yongho Hwang</td><td>12,000</td><td></td></tr>
+<tr><td>4</td><td>Yongho Han</td><td>9,500</td><td></td></tr>
+<tr><td>5</td><td>Yongho Hong</td><td>8,000</td><td>New</td></tr>
+<tr><td>6</td><td rowspan="2">IT Strategy Team</td><td>Cheolsu Kim</td><td>15,000</td><td></td></tr>
+<tr><td>7</td><td>Younghee Lee</td><td>11,000</td><td></td></tr>
+</table>
+
+- A3:A5 are merged as "Common Platform Team", A6:A7 are merged as "IT Strategy Team"
+- When `merge` is applied to multiple columns, each column is merged independently
+
+> [!IMPORTANT]
+> The `merge` marker only merges consecutive cells with the same value. Make sure to pre-sort the data by the merge criteria field.
+
+---
+
+## 13. Bundle
+
+An example of wrapping two independent repeat regions in bundles so that one's expansion does not affect the other.
+
+### Template (bundle_template.xlsx)
+
+|   | A                                      | B             | C | D                                       | E              |
+|---|----------------------------------------|---------------|---|-----------------------------------------|----------------|
+| 1 | ${bundle(A1:B10)}                      |               |   | ${bundle(D1:E10)}                       |                |
+| 2 | ${repeat(employees, A4:B4, emp)}       |               |   | ${repeat(departments, D4:E4, dept)}     |                |
+| 3 | Name                                   | Salary        |   | Department                              | Budget         |
+| 4 | ${emp.name}                            | ${emp.salary} |   | ${dept.name}                            | ${dept.budget} |
+
+- **A1**: `${bundle(A1:B10)}` wraps the left region
+- **D1**: `${bundle(D1:E10)}` wraps the right region
+- Each repeat within a bundle expands independently and does not affect other bundles
+
+### Kotlin Code
+
+```kotlin
+import io.github.jogakdal.tbeg.ExcelGenerator
+
+data class Employee(val name: String, val salary: Int)
+data class Department(val name: String, val budget: Int)
+
+fun main() {
+    val data = mapOf(
+        "employees" to listOf(
+            Employee("Yongho Hwang", 8000),
+            Employee("Yongho Han", 6500),
+            Employee("Yongho Hong", 4500),
+            Employee("Cheolsu Kim", 5500),
+            Employee("Younghee Lee", 7000),
+        ),
+        "departments" to listOf(
+            Department("Common Platform Team", 50000),
+            Department("IT Strategy Team", 30000),
+        )
+    )
+
+    ExcelGenerator().use { generator ->
+        val template = object {}.javaClass.getResourceAsStream("/templates/bundle_template.xlsx")
+            ?: throw IllegalStateException("Template not found")
+
+        val bytes = generator.generate(template, data)
+        File("bundle_output.xlsx").writeBytes(bytes)
+    }
+}
+```
+
+### Result
+
+|   | A    | B     | C | D        | E      |
+|---|------|-------|---|----------|--------|
+| 1 |      |       |   |          |        |
+| 2 |      |       |   |          |        |
+| 3 | Name | Salary|   | Department | Budget |
+| 4 | Yongho Hwang  | 8,000 |   | Common Platform Team | 50,000 |
+| 5 | Yongho Han    | 6,500 |   | IT Strategy Team     | 30,000 |
+| 6 | Yongho Hong   | 4,500 |   |          |        |
+| 7 | Cheolsu Kim   | 5,500 |   |          |        |
+| 8 | Younghee Lee  | 7,000 |   |          |        |
+
+- Employees (5) and departments (2) expand independently
+- Without bundles, the employee region's expansion would push the department region down; with bundles, each region stays in place
+
+> [!NOTE]
+> The bundle range must fully encompass all repeat regions contained within it. An error occurs if a repeat region crosses a bundle boundary.
 
 ---
 
 ## Next Steps
 
+- [Basic Examples](./basic-examples.md) - Basic usage
 - [Spring Boot Examples](./spring-boot-examples.md) - Spring Boot integration
 - [Configuration Reference](../reference/configuration.md) - Detailed settings
 - [API Reference](../reference/api-reference.md) - API details

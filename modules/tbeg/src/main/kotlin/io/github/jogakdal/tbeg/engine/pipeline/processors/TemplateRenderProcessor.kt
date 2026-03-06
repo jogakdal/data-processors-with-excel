@@ -15,7 +15,6 @@ import java.io.ByteArrayInputStream
  * 템플릿 렌더링 프로세서.
  *
  * TemplateRenderingEngine을 사용하여 템플릿에 데이터를 바인딩한다.
- * 스트리밍 모드 설정에 따라 내부적으로 XSSF 또는 SXSSF 전략을 사용한다.
  *
  * - 반복 영역 확장
  * - 변수 치환
@@ -47,14 +46,16 @@ internal class TemplateRenderProcessor : ExcelProcessor {
         }
 
         // 템플릿 렌더링
-        val engine = TemplateRenderingEngine(context.config.streamingMode)
+        val engine = TemplateRenderingEngine(
+            imageUrlCacheTtlSeconds = context.config.imageUrlCacheTtlSeconds
+        )
         context.resultBytes = engine.process(
             ByteArrayInputStream(context.resultBytes),
             context.dataProvider,
             requiredNames
         )
 
-        // SXSSF 차트 범위 조정을 위한 repeat 확장 정보 전달
+        // 차트 범위 조정을 위한 repeat 확장 정보 전달
         context.repeatExpansionInfos = engine.lastRepeatExpansionInfos
 
         return context
