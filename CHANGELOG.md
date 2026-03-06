@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 This file is maintained in this project only and is not affected by upstream sync.
 
+## [1.2.0] - 2026-03-06
+
+### Breaking Changes
+- **XSSF (non-streaming) mode removed**: TBEG now always operates in streaming mode
+  - `StreamingMode` enum: deprecated (will be removed in a future version)
+  - `TbegConfig.streamingMode`: deprecated (value is ignored)
+  - `TbegConfig.forSmallData()`: deprecated (behaves the same as `default()`)
+  - Internal class `XssfRenderingStrategy` removed
+  - `SxssfRenderingStrategy` renamed to `StreamingRenderingStrategy`
+
+### New Features
+- **Image URL support**: Specify an HTTP(S) URL instead of `ByteArray` for image data; the image is automatically downloaded at render time. Use `imageUrl("logo", "https://...")` syntax
+  - `imageUrlCacheTtlSeconds` setting for inter-call cache TTL (default: 0, no caching)
+- **Automatic cell merge**: Automatically merge consecutive cells with the same value during repeat expansion. Use `${merge(item.field)}` or `=TBEG_MERGE(item.field)` markers
+- **Bundle**: Group a range of elements into a single unit that moves together during repeat expansion. Use `${bundle(range)}` or `=TBEG_BUNDLE(range)` markers
+
+### Bug Fixes
+- RIGHT repeat column width duplication fix: column widths now correctly duplicated when multiple RIGHT repeats share the same column range
+- RIGHT repeat non-repeat cell filtering fix: columns from other RIGHT repeat regions correctly excluded from non-repeat cell writing
+- RIGHT repeat indirect overlap check fix: column overlap check between RIGHT repeats with overlapping row ranges was missing
+
+### Internal Improvements
+- Chaining-based position calculation in PositionCalculator
+- MergeTracker for automatic cell merge handling
+- TemplateAnalyzer 5-phase analysis with bundle collection/validation (Phase 2.5)
+- Dead zone detection and skip logic
+- Forward verification for getFinalPosition()
+- Row height MAX application for chaining
+
 ## [1.1.3] - 2026-02-27
 
 ### New Features
