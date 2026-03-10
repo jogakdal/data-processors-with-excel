@@ -3,7 +3,6 @@ package io.github.jogakdal.tbeg.engine.core
 import io.github.jogakdal.tbeg.internal.commonLogger
 import io.github.jogakdal.tbeg.engine.rendering.ChartRangeAdjuster
 import org.w3c.dom.Attr
-import org.w3c.dom.Document
 import org.w3c.dom.Element
 import org.w3c.dom.Node
 import java.io.ByteArrayInputStream
@@ -653,47 +652,16 @@ internal class ChartProcessor {
      * 차트 파일과 함께 drawing rels의 차트 참조도 제거하여
      * POI가 워크북을 열 때 "Skipped invalid entry" 경고가 발생하지 않도록 한다.
      */
-    private fun removeChartFilesOnly(inputBytes: ByteArray): ByteArray {
-        val output = ByteArrayOutputStream()
-
-        ZipOutputStream(output).use { zos ->
-            ZipInputStream(ByteArrayInputStream(inputBytes)).use { zis ->
-                var entry = zis.nextEntry
-                while (entry != null) {
-                    val path = "/" + entry.name
-
-                    val shouldSkip = CHART_PATH_PATTERN.matches(path) ||
-                        CHART_RELS_PATH_PATTERN.matches(path)
-
-                    if (!shouldSkip) {
-                        when {
-                            entry.name == "[Content_Types].xml" -> {
-                                val content = String(zis.readBytes(), Charsets.UTF_8)
-                                val cleaned = removeChartContentTypes(content)
-                                zos.putNextEntry(ZipEntry(entry.name))
-                                zos.write(cleaned.toByteArray(Charsets.UTF_8))
-                                zos.closeEntry()
-                            }
-                            DRAWING_RELS_PATH_PATTERN.matches(path) -> {
-                                val content = String(zis.readBytes(), Charsets.UTF_8)
-                                val cleaned = removeChartReferencesFromDrawingRels(content)
-                                zos.putNextEntry(ZipEntry(entry.name))
-                                zos.write(cleaned.toByteArray(Charsets.UTF_8))
-                                zos.closeEntry()
-                            }
-                            else -> {
-                                zos.putNextEntry(ZipEntry(entry.name))
-                                zos.write(zis.readBytes())
-                                zos.closeEntry()
-                            }
-                        }
-                    }
-                    entry = zis.nextEntry
-                }
-            }
+    private fun removeChartFilesOnly(inputBytes: ByteArray) = inputBytes.transformZipEntries { entryName, bytes ->
+        val path = "/$entryName"
+        when {
+            CHART_PATH_PATTERN.matches(path) || CHART_RELS_PATH_PATTERN.matches(path) -> null
+            entryName == "[Content_Types].xml" ->
+                removeChartContentTypes(bytes.decodeToString()).encodeToByteArray()
+            DRAWING_RELS_PATH_PATTERN.matches(path) ->
+                removeChartReferencesFromDrawingRels(bytes.decodeToString()).encodeToByteArray()
+            else -> bytes
         }
-
-        return output.toByteArray()
     }
 
     private fun removeChartReferencesFromDrawingRels(relsXml: String): String =

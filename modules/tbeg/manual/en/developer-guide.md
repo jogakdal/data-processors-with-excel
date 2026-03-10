@@ -7,11 +7,10 @@ This document describes the internal architecture and extension points of the TB
 ## Table of Contents
 1. [Architecture Overview](#1-architecture-overview)
 2. [Pipeline Pattern](#2-pipeline-pattern)
-3. [Rendering Strategy](#3-rendering-strategy)
+3. [Rendering Engine](#3-rendering-engine)
 4. [Marker Parser](#4-marker-parser)
 5. [Position Calculation](#5-position-calculation)
-6. [Streaming Data Processing](#6-streaming-data-processing)
-7. [Testing and Samples](#7-testing-guide)
+6. [Testing and Samples](#6-testing-and-samples)
 
 ---
 
@@ -36,6 +35,7 @@ io.github.jogakdal.tbeg/
 │   ├── core/                           # Core utilities
 │   │   ├── CommonTypes.kt              # Common types (CellCoord, CellArea, IndexRange, CollectionSizes, etc.)
 │   │   ├── ExcelUtils.kt
+│   │   ├── ConditionalFormattingUtils.kt # Conditional formatting utilities
 │   │   ├── ChartProcessor.kt
 │   │   ├── PivotTableProcessor.kt
 │   │   └── XmlVariableProcessor.kt
@@ -45,14 +45,19 @@ io.github.jogakdal.tbeg/
 │   │   ├── ProcessingContext.kt
 │   │   └── processors/                 # Individual processors
 │   └── rendering/                      # Rendering engine
-│       ├── RenderingStrategy.kt
-│       ├── AbstractRenderingStrategy.kt
-│       ├── StreamingRenderingStrategy.kt
-│       ├── TemplateRenderingEngine.kt
-│       ├── TemplateAnalyzer.kt
-│       ├── PositionCalculator.kt
-│       ├── StreamingDataSource.kt
-│       ├── WorkbookSpec.kt
+│       ├── TemplateRenderingEngine.kt  # Rendering orchestrator
+│       ├── RenderingStrategy.kt        # Strategy interface
+│       ├── AbstractRenderingStrategy.kt # Common rendering logic
+│       ├── StreamingRenderingStrategy.kt # Streaming strategy implementation
+│       ├── TemplateAnalyzer.kt         # Template analysis
+│       ├── PositionCalculator.kt       # Position calculation (chaining algorithm)
+│       ├── WorkbookSpec.kt             # Template analysis result
+│       ├── StreamingDataSource.kt      # Streaming data consumption
+│       ├── FormulaAdjuster.kt          # Formula reference range adjustment
+│       ├── ChartRangeAdjuster.kt       # Chart data range adjustment
+│       ├── ImageInserter.kt            # Image insertion
+│       ├── MergeTracker.kt             # Merged cell tracking during repeat expansion
+│       ├── SheetLayoutApplier.kt       # Sheet layout application (row height, column width, merge, etc.)
 │       └── parser/                     # Marker parser
 │           ├── MarkerDefinition.kt     # Marker definitions
 │           ├── UnifiedMarkerParser.kt  # Unified parser
@@ -74,7 +79,7 @@ Template + Data
    1. ChartExtractProcessor       - Extract charts (prevent streaming loss)
    2. PivotExtractProcessor       - Extract pivot table info
    3. TemplateRenderProcessor     - Render templates (data binding)
-   4. NumberFormatProcessor       - Apply number formatting
+   4. NumberFormatProcessor       - Apply number/formula cell formatting
    5. XmlVariableReplaceProcessor - Replace variables in XML
    6. PivotRecreateProcessor      - Recreate pivot tables
    7. ChartRestoreProcessor       - Restore charts
@@ -106,6 +111,9 @@ The pipeline executes multiple processors sequentially.
 ```kotlin
 class TbegPipeline(vararg processors: ExcelProcessor) {
     fun execute(context: ProcessingContext): ProcessingContext
+    fun addProcessor(processor: ExcelProcessor): TbegPipeline      // Immutable, returns new instance
+    fun addProcessors(vararg processors: ExcelProcessor): TbegPipeline
+    fun excludeProcessor(name: String): TbegPipeline
 }
 ```
 
@@ -139,38 +147,118 @@ internal class ProcessingContext(
     var pivotTableInfos: List<PivotTableProcessor.PivotTableInfo> = emptyList()
     var variableResolver: ((String) -> String)? = null
     var requiredNames: RequiredNames? = null
+    var repeatExpansionInfos: Map<String, List<ChartRangeAdjuster.RepeatExpansionInfo>> = emptyMap()
 }
 ```
 
+| Property | Written by | Read by |
+|----------|-----------|---------|
+| `chartInfo` | ChartExtract | ChartRestore |
+| `pivotTableInfos` | PivotExtract | PivotRecreate |
+| `variableResolver` | TemplateRender | XmlVariableReplace |
+| `requiredNames` | TemplateRender | XmlVariableReplace |
+| `repeatExpansionInfos` | TemplateRender | ChartRestore |
+
 ### 2.4 Processor Implementation Example
+
+Actual processing flow of `TemplateRenderProcessor`:
 
 ```kotlin
 class TemplateRenderProcessor : ExcelProcessor {
     override val name = "TemplateRender"
 
     override fun process(context: ProcessingContext): ProcessingContext {
-        val analyzer = TemplateAnalyzer()
-        val blueprint = XSSFWorkbook(ByteArrayInputStream(context.resultBytes)).use {
-            analyzer.analyzeFromWorkbook(it)
+        // 1. Template analysis -> extract required data names
+        val blueprint = XSSFWorkbook(ByteArrayInputStream(context.resultBytes)).use { workbook ->
+            TemplateAnalyzer().analyzeFromWorkbook(workbook)
         }
-        context.requiredNames = blueprint.extractRequiredNames()
+        val requiredNames = blueprint.extractRequiredNames()
+        context.requiredNames = requiredNames
 
-        val engine = TemplateRenderingEngine()
+        // 2. Missing data validation (WARN logs, THROW throws exception)
+        validateMissingData(context, requiredNames)
+
+        // 3. Calculate processedRowCount
+        context.processedRowCount = requiredNames.collections.sumOf { name ->
+            context.dataProvider.getItems(name)?.asSequence()?.count() ?: 0
+        }
+
+        // 4. Execute rendering
+        val engine = TemplateRenderingEngine(
+            imageUrlCacheTtlSeconds = context.config.imageUrlCacheTtlSeconds
+        )
         context.resultBytes = engine.process(
             ByteArrayInputStream(context.resultBytes),
             context.dataProvider,
-            context.requiredNames!!
+            requiredNames
         )
+
+        // 5. Pass repeat expansion info for chart range adjustment
+        context.repeatExpansionInfos = engine.lastRepeatExpansionInfos
+
         return context
     }
 }
 ```
 
+### 2.5 Custom Processors
+
+New processing stages can be added to the pipeline.
+
+```kotlin
+class WatermarkProcessor : ExcelProcessor {
+    override val name = "Watermark"
+
+    override fun process(context: ProcessingContext): ProcessingContext {
+        // Watermark insertion logic
+        return context
+    }
+}
+
+// Add to pipeline
+val customPipeline = pipeline.addProcessor(WatermarkProcessor())
+```
+
 ---
 
-## 3. Rendering Strategy
+## 3. Rendering Engine
 
-### 3.1 Strategy Pattern
+### 3.1 TemplateRenderingEngine
+
+The central orchestrator for rendering. It invokes `RenderingStrategy` to perform the actual rendering, passing internal components through `RenderingContext`.
+
+```kotlin
+class TemplateRenderingEngine(
+    private val imageUrlCacheTtlSeconds: Long = 0
+) {
+    private val analyzer = TemplateAnalyzer()
+    private val imageInserter = ImageInserter()
+    private val sheetLayoutApplier = SheetLayoutApplier()
+    private val strategy: RenderingStrategy = StreamingRenderingStrategy()
+
+    // Repeat expansion info from the last rendering (used for chart range adjustment)
+    internal var lastRepeatExpansionInfos: Map<String, List<RepeatExpansionInfo>>
+
+    // Map-based rendering
+    fun process(template: InputStream, data: Map<String, Any>): ByteArray
+
+    // DataProvider-based rendering (streaming)
+    fun process(template: InputStream, dataProvider: ExcelDataProvider,
+                requiredNames: RequiredNames? = null): ByteArray
+}
+```
+
+Key internal components:
+
+| Component | Role |
+|-----------|------|
+| `FormulaAdjuster` | Formula reference range adjustment (row shifting, range expansion, absolute reference preservation) |
+| `ChartRangeAdjuster` | Adjust chart data ranges to match expanded data |
+| `ImageInserter` | Image insertion, resizing, URL download |
+| `MergeTracker` | Track merged cells during repeat expansion via `${merge()}` markers |
+| `SheetLayoutApplier` | Apply sheet layout (row height, column width, merge, header/footer, conditional formatting duplication) |
+
+### 3.2 Strategy Pattern
 
 Rendering is handled by a single strategy, `StreamingRenderingStrategy`. It supports memory-efficient processing of large datasets via streaming.
 
@@ -185,10 +273,10 @@ internal interface RenderingStrategy {
     ): ByteArray
 }
 
-internal class StreamingRenderingStrategy : RenderingStrategy
+internal class StreamingRenderingStrategy : AbstractRenderingStrategy()
 ```
 
-### 3.2 AbstractRenderingStrategy
+### 3.3 AbstractRenderingStrategy
 
 Common logic is extracted into an abstract class.
 
@@ -216,6 +304,26 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
     protected fun insertImages(workbook: Workbook, imageLocations: List<ImageLocation>, ...)
 }
 ```
+
+`setCellValue()` treats values starting with `=` as Excel formulas. `StreamingRenderingStrategy.setValueOrFormula()` handles this branching.
+
+### 3.4 Streaming Data Processing
+
+`StreamingDataSource` sequentially consumes iterators from the DataProvider, keeping only the currently processed item in memory.
+
+```kotlin
+internal class StreamingDataSource(
+    private val dataProvider: ExcelDataProvider,
+    private val expectedSizes: CollectionSizes = CollectionSizes.EMPTY
+) : Closeable {
+    fun advanceToNextItem(repeatKey: RepeatKey): Any?
+    fun getCurrentItem(repeatKey: RepeatKey): Any?
+}
+```
+
+DataProvider requirements:
+- `getItems()` must be able to provide the same data again
+- If the same collection is used in multiple repeats, `getItems()` will be called again
 
 ---
 
@@ -274,13 +382,26 @@ when (content) {
 | `image` | Insert image | name | position, size(=fit) |
 | `size` | Output collection size | collection | |
 | `merge` | Automatic cell merge | field | |
-| `bundle` | Element grouping | range | |
+| `bundle` | Element bundling | range | |
+
+### 4.5 Duplicate Marker Detection
+
+`TemplateAnalyzer.analyzeWorkbook()` analyzes the template in 4 stages:
+
+1. **Collection**: Collect repeat markers from all sheets (`collectRepeatRegions`)
+2. **Repeat deduplication**: If multiple repeats share the same collection + same target range, warn and keep only the last one (`deduplicateRepeatRegions`)
+3. **SheetSpec creation**: Analyze each sheet based on the deduplicated repeat list (`analyzeSheet`)
+4. **Cell marker deduplication**: Post-process to remove duplicates of range markers remaining in cells, such as image markers (`deduplicateCellMarkers`)
+
+Target sheet determination: If the range has a sheet prefix (`'Sheet1'!A1:B2`), that sheet is used; otherwise, the sheet where the marker is located is the target.
+
+When adding a new range marker that requires duplicate detection, add it to the `when` branch of the `cellMarkerDedupKey()` method.
 
 ---
 
 ## 5. Position Calculation
 
-### 5.0 Common Types (CommonTypes)
+### 5.1 Common Types (CommonTypes)
 
 #### CollectionSizes
 
@@ -325,19 +446,6 @@ area.overlapsColumns(other)  // Whether column ranges overlap
 area.overlapsRows(other)     // Whether row ranges overlap
 area.overlaps(other)         // Whether 2D areas overlap
 ```
-
-### 5.1 Duplicate Marker Detection
-
-`TemplateAnalyzer.analyzeWorkbook()` analyzes the template in 4 stages:
-
-1. **Collection**: Collect repeat markers from all sheets (`collectRepeatRegions`)
-2. **Repeat deduplication**: If multiple repeats share the same collection + same target range, warn and keep only the last one (`deduplicateRepeatRegions`)
-3. **SheetSpec creation**: Analyze each sheet based on the deduplicated repeat list (`analyzeSheet`)
-4. **Cell marker deduplication**: Post-process to remove duplicates of range markers remaining in cells, such as image markers (`deduplicateCellMarkers`)
-
-Target sheet determination: If the range has a sheet prefix (`'Sheet1'!A1:B2`), that sheet is used; otherwise, the sheet where the marker is located is the target.
-
-When adding a new range marker that requires duplicate detection, add it to the `when` branch of the `cellMarkerDedupKey()` method.
 
 ### 5.2 PositionCalculator
 
@@ -404,40 +512,12 @@ Groups elements within a specified range into a single unit for displacement cal
 
 ---
 
-## 6. Streaming Data Processing
-
-### 6.1 StreamingDataSource
-
-Consumes iterators sequentially during streaming rendering.
-
-```kotlin
-internal class StreamingDataSource(
-    private val dataProvider: ExcelDataProvider,
-    private val expectedSizes: CollectionSizes = CollectionSizes.EMPTY
-) : Closeable {
-    // Current item for each repeat region
-    fun advanceToNextItem(repeatKey: RepeatKey): Any?
-    fun getCurrentItem(repeatKey: RepeatKey): Any?
-}
-```
-
-### 6.2 Memory Optimization Principles
-
-Only the currently processed item is kept in memory, enabling efficient processing of large datasets.
-
-### 6.3 DataProvider Requirements
-
-- `getItems()` must be able to provide the same data again
-- If the same collection is used in multiple repeats, `getItems()` will be called again
-
----
-
-## 7. Testing Guide
+## 6. Testing and Samples
 
 Test code is located in `src/test/kotlin/io/github/jogakdal/tbeg/`.
 Test templates are located in `src/test/resources/templates/`.
 
-### 7.1 Test Example
+### 6.1 Test Example
 
 ```kotlin
 class PositionCalculatorTest {
@@ -464,7 +544,7 @@ class PositionCalculatorTest {
 }
 ```
 
-### 7.2 Integration Test Example
+### 6.2 Integration Test Example
 
 ```kotlin
 class ExcelGeneratorIntegrationTest {
@@ -491,7 +571,7 @@ class ExcelGeneratorIntegrationTest {
 }
 ```
 
-### 7.3 Running Tests
+### 6.3 Running Tests
 
 ```bash
 # All tests
@@ -501,7 +581,7 @@ class ExcelGeneratorIntegrationTest {
 ./gradlew :tbeg:test --tests "*PositionCalculator*"
 ```
 
-### 7.4 Samples and Benchmarks
+### 6.4 Samples and Benchmarks
 
 Runnable samples and benchmark code are managed in separate directories apart from test code.
 
@@ -511,6 +591,9 @@ src/test/
 │   ├── samples/                            # Sample code (Kotlin)
 │   │   ├── TbegSample.kt
 │   │   ├── EmptyCollectionSample.kt
+│   │   ├── FormulaSubstitutionSample.kt
+│   │   ├── RichSample.kt
+│   │   ├── CellMergeSampleRunner.kt
 │   │   ├── TbegSpringBootSample.kt
 │   │   └── TemplateRenderingEngineSample.kt
 │   ├── benchmark/                          # Benchmark code
@@ -538,40 +621,8 @@ src/test/
 
 ---
 
-## Extension Points
-
-### Custom DataProvider
-
-Implement `ExcelDataProvider` directly when a special data source is needed.
-
-```kotlin
-class DatabaseDataProvider(
-    private val dataSource: DataSource
-) : ExcelDataProvider {
-    override fun getValue(name: String): Any? = /* SQL query */
-    override fun getItems(name: String): Iterator<Any>? = /* Streaming query */
-    override fun getItemCount(name: String): Int? = /* COUNT query */
-}
-```
-
-### Custom Processor
-
-New processing stages can be added to the pipeline.
-
-```kotlin
-class WatermarkProcessor : ExcelProcessor {
-    override val name = "Watermark"
-
-    override fun process(context: ProcessingContext): ProcessingContext {
-        // Watermark insertion logic
-        return context
-    }
-}
-```
-
----
-
 ## Next Steps
 
 - [API Reference](./reference/api-reference.md) - API details
 - [Configuration Options](./reference/configuration.md) - Configuration options
+- [User Guide](./user-guide.md) - Custom DataProvider implementation examples

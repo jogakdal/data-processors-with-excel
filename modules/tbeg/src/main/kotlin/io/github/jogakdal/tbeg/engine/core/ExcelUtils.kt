@@ -14,6 +14,9 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 
 /**
  * Excel 관련 유틸리티 함수 모음.
@@ -115,17 +118,35 @@ internal fun extractSheetReference(range: String): Pair<String?, String> {
     return null to range
 }
 
-// ========== XML 유틸리티 ==========
+// ========== ZIP 유틸리티 ==========
 
 /**
- * XML 특수 문자를 이스케이프한다.
+ * ZipInputStream의 엔트리를 Sequence로 순회한다.
  */
-internal fun String.escapeXml(): String = this
-    .replace("&", "&amp;")
-    .replace("<", "&lt;")
-    .replace(">", "&gt;")
-    .replace("\"", "&quot;")
-    .replace("'", "&apos;")
+internal fun ZipInputStream.entries(): Sequence<ZipEntry> = generateSequence { nextEntry }
+
+/**
+ * ZIP 바이트 배열의 각 엔트리를 변환하여 새 ZIP을 생성한다.
+ *
+ * @param transform 엔트리 이름과 바이트를 받아 변환된 바이트를 반환한다.
+ *   null을 반환하면 해당 엔트리를 제거한다.
+ */
+internal fun ByteArray.transformZipEntries(
+    transform: (entryName: String, bytes: ByteArray) -> ByteArray?
+): ByteArray = ByteArrayOutputStream().also { output ->
+    ZipInputStream(ByteArrayInputStream(this)).use { zis ->
+        ZipOutputStream(output).use { zos ->
+            zis.entries().forEach { entry ->
+                val transformed = transform(entry.name, zis.readBytes())
+                if (transformed != null) {
+                    zos.putNextEntry(ZipEntry(entry.name))
+                    zos.write(transformed)
+                    zos.closeEntry()
+                }
+            }
+        }
+    }
+}.toByteArray()
 
 // ========== POI 확장 함수 ==========
 

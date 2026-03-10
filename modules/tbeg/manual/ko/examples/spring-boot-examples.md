@@ -18,8 +18,12 @@
 ```kotlin
 // build.gradle.kts
 
+repositories {
+    mavenCentral()
+}
+
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.2.0")
+    implementation("io.github.jogakdal:tbeg:1.2.1")
 }
 ```
 

@@ -2,6 +2,30 @@
 
 # TBEG Changelog
 
+## 1.2.1
+
+### New Features
+
+- **Variable marker formula substitution**: When a value starting with `=` is bound to a `${variable}` marker, it is treated as an Excel formula. This also works for item fields within repeat regions, and formula range auto-adjustment (expansion, row shift) is applied.
+- **Automatic number format for formula cells**: When a cell substituted with a formula has a "General" display format, an integer number format (`#,##0`) is automatically applied. For formulas that require decimal places, specify the format directly in the template.
+
+### Documentation
+
+- Fixed broken anchor links in documentation.
+- Added notes about `=` prefix text to the template syntax reference.
+
+<details>
+<summary>Internal Improvements</summary>
+
+- **`setCellValue`/`setValueOrFormula` separation**: Separated formula detection logic into `setValueOrFormula` so that formula substitution only operates through user data binding paths (Variable, ItemField, MergeField).
+- **`StreamingRenderingStrategy` formula handling enhancement**: Variable, ItemField, and MergeField types are now handled directly in `processCellContentWithCalculator`, ensuring correct range adjustment (PositionCalculator-based) for formula values.
+- **ZIP processing utility extraction**: Consolidated the repeated ZIP stream processing pattern from `ChartProcessor` and `PivotTableProcessor` into a `ByteArray.transformZipEntries()` higher-order function.
+- **`escapeXml()` commonization**: Moved the `escapeXml()` extension function, previously TBEG-specific, to the `common-core` module.
+- **`toColumnName()` deduplication**: Removed the `toColumnName()` method from `AbstractRenderingStrategy` and consolidated to use `ExcelUtils.toCellRef()`.
+- Cleaned up unused imports (`ChartProcessor`, `PivotTableProcessor`).
+
+</details>
+
 ## 1.2.0
 
 ### Breaking Changes

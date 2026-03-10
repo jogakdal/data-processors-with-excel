@@ -19,8 +19,15 @@
 
 ```kotlin
 // build.gradle.kts
+
+// 1. Repository configuration
+repositories {
+    mavenCentral()
+}
+
+// 2. Add dependency
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.2.0")
+    implementation("io.github.jogakdal:tbeg:1.2.1")
 }
 ```
 
@@ -28,8 +35,15 @@ dependencies {
 
 ```groovy
 // build.gradle
+
+// 1. Repository configuration
+repositories {
+    mavenCentral()
+}
+
+// 2. Add dependency
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.2.0'
+    implementation 'io.github.jogakdal:tbeg:1.2.1'
 }
 ```
 
@@ -37,11 +51,13 @@ dependencies {
 
 ```xml
 <!-- pom.xml -->
+
+<!-- Add dependency -->
 <dependencies>
     <dependency>
         <groupId>io.github.jogakdal</groupId>
         <artifactId>tbeg</artifactId>
-        <version>1.2.0</version>
+        <version>1.2.1</version>
     </dependency>
 </dependencies>
 ```
@@ -52,8 +68,8 @@ dependencies {
 
 |   | A      | B         |
 |---|--------|-----------|
-| 1 | Title    | ${title}  |
-| 2 | Date     | ${date}   |
+| 1 | Title  | ${title}  |
+| 2 | Date   | ${date}   |
 
 #### Kotlin Code
 
@@ -101,11 +117,34 @@ public class QuickStart {
 }
 ```
 
+### 1.3 Saving Files
+
+`generate()` returns a byte array, while `generateToFile()` saves directly to a file.
+
+```kotlin
+ExcelGenerator().use { generator ->
+    // Get as byte array
+    val bytes = generator.generate(template, data)
+
+    // Save directly to file
+    val path = generator.generateToFile(template, data, outputDir, "report")
+}
+```
+
+When using `generateToFile()`, the filename is generated according to the following rules:
+
+| Setting | Default | Example Result |
+|---------|---------|----------------|
+| Filename mode | `TIMESTAMP` | `report_20260115_143052.xlsx` |
+| On conflict | `SEQUENCE` | `report_20260115_143052_1.xlsx` |
+
+For detailed settings such as filename mode, timestamp format, and conflict policy, see the [Configuration Options Reference](./reference/configuration.md#filenamingmode).
+
 ---
 
 ## 2. Core Concepts
 
-TBEG provides dynamic data binding (variable substitution, data repetition, image insertion) — things Excel cannot do on its own. Formulas, conditional formatting, charts, and other Excel features are used as-is, and TBEG automatically adjusts them to work correctly even after data expansion.
+TBEG provides dynamic data binding (variable substitution, data repetition, image insertion) -- things Excel cannot do on its own. Formulas, conditional formatting, charts, and other Excel features are used as-is, and TBEG automatically adjusts them to work correctly even after data expansion.
 
 ### 2.1 Template Syntax
 
@@ -113,7 +152,7 @@ TBEG uses special markers in Excel templates to bind data.
 
 | Syntax                     | Description             | Example                              |
 |----------------------------|-------------------------|--------------------------------------|
-| `${variable}`              | Simple variable substitution | `${title}`                         |
+| `${variable}`              | Simple variable substitution | `${title}`, `=SUM(A1:A10)` also works |
 | `${item.field}`            | Object field substitution    | `${emp.name}`                      |
 | `${repeat(collection, range, variable)}` | Repeat processing | `${repeat(employees, A3:C3, emp)}` |
 | `${image(name)}`           | Image insertion              | `${image(logo)}`                   |
@@ -125,7 +164,7 @@ For detailed syntax, see the [Template Syntax Reference](./reference/template-sy
 
 ### 2.2 Repeating Data
 
-List data is repeatedly rendered within the designated range of the template. By default, it expands downward (DOWN), and rightward (RIGHT) expansion is also supported. For detailed syntax, see the [Template Syntax Reference](./reference/template-syntax.md#23-rightward-repeat-right); for code examples, see [Advanced Examples](./examples/advanced-examples.md#8-rightward-repeat).
+List data is repeatedly rendered within the designated range of the template. By default, it expands downward (DOWN), and rightward (RIGHT) expansion is also supported. For detailed syntax, see the [Template Syntax Reference](./reference/template-syntax.md#33-rightward-repeat-right); for code examples, see [Advanced Examples](./examples/advanced-examples.md#8-rightward-repeat).
 
 #### Template (employees.xlsx)
 
@@ -134,9 +173,6 @@ List data is repeatedly rendered within the designated range of the template. By
 | 1 | ${repeat(employees, A3:C3, emp)}   |                 |               |
 | 2 | Name                                 | Position          | Salary          |
 | 3 | ${emp.name}                        | ${emp.position} | ${emp.salary} |
-
-> [!NOTE]
-> The `${repeat(...)}` marker can be placed anywhere in the workbook outside the repeat range (even on a different sheet). The area specified by the range parameter is what gets repeated.
 
 #### Kotlin Code
 
@@ -175,10 +211,10 @@ fun main() {
 | 5 | Yongho Hong   | Assistant Manager | 4,500   |
 
 > [!TIP]
-> When a repeat range expands, formulas, charts, pivot tables, and other affected elements have their coordinates and ranges automatically adjusted. For details, see the [Template Syntax Reference](./reference/template-syntax.md#28-automatic-adjustment-of-related-elements).
+> When a repeat range expands, formulas, charts, pivot tables, and other affected elements have their coordinates and ranges automatically adjusted. For details, see the [Template Syntax Reference](./reference/template-syntax.md#36-automatic-adjustment-of-related-elements).
 
 > [!TIP]
-> When a collection is empty, you can display alternative content. The content from the range specified by the `empty` parameter is rendered. For details, see the [Template Syntax Reference](./reference/template-syntax.md#27-empty-collection-handling-empty).
+> When a collection is empty, you can display alternative content. The content from the range specified by the `empty` parameter is rendered. For details, see the [Template Syntax Reference](./reference/template-syntax.md#35-empty-collection-handling-empty).
 
 ### 2.3 Image Insertion
 
@@ -206,30 +242,7 @@ fun main() {
 }
 ```
 
-> URL images are downloaded during the `generate()` call and embedded in the Excel file. Within the same call, identical URLs are downloaded only once. Even if the download fails, Excel generation completes normally. For detailed settings, see [Image URL Syntax](./reference/template-syntax.md#36-url-images) and [Cache Configuration](./reference/configuration.md#imageurlcachettlseconds).
-
-### 2.4 Saving Files
-
-`generate()` returns a byte array, while `generateToFile()` saves directly to a file.
-
-```kotlin
-ExcelGenerator().use { generator ->
-    // Get as byte array
-    val bytes = generator.generate(template, data)
-
-    // Save directly to file
-    val path = generator.generateToFile(template, data, outputDir, "report")
-}
-```
-
-When using `generateToFile()`, the filename is generated according to the following rules:
-
-| Setting | Default | Example Result |
-|---------|---------|----------------|
-| Filename mode | `TIMESTAMP` | `report_20260115_143052.xlsx` |
-| On conflict | `SEQUENCE` | `report_20260115_143052_1.xlsx` |
-
-For detailed settings such as filename mode, timestamp format, and conflict policy, see the [Configuration Options Reference](./reference/configuration.md#filenamemode).
+> URL images are downloaded during the `generate()` call and embedded in the Excel file. Within the same call, identical URLs are downloaded only once. Even if the download fails, Excel generation completes normally. For detailed settings, see [Image URL Syntax](./reference/template-syntax.md#45-url-images) and [Cache Configuration](./reference/configuration.md#imageurlcachettlseconds).
 
 ---
 
@@ -260,6 +273,11 @@ val provider = simpleDataProvider {
         employeeRepository.findAll().iterator()
     }
 
+    // Collection (lazy loading + count) - recommended for large datasets
+    items("allEmployees", employeeRepository.count().toInt()) {
+        employeeRepository.streamAll().iterator()
+    }
+
     // Image (ByteArray)
     image("logo", logoBytes)
 
@@ -274,6 +292,9 @@ val provider = simpleDataProvider {
     }
 }
 ```
+
+> [!TIP]
+> Providing the count alongside large collections yields optimal performance. Without the count, the data must be traversed first to determine the total number of items before processing. Providing the count skips this step.
 
 ### 3.3 SimpleDataProvider.Builder (Java)
 
@@ -317,12 +338,16 @@ class MyDataProvider(
 
     override fun getImage(name: String): ByteArray? = null
 
+    // Provide count for large-scale data processing performance optimization
     override fun getItemCount(name: String): Int? = when (name) {
         "employees" -> repository.count().toInt()
         else -> null
     }
 }
 ```
+
+> [!TIP]
+> Implementing `getItemCount()` improves performance when processing large datasets. For details, see [5. Large-Scale Data Processing](#5-large-scale-data-processing).
 
 ---
 
@@ -419,52 +444,11 @@ return ResponseEntity.accepted().body(mapOf("jobId" to job.jobId))
 
 ## 5. Large-Scale Data Processing
 
-### 5.1 Streaming Processing
-
 TBEG processes large datasets in a memory-efficient manner. It provides optimal performance with its default behavior, without requiring any special configuration.
 
-### 5.2 Lazy Loading + Providing Count (Recommended)
+The key to large-scale data processing is **lazy loading** and **providing count** through DataProvider. For setup instructions, see [3. Using DataProvider](#3-using-dataprovider).
 
-When processing large datasets, providing the count (total number of items) along with lazy loading yields optimal performance.
-
-```kotlin
-import io.github.jogakdal.tbeg.simpleDataProvider
-
-val employeeCount = employeeRepository.count().toInt()
-
-val provider = simpleDataProvider {
-    value("title", "All Employee Status")
-
-    // Provide count with lazy loading
-    items("employees", employeeCount) {
-        employeeRepository.streamAll().iterator()
-    }
-}
-```
-
-### 5.3 Providing Count in a Custom DataProvider
-
-```kotlin
-class OptimizedDataProvider(
-    private val repository: EmployeeRepository
-) : ExcelDataProvider {
-
-    override fun getValue(name: String): Any? = /* ... */
-
-    override fun getItems(name: String): Iterator<Any>? = when (name) {
-        "employees" -> repository.streamAll().iterator()
-        else -> null
-    }
-
-    // Provide count for performance optimization
-    override fun getItemCount(name: String): Int? = when (name) {
-        "employees" -> repository.count().toInt()
-        else -> null
-    }
-}
-```
-
-### 5.4 JPA Stream Integration
+### 5.1 JPA Stream Integration
 
 Large-scale processing using Spring Data JPA Streams:
 
@@ -503,7 +487,7 @@ class ReportService(
 > [!WARNING]
 > The `@Transactional` annotation is required when using JPA Streams. Since a Stream is closed when the transaction ends, the transaction must remain active until Excel generation is complete.
 
-### 5.5 Recommended Configuration for Large-Scale Processing
+### 5.2 Recommended Configuration
 
 ```kotlin
 val config = TbegConfig(

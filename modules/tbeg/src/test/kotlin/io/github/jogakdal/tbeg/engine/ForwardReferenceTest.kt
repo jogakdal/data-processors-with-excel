@@ -69,7 +69,7 @@ class ForwardReferenceTest {
             }
         }
 
-        println("✅ SXSSF에서 아래 행 참조 수식 작성 가능")
+        println("[v] SXSSF에서 아래 행 참조 수식 작성 가능")
     }
 
     @Test
@@ -93,7 +93,7 @@ class ForwardReferenceTest {
             assertNotNull(row8, "메모리 내 행은 접근 가능")
         }
 
-        println("✅ SXSSF에서 플러시된 행은 접근/수정 불가 확인")
+        println("[v] SXSSF에서 플러시된 행은 접근/수정 불가 확인")
     }
 
     @Test
@@ -144,7 +144,7 @@ class ForwardReferenceTest {
         java.nio.file.Files.createDirectories(samplesDir)
         samplesDir.resolve("formula_below_repeat.xlsx").toFile().writeBytes(resultBytes)
 
-        println("✅ 수식이 repeat 영역 아래에 있는 경우 정상 동작")
+        println("[v] 수식이 repeat 영역 아래에 있는 경우 정상 동작")
     }
 
     @Test
@@ -181,7 +181,7 @@ class ForwardReferenceTest {
         // 수식이 B3:B7로 확장되어야 함 (5개 데이터)
         val expectedFormula = "SUM(B3:B7)"
         assertEquals(expectedFormula, formula, "아래 행 참조 수식이 올바르게 확장되어야 함")
-        println("✅ 아래 행 참조 수식이 올바르게 확장됨: $formula")
+        println("[v] 아래 행 참조 수식이 올바르게 확장됨: $formula")
     }
 
     private fun printExcelContent(bytes: ByteArray) {
@@ -288,7 +288,7 @@ class ForwardReferenceTest {
         val expansion = calculator.getExpansionForRegion("employees", 2, 0)
         println("\n=== getExpansionForRegion('employees', 2, 0) ===")
         if (expansion != null) {
-            println("  ✅ expansion found: rowExpansion=${expansion.rowExpansion}, itemCount=${expansion.itemCount}")
+            println("  [v] expansion found: rowExpansion=${expansion.rowExpansion}, itemCount=${expansion.itemCount}")
         } else {
             println("  [X] expansion is null!")
         }
@@ -358,7 +358,7 @@ class ForwardReferenceTest {
         val expectedFormula = "SUM(B2:B6)"
         assertEquals(expectedFormula, formula, "수식이 확장되어야 함")
 
-        println("✅ 범위 참조 수식이 repeat 영역 아래에서 올바르게 확장됨")
+        println("[v] 범위 참조 수식이 repeat 영역 아래에서 올바르게 확장됨")
     }
 
     @Test
@@ -405,7 +405,7 @@ class ForwardReferenceTest {
         assertEquals("SUM(B3:B5)", relativeFormula, "상대 참조는 확장되어야 함")
         // 절대 참조는 그대로 유지되어야 함
         assertEquals("SUM(\$B\$3:\$B\$3)", absoluteFormula, "절대 참조는 확장되지 않아야 함")
-        println("✅ 상대 참조는 확장됨, 절대 참조는 유지됨")
+        println("[v] 상대 참조는 확장됨, 절대 참조는 유지됨")
     }
 
     @Test
@@ -450,7 +450,7 @@ class ForwardReferenceTest {
         assertEquals("SUM(B\$3:B\$3)", rowAbsFormula, "행 절대 참조는 확장되지 않아야 함")
         // 열 절대/행 상대 참조는 DOWN 방향 확장 시 확장되어야 함
         assertEquals("SUM(\$B3:\$B5)", colAbsFormula, "열 절대/행 상대 참조는 확장되어야 함")
-        println("✅ 혼합 참조가 올바르게 처리됨")
+        println("[v] 혼합 참조가 올바르게 처리됨")
     }
 
     @Test
@@ -488,7 +488,7 @@ class ForwardReferenceTest {
         println("  A1: $formula")
 
         assertEquals("SUM(B3:B5)", formula, "현재 시트 참조는 확장되어야 함")
-        println("✅ 현재 시트 참조가 B3:B5로 확장됨")
+        println("[v] 현재 시트 참조가 B3:B5로 확장됨")
     }
 
     @Test
@@ -544,7 +544,7 @@ class ForwardReferenceTest {
 
         // Sheet2의 repeat 확장이 반영되어야 함
         assertEquals("SUM(Sheet2!B3:B5)", expandedFormula, "다른 시트 참조도 해당 시트의 확장이 반영되어야 함")
-        println("✅ 다른 시트 참조가 Sheet2!B3:B5로 확장됨")
+        println("[v] 다른 시트 참조가 Sheet2!B3:B5로 확장됨")
     }
 
     @Test
@@ -597,7 +597,7 @@ class ForwardReferenceTest {
         println("  확장: $expandedFormula")
 
         assertEquals("SUM('Data Sheet'!B3:B5)", expandedFormula, "따옴표 시트명 참조도 확장되어야 함")
-        println("✅ 따옴표 시트명 참조가 'Data Sheet'!B3:B5로 확장됨")
+        println("[v] 따옴표 시트명 참조가 'Data Sheet'!B3:B5로 확장됨")
     }
 
     /**

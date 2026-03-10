@@ -3,29 +3,176 @@
 # TBEG Template Syntax Reference
 
 ## Table of Contents
-1. [Variable Substitution](#1-variable-substitution)
-2. [Repeat Processing](#2-repeat-processing)
-   - [Named Parameter Format](#26-named-parameter-format)
-   - [Empty Collection Handling (empty)](#27-empty-collection-handling-empty)
-   - [Automatic Adjustment of Related Elements](#28-automatic-adjustment-of-related-elements)
-3. [Image Insertion](#3-image-insertion)
-4. [Collection Size](#4-collection-size)
-5. [Automatic Cell Merge](#5-automatic-cell-merge)
-6. [Variables in Formulas](#6-variables-in-formulas)
-7. [Formula-Style Markers](#7-formula-style-markers)
-8. [Bundle](#8-bundle)
+1. [Marker Overview](#1-marker-overview)
+2. [Variable Substitution](#2-variable-substitution)
+   - [Formula Binding](#23-formula-binding)
+3. [Repeat Processing](#3-repeat-processing)
+   - [Empty Collection Handling (empty)](#35-empty-collection-handling-empty)
+   - [Automatic Adjustment of Related Elements](#36-automatic-adjustment-of-related-elements)
+4. [Image Insertion](#4-image-insertion)
+5. [Collection Size](#5-collection-size)
+6. [Automatic Cell Merge](#6-automatic-cell-merge)
+7. [Variables in Formulas](#7-variables-in-formulas)
+8. [Element Bundling (bundle)](#8-element-bundling-bundle)
+9. [Formatting Preservation](#9-formatting-preservation)
 
 ---
 
-TBEG's template syntax provides dynamic data binding capabilities that Excel cannot do on its own. Excel features such as formulas, conditional formatting, and charts are preserved as-is and automatically adjusted to work correctly after data expansion.
+## 1. Marker Overview
 
-Markers (`${...}`, `=TBEG_...()`) are replaced with data, and successfully processed markers do not appear in the output file.
+### 1.1 What Is a Marker
+
+A **marker** is a special text placed in an Excel template to indicate where data should go. When TBEG processes the template, it replaces markers with actual data, and successfully processed markers do not appear in the output file.
+
+### 1.2 Basic Format
+
+All markers are written in cells using the `${...}` format.
+
+```
+${...}
+```
+
+Markers are divided into two categories: **variable markers** and **function markers**.
+
+#### Variable Markers
+
+Variable markers take the form `${variableName}` and are directly replaced with data values. You can use dot (`.`) notation to access object properties, including multi-level nested fields.
+
+```
+${title}                  // Simple value substitution
+${emp.name}               // Object property access
+${emp.department.name}    // Nested property access
+Report: ${title}          // Combined with text
+```
+
+Variable markers can be used not only in cell values but also in formula arguments, chart titles, shape text, and headers/footers. If the bound value starts with `=`, it is treated as an Excel formula (see [2.3 Formula Binding](#23-formula-binding)).
+
+#### Function Markers
+
+Function markers take the form `${function(parameters...)}` and perform specific operations based on the data.
+
+| Function | Purpose | Example |
+|----------|---------|---------|
+| `repeat` | Repeats a range for each item in a collection | `${repeat(employees, A2:C2, emp)}` |
+| `image` | Inserts a dynamic image | `${image(logo, B2, 200:150)}` |
+| `size` | Outputs the number of items in a collection | `${size(employees)}` |
+| `merge` | Automatically merges consecutive cells with the same value | `${merge(emp.dept)}` |
+| `bundle` | Groups multiple elements as a single unit | `${bundle(A5:H12)}` |
+
+#### Case Sensitivity
+
+| Element | Case Sensitive | Examples |
+|---------|---------------|----------|
+| Function names | No | `${Repeat(...)}`, `${REPEAT(...)}`, `=tbeg_repeat(...)` are all equivalent |
+| Keyword arguments (`direction`, `size`) | No | `DOWN`, `down`, `Right`, `FIT`, `Original` are all equivalent |
+| Parameter names (explicit format) | No | `Collection=`, `RANGE=`, `var=` are all equivalent |
+| Data keys (collection names, variable names, field names, image names) | **Yes** | `${employeeName}` and `${employeename}` are different |
+
+#### Formula Style
+
+Function markers can also be written in the **formula style** `=TBEG_FUNCTION(parameters...)`. The behavior is identical, and you can leverage Excel's cell reference features (clicking, drag-selecting, etc.) to specify ranges.
+
+| Text Form | Formula Form |
+|---|---|
+| `${repeat(col, range, var)}` | `=TBEG_REPEAT(col, range, var)` |
+| `${image(name)}` | `=TBEG_IMAGE(name)` |
+| `${size(col)}` | `=TBEG_SIZE(col)` |
+| `${merge(item.field)}` | `=TBEG_MERGE(item.field)` |
+| `${bundle(range)}` | `=TBEG_BUNDLE(range)` |
+
+> [!NOTE]
+> Formula-style markers display as `#NAME?` errors in Excel. This is expected and they are processed correctly during generation.
+
+### 1.3 Common Rules for Function Markers
+
+The following rules apply to all function markers.
+
+#### Marker Placement
+
+Function markers can be placed anywhere in the workbook as long as they are outside the target range. They can even be placed on a different sheet.
+
+For example, `${repeat(employees, A2:C2, emp)}` can be placed in any cell on the same sheet or a different sheet, as long as it is outside the repeat range A2:C2. Similarly, `${bundle(A5:H12)}` can be placed anywhere outside the bundle range.
+
+#### Explicit Parameter Format
+
+All parameters of function markers can be specified explicitly by name.
+
+```
+// Positional
+${repeat(employees, A2:C2, emp)}
+${image(logo, B2, 200:150)}
+
+// Explicit
+${repeat(collection=employees, range=A2:C2, var=emp)}
+${image(name=logo, position=B2, size=200:150)}
+```
+
+The same applies to formula-style markers.
+
+```
+=TBEG_REPEAT(collection=employees, range=A2:C2, var=emp)
+=TBEG_IMAGE(name=logo, position=B2, size=original)
+```
+
+#### Omitting Parameters
+
+In the explicit format, optional parameters can be omitted entirely, set to `NULL`, or left as an empty value. The following three are all equivalent.
+
+```
+${repeat(collection=items, range=A2:C2, empty=A10:C10)}           // var omitted
+${repeat(collection=items, range=A2:C2, var=NULL, empty=A10:C10)} // var=NULL
+${repeat(collection=items, range=A2:C2, var=, empty=A10:C10)}     // var= (empty value)
+```
+
+#### Mixing Not Allowed
+
+Positional and explicit parameters cannot be mixed. Once any parameter is named, all parameters must be named.
+
+```
+// Correct
+${repeat(items, A2:C2, item, DOWN, A10:C10)}                                    // All positional
+${repeat(collection=items, range=A2:C2, var=item, direction=DOWN, empty=A10:C10)} // All explicit
+
+// Incorrect (causes an error)
+${repeat(items, A2:C2, item, empty=A10:C10)}         // Cannot mix
+${repeat(items, A2:C2, var=item, direction=DOWN)}   // Cannot mix
+```
+
+#### No Boundary Overlap
+
+All elements that deal with cell ranges (repeat ranges, bundle ranges, merged cells, etc.) must not partially overlap each other. Each element must be either fully contained within another element or fully outside of it.
+
+```
+// Correct
+${repeat(a, A2:C2, ...)}    // Columns A-C
+${repeat(b, E2:G2, ...)}    // Columns E-G (fully separate)
+${bundle(A5:G10)}            // Fully contains both repeats
+
+// Incorrect (causes an error)
+${repeat(a, A2:C2, ...)}    // Columns A-C
+${bundle(B5:G10)}            // Partially overlaps repeat range at column B
+```
+
+#### Skipping Positional Parameters
+
+In positional format, intermediate parameters can be skipped by leaving them empty.
+
+```
+// Skip direction (4th) and specify only empty (5th)
+${repeat(items, A2:C2, item, , A10:C10)}
+
+// Skip var (3rd) and direction (4th)
+${repeat(items, A2:C2, , , A10:C10)}
+
+// In image, skip position (2nd) and specify only size (3rd)
+${image(logo, , 200:150)}
+```
 
 ---
 
-## 1. Variable Substitution
+## 2. Variable Substitution
 
-### 1.1 Simple Variables
+### 2.1 Simple Variables
 
 **Syntax**: `${variableName}`
 
@@ -57,7 +204,17 @@ mapOf(
 | 2 | Date   | 2026-01-15     |
 | 3 | Author | Yongho Hwang   |
 
-### 1.2 Composite Text
+#### Supported Types
+
+The following types are supported for dot (`.`) notation access.
+
+- **Object fields**: Properties/fields of data classes or POJOs
+- **Map keys**: Access by Map key
+- **Getter methods**: Getters in the form `getFieldName()`
+
+These rules apply equally to simple variables (`${emp.name}`) and repeat item fields (`${item.field}`).
+
+### 2.2 Composite Text
 
 Multiple variables and text can be combined in a single cell.
 
@@ -65,11 +222,81 @@ Multiple variables and text can be combined in a single cell.
 Author: ${author} (${department})
 ```
 
+### 2.3 Formula Binding
+
+When a bound value starts with `=`, it is treated as an **Excel formula** rather than plain text.
+
+#### Basic Usage
+
+```kotlin
+val data = mapOf("formula" to "=SUM(A1:A10)")
+// Template cell: ${formula}
+// Result: =SUM(A1:A10) (actual formula)
+```
+
+This allows you to dynamically determine formulas based on data.
+
+#### Formula Binding in Repeat
+
+Formula binding works the same way within repeat item fields. Automatic formula range adjustments (expansion, row shifting) from the repeat are also applied.
+
+**Template**
+
+|   | A                                | B             | C             | D                |
+|---|----------------------------------|---------------|---------------|------------------|
+| 1 | Name                             | Revenue       | Target        | Achievement      |
+| 2 | ${s.name}                        | ${s.amount}   | ${s.target}   | ${s.rateFormula} |
+| 3 | ${repeat(sales, A2:D2, s)}       |               |               |                  |
+| 4 | Total                            | ${totalRevenue} |             |                  |
+
+**Data**
+
+```kotlin
+mapOf(
+    "sales" to listOf(
+        mapOf("name" to "Team A", "amount" to 15000, "target" to 20000, "rateFormula" to "=B2/C2"),
+        mapOf("name" to "Team B", "amount" to 22000, "target" to 18000, "rateFormula" to "=B2/C2"),
+    ),
+    "totalRevenue" to "=SUM(B2:B2)"
+)
+```
+
+**Result** (2 items)
+
+|   | A  | B      | C      | D          |
+|---|----|--------|--------|------------|
+| 1 | Name | Revenue | Target | Achievement |
+| 2 | Team A | 15,000 | 20,000 | =B2/C2     |
+| 3 | Team B | 22,000 | 18,000 | =B3/C3     |
+| 4 | Total | =SUM(B2:B3) |   |            |
+
+- `rateFormula` (`=B2/C2`) is row-shifted to `=B2/C2`, `=B3/C3` for each row
+- `totalRevenue` (`=SUM(B2:B2)`) is range-expanded to `=SUM(B2:B3)` to match the repeat expansion
+
+#### Caution
+
+**All** string values starting with `=` are treated as formulas. Binding plain text that starts with an equals sign (e.g., `"=Grade A talent"`) may cause errors because it is processed as an invalid formula. To output text starting with an equals sign as-is, prepend a space or apostrophe to prevent formula recognition.
+
+```kotlin
+// Treated as a formula (intended)
+mapOf("formula" to "=SUM(A1:A10)")
+
+// To keep as text, prepend a space
+mapOf("grade" to " =Grade A talent")
+```
+
+#### Automatic Number Format
+
+When a formula-substituted cell has the "General" display format, an integer number format (`#,##0`) is automatically applied. For formulas that require decimal places (e.g., ratios, averages), set the desired display format (e.g., `0.0%`, `#,##0.00`) directly on the template cell.
+
+> [!TIP]
+> For detailed rules on automatic formula range adjustment (row shifting, range expansion) within repeat, see [3.6 Automatic Adjustment of Related Elements](#36-automatic-adjustment-of-related-elements).
+
 ---
 
-## 2. Repeat Processing
+## 3. Repeat Processing
 
-### 2.1 Basic Repeat (DOWN Direction)
+### 3.1 Basic Repeat (DOWN Direction)
 
 **Syntax**: `${repeat(collection, range, variable)}`
 
@@ -107,10 +334,7 @@ mapOf(
 | 4 | Yongho Han        | Manager           | 6,500  |
 | 5 | Yongho Hong       | Assistant Manager | 4,500  |
 
-> [!NOTE]
-> The `${repeat(...)}` marker can be placed anywhere in the workbook (even on a different sheet) as long as it is outside the repeat range. The area specified by the range parameter is what gets repeated.
-
-### 2.2 Multi-Row Repeat
+### 3.2 Multi-Row Repeat
 
 Specifying multiple rows in the range causes them to repeat together as a group.
 
@@ -122,7 +346,7 @@ Specifying multiple rows in the range causes them to repeat together as a group.
 | 2 | Name: ${emp.name}                | Position: ${emp.position} |
 | 3 | Salary: ${emp.salary}            |                           |
 
-### 2.3 Rightward Repeat (RIGHT)
+### 3.3 Rightward Repeat (RIGHT)
 
 **Syntax**: `${repeat(collection, range, variable, RIGHT)}`
 
@@ -142,7 +366,7 @@ Repeats the specified range to the right for each item in the collection.
 | 1 |    | Jan    | Feb    | Mar    |
 | 2 |    | 100    | 150    | 200    |
 
-### 2.4 Multiple Repeat Regions
+### 3.4 Multiple Repeat Regions
 
 Multiple repeat regions can be used within a single sheet.
 
@@ -164,92 +388,10 @@ If multiple repeat markers share the same collection and the same target range, 
 
 #### Restrictions
 
-- Repeat regions must not overlap in 2D space (rows x columns)
+- Repeat regions must not partially overlap other range elements (see [No Boundary Overlap](#no-boundary-overlap))
 - Multiple repeat regions can be stacked vertically within the same column range
 
-### 2.5 Accessing Repeat Item Fields
-
-**Syntax**: `${variable.field}`, `${variable.field.subfield}`
-
-Use dot (.) notation to access fields of nested objects.
-
-```
-${emp.name}
-${emp.department.name}
-${emp.address.city}
-```
-
-#### Supported Types
-
-- **Object fields**: Properties/fields of data classes or POJOs
-- **Map keys**: Access by Map key
-- **Getter methods**: Getters in the form `getFieldName()`
-
-### 2.6 Named Parameter Format
-
-All parameters of a repeat marker can be specified explicitly by name.
-
-#### Syntax
-
-```
-${repeat(collection=collection, range=range, var=variable, direction=direction, empty=fallbackRange)}
-```
-
-#### Examples
-
-```
-${repeat(collection=employees, range=A2:C2, var=emp)}
-${repeat(collection=months, range=B1:B2, var=m, direction=RIGHT)}
-${repeat(collection=items, range=A3:C3, var=item, direction=DOWN, empty=A10:C10)}
-```
-
-#### Formula Style
-
-```
-=TBEG_REPEAT(collection=employees, range=A2:C2, var=emp)
-=TBEG_REPEAT(collection=items, range=A3:C3, var=item, direction=DOWN, empty=A10:C10)
-```
-
-#### Omitting Parameters
-
-In the named format, optional parameters can be omitted entirely, set to `NULL`, or left as an empty value. The following three are all equivalent.
-
-```
-${repeat(collection=items, range=A2:C2, empty=A10:C10)}           // var omitted
-${repeat(collection=items, range=A2:C2, var=NULL, empty=A10:C10)} // var=NULL
-${repeat(collection=items, range=A2:C2, var=, empty=A10:C10)}     // var= (empty value)
-```
-
-#### Mixing Not Allowed
-
-Positional and named parameters cannot be mixed. Once any parameter is named, all parameters must be named.
-
-```
-// Correct
-${repeat(items, A2:C2, item, DOWN, A10:C10)}                                    // All positional
-${repeat(collection=items, range=A2:C2, var=item, direction=DOWN, empty=A10:C10)} // All named
-
-// Incorrect (causes an error)
-${repeat(items, A2:C2, item, empty=A10:C10)}         // Cannot mix
-${repeat(items, A2:C2, var=item, direction=DOWN)}   // Cannot mix
-```
-
-#### Skipping Positional Parameters
-
-In positional format, intermediate parameters can be skipped by leaving them empty.
-
-```
-// Skip direction (4th) and specify only empty (5th)
-${repeat(items, A2:C2, item, , A10:C10)}
-
-// Skip var (3rd) and direction (4th)
-${repeat(items, A2:C2, , , A10:C10)}
-
-// In image, skip position (2nd) and specify only size (3rd)
-${image(logo, , 200:150)}
-```
-
-### 2.7 Empty Collection Handling (empty)
+### 3.5 Empty Collection Handling (empty)
 
 **Syntax**: `${repeat(collection, range, variable, direction, fallbackRange)}`
 
@@ -335,7 +477,7 @@ ${repeat(items, A2:C3, item, DOWN, A10:C11)}
 =TBEG_REPEAT(items, A2:C3, item, DOWN, A10:C11)
 ```
 
-### 2.8 Automatic Adjustment of Related Elements
+### 3.6 Automatic Adjustment of Related Elements
 
 When a repeat region expands, the coordinates and ranges of affected Excel elements are automatically adjusted.
 
@@ -405,9 +547,9 @@ If Sheet2 has a repeat region that expands to 3 items, formulas on Sheet1 refere
 
 ---
 
-## 3. Image Insertion
+## 4. Image Insertion
 
-### 3.1 Basic Image
+### 4.1 Basic Image
 
 **Syntax**: `${image(name)}`
 
@@ -434,7 +576,7 @@ val provider = simpleDataProvider {
 }
 ```
 
-### 3.2 Specifying Position
+### 4.2 Specifying Position
 
 **Syntax**: `${image(name, position)}`
 
@@ -445,7 +587,7 @@ ${image(logo, B2)}      // Insert at cell B2
 ${image(stamp, D5:F8)}  // Insert within the D5:F8 range
 ```
 
-### 3.3 Specifying Size
+### 4.3 Specifying Size
 
 **Syntax**: `${image(name, position, size)}`
 
@@ -468,7 +610,7 @@ ${image(logo, B2, original)}  // Original size
 ${image(logo, B2, 200:150)}   // 200x150 pixels
 ```
 
-### 3.4 Duplicate Markers
+### 4.4 Duplicate Markers
 
 If multiple image markers share the same name, position, and size, they are considered duplicates. When duplicate markers are found, a warning log is emitted and only the last marker takes effect.
 
@@ -476,24 +618,7 @@ If multiple image markers share the same name, position, and size, they are cons
 - Image markers without a `position` parameter are each inserted at their own marker cell location, so they are not subject to duplicate checking
 - Referencing the same target position from a different sheet via a sheet prefix (e.g., `'Sheet1'!B1:C2`) counts as a duplicate
 
-### 3.5 Named Parameter Format
-
-All parameters can be specified explicitly by name.
-
-```
-${image(name=logo)}
-${image(name=logo, position=B2)}
-${image(name=logo, position=B2:D4, size=fit)}
-${image(name=logo, size=200:150)}  // position omitted
-```
-
-Formula style:
-```
-=TBEG_IMAGE(name=logo)
-=TBEG_IMAGE(name=logo, position=B2, size=original)
-```
-
-### 3.6 URL Images
+### 4.5 URL Images
 
 When an HTTP(S) URL string is specified as image data instead of a `ByteArray`, the image is automatically downloaded at Excel generation time and embedded in the file. The generated Excel file does not require network access when opened.
 
@@ -512,9 +637,9 @@ val provider = simpleDataProvider {
 
 ---
 
-## 4. Collection Size
+## 5. Collection Size
 
-**Syntax**: `${size(collection)}` or `${size(collection=collection)}`
+**Syntax**: `${size(collection)}`
 
 Displays the number of items in a collection.
 
@@ -532,9 +657,9 @@ Displays the number of items in a collection.
 
 ---
 
-## 5. Automatic Cell Merge
+## 6. Automatic Cell Merge
 
-**Syntax**: `${merge(item.field)}` or `=TBEG_MERGE(item.field)`
+**Syntax**: `${merge(item.field)}`
 
 Automatically merges consecutive cells with the same value during repeat expansion.
 Data must be pre-sorted by the merge key field.
@@ -542,7 +667,7 @@ Data must be pre-sorted by the merge key field.
 - **DOWN repeat**: Merges vertically
 - **RIGHT repeat**: Merges horizontally
 
-### 5.1 Basic Usage
+### 6.1 Basic Usage
 
 #### Template
 
@@ -575,7 +700,7 @@ mapOf(
 
 > A2:A3 is automatically merged as "Sales".
 
-### 5.2 Multi-Level Merge
+### 6.2 Multi-Level Merge
 
 Using merge markers on multiple columns causes each column to merge independently.
 
@@ -585,18 +710,18 @@ ${merge(emp.team)}   <- Column B (merge by team)
 ${emp.name}          <- Column C (no merge)
 ```
 
-### 5.3 Notes
+### 6.3 Notes
 
 - Using a merge marker outside a repeat region performs simple value substitution only.
 - Null values are excluded from merge candidates.
 
 ---
 
-## 6. Variables in Formulas
+## 7. Variables in Formulas
 
 Variables can be used within Excel formulas.
 
-### 6.1 HYPERLINK
+### 7.1 HYPERLINK
 
 **Syntax**: `=HYPERLINK("${url}", "${text}")`
 
@@ -604,7 +729,7 @@ Variables can be used within Excel formulas.
 =HYPERLINK("${linkUrl}", "${linkText}")
 ```
 
-### 6.2 Dynamic Ranges
+### 7.2 Dynamic Ranges
 
 **Syntax**: `=SUM(B${startRow}:B${endRow})`
 
@@ -634,51 +759,9 @@ mapOf("startRow" to 5, "endRow" to 10)
 
 ---
 
-## 7. Formula-Style Markers
+## 8. Element Bundling (bundle)
 
-Some markers can also be written in formula form.
-
-| Text Form                        | Formula Form                      |
-|----------------------------------|-----------------------------------|
-| `${repeat(col, range, var)}`     | `=TBEG_REPEAT(col, range, var)`   |
-| `${image(name)}`                 | `=TBEG_IMAGE(name)`               |
-| `${size(col)}`                   | `=TBEG_SIZE(col)`                 |
-| `${merge(item.field)}`           | `=TBEG_MERGE(item.field)`         |
-| `${bundle(range)}`               | `=TBEG_BUNDLE(range)`             |
-
-**Advantage**: When specifying ranges or cells, you can leverage Excel's cell reference features (clicking, drag-selecting, etc.).
-
-> [!NOTE]
-> Formula-style markers display as `#NAME?` errors in Excel. This is expected and they are processed correctly during generation.
-
-### 7.1 Formula-Style Repeat Markers
-
-```
-=TBEG_REPEAT(employees, A2:C2, emp)
-=TBEG_REPEAT(months, B1:B2, m, RIGHT)
-```
-
-### 7.2 Formula-Style Image Markers
-
-```
-=TBEG_IMAGE(logo)
-=TBEG_IMAGE(logo, B2:D4)
-=TBEG_IMAGE(logo, B2, 200:150)
-```
-
-### 7.3 Formula-Style Size Markers
-
-```
-=TBEG_SIZE(employees)
-```
-
----
-
-## 8. Bundle
-
-**Syntax**: `${bundle(range)}` or `=TBEG_BUNDLE(range)`
-
-> You can also use named parameters: `${bundle(range=range)}`.
+**Syntax**: `${bundle(range)}`
 
 Treats all elements within the specified range as a single unit, so that the entire bundle moves together during repeat expansion.
 
@@ -736,28 +819,18 @@ With `bundle(A4:E6)`, all columns A-E move as a single unit, so every column sta
 
 All columns A-E start at the same row, keeping the table intact.
 
-### 8.3 Marker Placement
+### 8.3 Restrictions
 
-The bundle marker can be placed anywhere outside the bundle range. It can also be placed on a different sheet.
-
-```
-${bundle(A5:H12)}
-${bundle('Sheet2'!A5:H12)}
-=TBEG_BUNDLE(A5:H12)
-```
-
-### 8.4 Restrictions
-
-- **No boundary overlap**: If an element such as a repeat partially overlaps the bundle range boundary, an error occurs. Elements must be either fully inside or fully outside the bundle.
+- **No boundary overlap**: The common rule for all range elements applies (see [No Boundary Overlap](#no-boundary-overlap))
 - **No nesting**: Bundles cannot be placed inside other bundles.
 
 ---
 
-## Formatting Preservation
+## 9. Formatting Preservation
 
 All formatting applied to the template is preserved in the generated Excel file.
 
-### Preserved Formatting
+### 9.1 Preserved Formatting
 
 - Cell alignment (horizontal/vertical)
 - Font (name, size, bold, italic, underline, color)
@@ -766,7 +839,7 @@ All formatting applied to the template is preserved in the generated Excel file.
 - Number formats
 - Conditional formatting
 
-### Repeat Region Formatting
+### 9.2 Repeat Region Formatting
 
 Formatting applied to the template rows within a repeat region is applied identically to all repeated rows.
 

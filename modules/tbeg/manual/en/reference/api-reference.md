@@ -23,14 +23,16 @@ io.github.jogakdal.tbeg.ExcelGenerator
 ### Constructor
 
 ```kotlin
-class ExcelGenerator(config: TbegConfig = TbegConfig())
+class ExcelGenerator(config: TbegConfig = TbegConfig()) : Closeable
 ```
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| config | TbegConfig | TbegConfig() | Generator configuration |
+| config | TbegConfig | TbegConfig() | Generator configuration ([see Configuration](./configuration.md)) |
 
-### Method Selection Guide
+### Method Summary
+
+All methods can receive data as either `Map<String, Any>` or `ExcelDataProvider`. See [Common Parameters](#common-parameters) for each method's parameters.
 
 | Method | Return Type | Use Case |
 |--------|-------------|----------|
@@ -40,7 +42,19 @@ class ExcelGenerator(config: TbegConfig = TbegConfig())
 | `generateToFileAsync()` | `Path` (suspend) | Async file saving in Kotlin Coroutine environments |
 | `generateFuture()` | `CompletableFuture<ByteArray>` | Async processing in Java |
 | `generateToFileFuture()` | `CompletableFuture<Path>` | Async file saving in Java |
-| `submit()` / `submitToFile()` | `GenerationJob` | Background processing + progress listener (respond immediately from API server, process later) |
+| `submit()` / `submitToFile()` | `GenerationJob` | Background processing + progress listener |
+
+### Common Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| template | `InputStream` or `File` | Template (File is supported only in `generate()`) |
+| data | `Map<String, Any>` | Data map for binding |
+| dataProvider | `ExcelDataProvider` | Data provider (used instead of data) |
+| password | `String?` | File open password (optional) |
+| outputDir | `Path` | Output directory (used in file-saving methods) |
+| baseFileName | `String` | Base filename without extension (used in file-saving methods) |
+| listener | `ExcelGenerationListener?` | Progress listener (used in submit methods) |
 
 ### Synchronous Methods
 
@@ -148,6 +162,8 @@ Generates an Excel file from a data map and saves it to disk.
 | **Returns** | Path | Path to the generated file |
 
 ### Async Methods
+
+Async methods accept the same parameters as their synchronous counterparts; only the execution model differs. For related types of each approach, see [5. Async API](#5-async-api).
 
 #### generateAsync (Coroutines - DataProvider)
 
@@ -533,6 +549,18 @@ image("signature") {
 }
 ```
 
+#### imageUrl
+
+```kotlin
+fun imageUrl(name: String, url: String): Builder
+```
+
+Adds an image via URL. The image is downloaded at rendering time.
+
+```kotlin
+imageUrl("photo", "https://example.com/photo.jpg")
+```
+
 #### imageFromSupplier (Java)
 
 ```kotlin
@@ -623,7 +651,7 @@ interface GenerationJob {
     val isCompleted: Boolean
     val isCancelled: Boolean
     fun cancel(): Boolean
-    suspend fun await(): GenerationResult
+    fun await(): GenerationResult
     suspend fun awaitAsync(): GenerationResult
     fun toCompletableFuture(): CompletableFuture<GenerationResult>
 }
@@ -632,24 +660,32 @@ interface GenerationJob {
 | Property/Method | Type | Description |
 |-----------------|------|-------------|
 | jobId | String | Unique job ID |
-| isCompleted | Boolean | Whether the job has completed |
+| isCompleted | Boolean | Whether the job has completed (includes success/failure/cancellation) |
 | isCancelled | Boolean | Whether the job has been cancelled |
 | cancel() | Boolean | Attempts to cancel the job; returns success status |
-| await() | GenerationResult | (suspend) Waits for job completion |
-| awaitAsync() | GenerationResult | (suspend) Alias for await() |
+| await() | GenerationResult | Waits for job completion in a blocking manner |
+| awaitAsync() | GenerationResult | (suspend) Waits for job completion asynchronously |
 | toCompletableFuture() | CompletableFuture | Converts to a Java CompletableFuture |
 
 ### ExcelGenerationListener
 
-A listener that receives job progress updates.
+A listener that receives job progress updates. All methods have default implementations, so you only need to override the ones you need.
 
 ```kotlin
 interface ExcelGenerationListener {
     fun onStarted(jobId: String) {}
     fun onProgress(jobId: String, progress: ProgressInfo) {}
-    fun onCompleted(jobId: String, result: GenerationResult)
-    fun onFailed(jobId: String, error: Exception)
+    fun onCompleted(jobId: String, result: GenerationResult) {}
+    fun onFailed(jobId: String, error: Exception) {}
     fun onCancelled(jobId: String) {}
+}
+```
+
+```kotlin
+val listener = object : ExcelGenerationListener {
+    override fun onCompleted(jobId: String, result: GenerationResult) {
+        eventPublisher.publish(ReportReadyEvent(jobId, result.filePath))
+    }
 }
 ```
 

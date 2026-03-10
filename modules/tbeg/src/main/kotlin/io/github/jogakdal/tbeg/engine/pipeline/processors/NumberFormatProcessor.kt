@@ -34,20 +34,38 @@ internal class NumberFormatProcessor : ExcelProcessor {
             workbook.forEach { sheet ->
                 sheet.forEach { row ->
                     row.forEach { cell ->
-                        if (cell.cellType == CellType.NUMERIC) {
-                            val currentStyle = cell.cellStyle
-                            val needsNumberFormat = currentStyle.dataFormat.toInt() == 0
-                            val needsAlignment = currentStyle.alignment == HorizontalAlignment.GENERAL
+                        when (cell.cellType) {
+                            CellType.NUMERIC -> {
+                                val currentStyle = cell.cellStyle
+                                val needsNumberFormat = currentStyle.dataFormat.toInt() == 0
+                                val needsAlignment = currentStyle.alignment == HorizontalAlignment.GENERAL
 
-                            // 표시 형식이 "일반"이거나 정렬이 "일반"인 경우 서식 적용
-                            if (needsNumberFormat || needsAlignment) {
-                                val value = cell.numericCellValue
-                                val isInteger = value == value.toLong().toDouble()
-                                cell.cellStyle = getOrCreateNumberStyle(
-                                    workbook, currentStyle.index, isInteger,
-                                    needsNumberFormat, needsAlignment, config
-                                )
+                                if (needsNumberFormat || needsAlignment) {
+                                    val value = cell.numericCellValue
+                                    val isInteger = value == value.toLong().toDouble()
+                                    cell.cellStyle = getOrCreateNumberStyle(
+                                        workbook, currentStyle.index, isInteger,
+                                        needsNumberFormat, needsAlignment, config
+                                    )
+                                }
                             }
+
+                            // 수식 셀도 숫자 서식을 적용한다.
+                            // 수식 결과가 텍스트인 경우에도 숫자 서식은 숫자 값에만 영향을 미치므로 안전하다.
+                            // 정렬은 GENERAL을 유지하여 Excel이 결과 타입에 따라 자동 결정하게 한다.
+                            // 결과 타입을 알 수 없으므로 정수 포맷(#,##0)을 기본 적용한다.
+                            // 소수점이 필요한 수식은 템플릿에서 직접 서식을 지정한다.
+                            CellType.FORMULA -> {
+                                val currentStyle = cell.cellStyle
+                                if (currentStyle.dataFormat.toInt() == 0) {
+                                    cell.cellStyle = getOrCreateNumberStyle(
+                                        workbook, currentStyle.index, true,
+                                        applyNumberFormat = true, applyAlignment = false, config
+                                    )
+                                }
+                            }
+
+                            else -> {}
                         }
                     }
                 }

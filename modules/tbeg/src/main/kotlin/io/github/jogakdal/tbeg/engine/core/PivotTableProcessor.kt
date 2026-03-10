@@ -1,7 +1,9 @@
 package io.github.jogakdal.tbeg.engine.core
 
 import io.github.jogakdal.tbeg.TbegConfig
+
 import io.github.jogakdal.tbeg.internal.commonLogger
+import io.github.jogakdal.tbeg.internal.escapeXml
 import org.apache.poi.openxml4j.opc.OPCPackage
 import org.apache.poi.openxml4j.opc.PackagePart
 import org.apache.poi.ss.usermodel.*
@@ -19,9 +21,6 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.util.WeakHashMap
 import java.util.regex.Matcher
-import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
-import java.util.zip.ZipOutputStream
 
 /**
  * 피벗 테이블 처리를 담당하는 프로세서.
@@ -810,61 +809,44 @@ internal class PivotTableProcessor(
 
     // ========== ZIP 처리 ==========
 
-    private fun removePivotReferencesFromZip(inputBytes: ByteArray): ByteArray =
-        ByteArrayOutputStream().also { output ->
-            ZipInputStream(ByteArrayInputStream(inputBytes)).use { zis ->
-                ZipOutputStream(output).use { zos ->
-                    zis.entries().forEach { entry ->
-                        val entryName = entry.name
+    private fun removePivotReferencesFromZip(inputBytes: ByteArray) = inputBytes.transformZipEntries { entryName, bytes ->
+        when {
+            "pivotCache" in entryName || "pivotTables" in entryName -> null
 
-                        if ("pivotCache" in entryName || "pivotTables" in entryName) {
-                            return@forEach
-                        }
+            entryName == "[Content_Types].xml" ->
+                bytes.decodeToString()
+                    .replace(PIVOT_CACHE_OVERRIDE_REGEX, "")
+                    .replace(PIVOT_TABLE_OVERRIDE_REGEX, "")
+                    .encodeToByteArray()
 
-                        val content = zis.readBytes().let { bytes ->
-                            when {
-                                entryName == "[Content_Types].xml" ->
-                                    bytes.decodeToString()
-                                        .replace(PIVOT_CACHE_OVERRIDE_REGEX, "")
-                                        .replace(PIVOT_TABLE_OVERRIDE_REGEX, "")
-                                        .encodeToByteArray()
-
-                                "worksheets/_rels/" in entryName && entryName.endsWith(".rels") ->
-                                    bytes.decodeToString().let { xml ->
-                                        if ("pivotTable" in xml) {
-                                            xml.replace(PIVOT_TABLE_REL_REGEX, "").let { cleaned ->
-                                                if ("<Relationship" !in cleaned) EMPTY_RELATIONSHIPS_XML else cleaned
-                                            }.encodeToByteArray()
-                                        } else bytes
-                                    }
-
-                                entryName == "xl/workbook.xml" ->
-                                    bytes.decodeToString().let { xml ->
-                                        if ("<pivotCaches" in xml) {
-                                            xml.replace(PIVOT_CACHES_REGEX, "")
-                                                .replace(PIVOT_CACHES_EMPTY_REGEX, "")
-                                                .encodeToByteArray()
-                                        } else bytes
-                                    }
-
-                                entryName == "xl/_rels/workbook.xml.rels" ->
-                                    bytes.decodeToString().let { xml ->
-                                        if ("pivotCache" in xml) {
-                                            xml.replace(PIVOT_CACHE_REL_REGEX, "").encodeToByteArray()
-                                        } else bytes
-                                    }
-
-                                else -> bytes
-                            }
-                        }
-
-                        zos.putNextEntry(ZipEntry(entryName))
-                        zos.write(content)
-                        zos.closeEntry()
-                    }
+            "worksheets/_rels/" in entryName && entryName.endsWith(".rels") ->
+                bytes.decodeToString().let { xml ->
+                    if ("pivotTable" in xml) {
+                        xml.replace(PIVOT_TABLE_REL_REGEX, "").let { cleaned ->
+                            if ("<Relationship" !in cleaned) EMPTY_RELATIONSHIPS_XML else cleaned
+                        }.encodeToByteArray()
+                    } else bytes
                 }
-            }
-        }.toByteArray()
+
+            entryName == "xl/workbook.xml" ->
+                bytes.decodeToString().let { xml ->
+                    if ("<pivotCaches" in xml) {
+                        xml.replace(PIVOT_CACHES_REGEX, "")
+                            .replace(PIVOT_CACHES_EMPTY_REGEX, "")
+                            .encodeToByteArray()
+                    } else bytes
+                }
+
+            entryName == "xl/_rels/workbook.xml.rels" ->
+                bytes.decodeToString().let { xml ->
+                    if ("pivotCache" in xml) {
+                        xml.replace(PIVOT_CACHE_REL_REGEX, "").encodeToByteArray()
+                    } else bytes
+                }
+
+            else -> bytes
+        }
+    }
 
     // ========== 피벗 캐시 빌더 ==========
 
@@ -924,44 +906,31 @@ internal class PivotTableProcessor(
 
         if (sourceDataMap.isEmpty()) return inputBytes
 
-        return ByteArrayOutputStream().also { output ->
-            ZipInputStream(ByteArrayInputStream(inputBytes)).use { zis ->
-                ZipOutputStream(output).use { zos ->
-                    zis.entries().forEach { entry ->
-                        val entryName = entry.name
-                        val content = zis.readBytes().let { bytes ->
-                            when {
-                                "/pivotCache/pivotCacheDefinition" in entryName ->
-                                    sourceDataMap["/$entryName"]?.let { data ->
-                                        buildPivotCacheDefinition(
-                                            bytes.decodeToString(), data.records.size, data.fields
-                                        ).encodeToByteArray()
-                                    } ?: bytes
+        return inputBytes.transformZipEntries { entryName, bytes ->
+            when {
+                "/pivotCache/pivotCacheDefinition" in entryName ->
+                    sourceDataMap["/$entryName"]?.let { data ->
+                        buildPivotCacheDefinition(
+                            bytes.decodeToString(), data.records.size, data.fields
+                        ).encodeToByteArray()
+                    } ?: bytes
 
-                                "/pivotCache/pivotCacheRecords" in entryName -> {
-                                    val defPath = "/$entryName".replace("pivotCacheRecords", "pivotCacheDefinition")
-                                    sourceDataMap[defPath]?.let { data ->
-                                        buildPivotCacheRecords(data.records, data.fields).encodeToByteArray()
-                                    } ?: bytes
-                                }
-
-                                "/pivotTables/pivotTable" in entryName ->
-                                    sourceDataMap.values.firstOrNull()?.let { data ->
-                                        buildPivotTableDefinition(bytes.decodeToString(), data.fields)
-                                            .encodeToByteArray()
-                                    } ?: bytes
-
-                                else -> bytes
-                            }
-                        }
-
-                        zos.putNextEntry(ZipEntry(entryName))
-                        zos.write(content)
-                        zos.closeEntry()
-                    }
+                "/pivotCache/pivotCacheRecords" in entryName -> {
+                    val defPath = "/$entryName".replace("pivotCacheRecords", "pivotCacheDefinition")
+                    sourceDataMap[defPath]?.let { data ->
+                        buildPivotCacheRecords(data.records, data.fields).encodeToByteArray()
+                    } ?: bytes
                 }
+
+                "/pivotTables/pivotTable" in entryName ->
+                    sourceDataMap.values.firstOrNull()?.let { data ->
+                        buildPivotTableDefinition(bytes.decodeToString(), data.fields)
+                            .encodeToByteArray()
+                    } ?: bytes
+
+                else -> bytes
             }
-        }.toByteArray()
+        }
     }
 
     private fun buildPivotCacheDefinition(originalXml: String, recordCount: Int, fields: List<FieldMeta>): String {
@@ -1171,8 +1140,6 @@ internal class PivotTableProcessor(
 
     private fun <T> ByteArray.useWorkbook(block: (XSSFWorkbook) -> T): T =
         XSSFWorkbook(ByteArrayInputStream(this)).use(block)
-
-    private fun ZipInputStream.entries() = generateSequence { nextEntry }
 
     private fun Row.getOrCreateCell(col: Int): Cell = getCell(col) ?: createCell(col)
 

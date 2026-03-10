@@ -21,272 +21,124 @@ io.github.jogakdal.tbeg.ExcelGenerator
 ### 생성자
 
 ```kotlin
-class ExcelGenerator(config: TbegConfig = TbegConfig())
+class ExcelGenerator(config: TbegConfig = TbegConfig()) : Closeable
 ```
 
 | 파라미터 | 타입 | 기본값 | 설명 |
-|---------|------|--------|------|
-| config | TbegConfig | TbegConfig() | 생성기 설정 |
+|:-------:|:----:|:------:|------|
+| config | TbegConfig | TbegConfig() | 생성기 설정 ([설정 옵션](./configuration.md) 참조) |
 
-### 메서드 선택 가이드
+### 메서드 요약
+
+모든 메서드는 `Map<String, Any>` 또는 `ExcelDataProvider`로 데이터를 받을 수 있습니다. 각 메서드의 파라미터는 [공통 파라미터](#공통-파라미터)를 참조하세요.
 
 | 메서드 | 반환 타입 | 용도 |
-|--------|----------|------|
+|:------:|:--------:|------|
 | `generate()` | `ByteArray` | 결과를 메모리에 받아 직접 처리 (HTTP 응답, 후처리 등) |
 | `generateToFile()` | `Path` | 결과를 파일로 직접 저장 (대용량 처리 시 권장) |
 | `generateAsync()` | `ByteArray` (suspend) | Kotlin Coroutine 환경에서 비동기 처리 |
 | `generateToFileAsync()` | `Path` (suspend) | Kotlin Coroutine 환경에서 파일로 비동기 저장 |
 | `generateFuture()` | `CompletableFuture<ByteArray>` | Java에서 비동기 처리 |
 | `generateToFileFuture()` | `CompletableFuture<Path>` | Java에서 파일로 비동기 저장 |
-| `submit()` / `submitToFile()` | `GenerationJob` | 백그라운드 처리 + 진행률 리스너 (API 서버에서 즉시 응답 후 처리) |
+| `submit()` / `submitToFile()` | `GenerationJob` | 백그라운드 처리 + 진행률 리스너 |
+
+### 공통 파라미터
+
+| 파라미터 | 타입 | 설명 |
+|:-------:|:----:|------|
+| template | `InputStream` 또는 `File` | 템플릿 (File은 `generate()`에서만 지원) |
+| data | `Map<String, Any>` | 바인딩할 데이터 맵 |
+| dataProvider | `ExcelDataProvider` | 데이터 제공자 (data 대신 사용) |
+| password | `String?` | 파일 열기 암호 (선택) |
+| outputDir | `Path` | 출력 디렉토리 (파일 저장 메서드에서 사용) |
+| baseFileName | `String` | 기본 파일명, 확장자 제외 (파일 저장 메서드에서 사용) |
+| listener | `ExcelGenerationListener?` | 진행률 리스너 (submit 계열에서 사용) |
 
 ### 동기 메서드
 
-#### generate (Map)
+#### generate
 
 ```kotlin
-fun generate(
-    template: InputStream,
-    data: Map<String, Any>,
-    password: String? = null
-): ByteArray
+fun generate(template: InputStream, data: Map<String, Any>, password: String? = null): ByteArray
+fun generate(template: InputStream, dataProvider: ExcelDataProvider, password: String? = null): ByteArray
+fun generate(template: File, dataProvider: ExcelDataProvider, password: String? = null): ByteArray
 ```
 
-템플릿과 데이터 맵으로 Excel을 생성합니다.
-
-| 파라미터 | 타입 | 설명 |
-|---------|------|------|
-| template | InputStream | 템플릿 입력 스트림 |
-| data | Map<String, Any> | 바인딩할 데이터 맵 |
-| password | String? | 파일 열기 암호 (선택) |
-| **반환** | ByteArray | 생성된 Excel 파일 바이트 배열 |
-
-#### generate (DataProvider - InputStream)
+템플릿과 데이터로 Excel을 생성하여 바이트 배열로 반환합니다.
 
 ```kotlin
-fun generate(
-    template: InputStream,
-    dataProvider: ExcelDataProvider,
-    password: String? = null
-): ByteArray
+ExcelGenerator().use { generator ->
+    val bytes = generator.generate(templateStream, mapOf("title" to "보고서"))
+}
 ```
 
-템플릿 InputStream과 DataProvider로 Excel을 생성합니다.
-
-| 파라미터 | 타입 | 설명 |
-|---------|------|------|
-| template | InputStream | 템플릿 입력 스트림 |
-| dataProvider | ExcelDataProvider | 데이터 제공자 |
-| password | String? | 파일 열기 암호 (선택) |
-| **반환** | ByteArray | 생성된 Excel 파일 바이트 배열 |
-
-#### generate (DataProvider - File)
+#### generateToFile
 
 ```kotlin
-fun generate(
-    template: File,
-    dataProvider: ExcelDataProvider,
-    password: String? = null
-): ByteArray
+fun generateToFile(template: InputStream, data: Map<String, Any>, outputDir: Path, baseFileName: String, password: String? = null): Path
+fun generateToFile(template: InputStream, dataProvider: ExcelDataProvider, outputDir: Path, baseFileName: String, password: String? = null): Path
 ```
 
-템플릿 파일과 DataProvider로 Excel을 생성합니다.
-
-| 파라미터 | 타입 | 설명 |
-|---------|------|------|
-| template | File | 템플릿 파일 |
-| dataProvider | ExcelDataProvider | 데이터 제공자 |
-| password | String? | 파일 열기 암호 (선택) |
-| **반환** | ByteArray | 생성된 Excel 파일 바이트 배열 |
-
-#### generateToFile (DataProvider)
+Excel을 생성하여 파일로 저장합니다. 파일명은 [TbegConfig](./configuration.md)의 설정에 따라 자동 생성됩니다.
 
 ```kotlin
-fun generateToFile(
-    template: InputStream,
-    dataProvider: ExcelDataProvider,
-    outputDir: Path,
-    baseFileName: String,
-    password: String? = null
-): Path
+val path = generator.generateToFile(templateStream, provider, Path.of("/output"), "report")
+// 예: /output/report_20260310_143052.xlsx
 ```
-
-Excel을 생성하여 파일로 저장합니다.
-
-| 파라미터 | 타입 | 설명 |
-|---------|------|------|
-| template | InputStream | 템플릿 입력 스트림 |
-| dataProvider | ExcelDataProvider | 데이터 제공자 |
-| outputDir | Path | 출력 디렉토리 경로 |
-| baseFileName | String | 기본 파일명 (확장자 제외) |
-| password | String? | 파일 열기 암호 (선택) |
-| **반환** | Path | 생성된 파일의 경로 |
-
-#### generateToFile (Map)
-
-```kotlin
-fun generateToFile(
-    template: InputStream,
-    data: Map<String, Any>,
-    outputDir: Path,
-    baseFileName: String,
-    password: String? = null
-): Path
-```
-
-데이터 맵으로 Excel을 생성하여 파일로 저장합니다.
-
-| 파라미터 | 타입 | 설명 |
-|---------|------|------|
-| template | InputStream | 템플릿 입력 스트림 |
-| data | Map<String, Any> | 바인딩할 데이터 맵 |
-| outputDir | Path | 출력 디렉토리 경로 |
-| baseFileName | String | 기본 파일명 (확장자 제외) |
-| password | String? | 파일 열기 암호 (선택) |
-| **반환** | Path | 생성된 파일의 경로 |
 
 ### 비동기 메서드
 
-#### generateAsync (Coroutines - DataProvider)
+비동기 메서드는 동기 메서드와 동일한 파라미터를 받으며, 실행 방식만 다릅니다. 각 방식의 관련 타입은 [5. 비동기 API](#5-비동기-api)를 참조하세요.
+
+#### Kotlin Coroutines
 
 ```kotlin
-suspend fun generateAsync(
-    template: InputStream,
-    dataProvider: ExcelDataProvider,
-    password: String? = null
-): ByteArray
+suspend fun generateAsync(template: InputStream, dataProvider: ExcelDataProvider, password: String? = null): ByteArray
+suspend fun generateToFileAsync(template: InputStream, dataProvider: ExcelDataProvider, outputDir: Path, baseFileName: String, password: String? = null): Path
 ```
 
-#### generateAsync (Coroutines - Map)
-
 ```kotlin
-suspend fun generateAsync(
-    template: InputStream,
-    data: Map<String, Any>,
-    password: String? = null
-): ByteArray
+val bytes = generator.generateAsync(templateStream, provider)
 ```
 
-#### generateToFileAsync (Coroutines - DataProvider)
+#### Java CompletableFuture
 
 ```kotlin
-suspend fun generateToFileAsync(
-    template: InputStream,
-    dataProvider: ExcelDataProvider,
-    outputDir: Path,
-    baseFileName: String,
-    password: String? = null
-): Path
+fun generateFuture(template: InputStream, dataProvider: ExcelDataProvider, password: String? = null): CompletableFuture<ByteArray>
+fun generateToFileFuture(template: InputStream, dataProvider: ExcelDataProvider, outputDir: Path, baseFileName: String, password: String? = null): CompletableFuture<Path>
 ```
 
-#### generateToFileAsync (Coroutines - Map)
-
-```kotlin
-suspend fun generateToFileAsync(
-    template: InputStream,
-    data: Map<String, Any>,
-    outputDir: Path,
-    baseFileName: String,
-    password: String? = null
-): Path
+```java
+generator.generateFuture(templateStream, provider)
+    .thenAccept(bytes -> { /* 처리 */ });
 ```
 
-#### generateFuture (CompletableFuture - DataProvider)
+#### 백그라운드 작업 (submit)
 
 ```kotlin
-fun generateFuture(
-    template: InputStream,
-    dataProvider: ExcelDataProvider,
-    password: String? = null
-): CompletableFuture<ByteArray>
+fun submit(template: InputStream, dataProvider: ExcelDataProvider, password: String? = null, listener: ExcelGenerationListener? = null): GenerationJob
+fun submitToFile(template: InputStream, dataProvider: ExcelDataProvider, outputDir: Path, baseFileName: String, password: String? = null, listener: ExcelGenerationListener? = null): GenerationJob
 ```
 
-#### generateFuture (CompletableFuture - Map)
+백그라운드로 작업을 제출하고 즉시 `GenerationJob` 핸들을 반환합니다. 진행률 리스너를 통해 작업 상태를 추적할 수 있습니다.
 
 ```kotlin
-fun generateFuture(
-    template: InputStream,
-    data: Map<String, Any>,
-    password: String? = null
-): CompletableFuture<ByteArray>
-```
+val job = generator.submitToFile(templateStream, provider, outputDir, "report",
+    listener = object : ExcelGenerationListener {
+        override fun onCompleted(jobId: String, result: GenerationResult) {
+            println("완료: ${result.filePath}")
+        }
+    }
+)
 
-#### generateToFileFuture (CompletableFuture - DataProvider)
-
-```kotlin
-fun generateToFileFuture(
-    template: InputStream,
-    dataProvider: ExcelDataProvider,
-    outputDir: Path,
-    baseFileName: String,
-    password: String? = null
-): CompletableFuture<Path>
-```
-
-#### generateToFileFuture (CompletableFuture - Map)
-
-```kotlin
-fun generateToFileFuture(
-    template: InputStream,
-    data: Map<String, Any>,
-    outputDir: Path,
-    baseFileName: String,
-    password: String? = null
-): CompletableFuture<Path>
-```
-
-#### submit (백그라운드 - DataProvider)
-
-```kotlin
-fun submit(
-    template: InputStream,
-    dataProvider: ExcelDataProvider,
-    password: String? = null,
-    listener: ExcelGenerationListener? = null
-): GenerationJob
-```
-
-#### submit (백그라운드 - Map)
-
-```kotlin
-fun submit(
-    template: InputStream,
-    data: Map<String, Any>,
-    password: String? = null,
-    listener: ExcelGenerationListener? = null
-): GenerationJob
-```
-
-#### submitToFile (백그라운드 - DataProvider)
-
-```kotlin
-fun submitToFile(
-    template: InputStream,
-    dataProvider: ExcelDataProvider,
-    outputDir: Path,
-    baseFileName: String,
-    password: String? = null,
-    listener: ExcelGenerationListener? = null
-): GenerationJob
-```
-
-#### submitToFile (백그라운드 - Map)
-
-```kotlin
-fun submitToFile(
-    template: InputStream,
-    data: Map<String, Any>,
-    outputDir: Path,
-    baseFileName: String,
-    password: String? = null,
-    listener: ExcelGenerationListener? = null
-): GenerationJob
+// 결과 대기 (필요 시)
+val result = job.await()
 ```
 
 ### 발생 가능한 예외
 
 | 예외 | 발생 시점 | 원인 |
-|------|----------|------|
+|:----:|:--------:|------|
 | `TemplateProcessingException` | 템플릿 파싱 | 마커 문법 오류 (5가지 ErrorType으로 분류) |
 | `MissingTemplateDataException` | 데이터 바인딩 | 누락된 변수/컬렉션/이미지 (`THROW` 모드에서만) |
 | `FormulaExpansionException` | 수식 조정 | 수식 확장 실패 (병합 셀 + 함수 인자 수 초과) |
@@ -294,7 +146,7 @@ fun submitToFile(
 `TemplateProcessingException`의 ErrorType:
 
 | ErrorType | 설명 |
-|-----------|------|
+|:---------:|------|
 | `INVALID_REPEAT_SYNTAX` | repeat 마커 문법 오류 |
 | `MISSING_REQUIRED_PARAMETER` | 필수 파라미터 누락 |
 | `INVALID_RANGE_FORMAT` | 잘못된 셀 범위 형식 |
@@ -318,7 +170,7 @@ ExcelGenerator().use { generator ->
 #### 스레드 안전성
 
 | API | 동시 호출 | 비고 |
-|-----|----------|------|
+|:---:|:--------:|------|
 | 동기 `generate()` / `generateToFile()` | 미지원 | 내부 파이프라인 상태를 공유하므로 동시 호출하면 안 됩니다 |
 | 비동기 `generateAsync()` / `generateFuture()` | 지원 | 각 작업이 코루틴 스코프 내에서 격리되어 실행됩니다 |
 | 백그라운드 `submit()` / `submitToFile()` | 지원 | 각 작업이 별도 코루틴으로 격리됩니다 |
@@ -347,7 +199,7 @@ fun getValue(name: String): Any?
 단일 변수 값을 반환합니다.
 
 | 파라미터 | 타입 | 설명 |
-|---------|------|------|
+|:-------:|:----:|------|
 | name | String | 변수 이름 |
 | **반환** | Any? | 변수 값, 없으면 null |
 
@@ -360,7 +212,7 @@ fun getItems(name: String): Iterator<Any>?
 컬렉션 데이터의 Iterator를 반환합니다.
 
 | 파라미터 | 타입 | 설명 |
-|---------|------|------|
+|:-------:|:----:|------|
 | name | String | 컬렉션 이름 |
 | **반환** | Iterator<Any>? | 컬렉션의 Iterator, 없으면 null |
 
@@ -373,7 +225,7 @@ fun getImage(name: String): ByteArray? = null
 이미지 데이터를 반환합니다.
 
 | 파라미터 | 타입 | 설명 |
-|---------|------|------|
+|:-------:|:----:|------|
 | name | String | 이미지 이름 |
 | **반환** | ByteArray? | 이미지 바이트 배열, 없으면 null |
 
@@ -385,6 +237,8 @@ fun getMetadata(): DocumentMetadata? = null
 
 문서 메타데이터를 반환합니다.
 
+| 파라미터 | 타입 | 설명 |
+|:-------:|:----:|------|
 | **반환** | DocumentMetadata? | 문서 메타데이터, 없으면 null |
 
 #### getItemCount
@@ -396,7 +250,7 @@ fun getItemCount(name: String): Int? = null
 컬렉션의 아이템 수를 반환합니다.
 
 | 파라미터 | 타입 | 설명 |
-|---------|------|------|
+|:-------:|:----:|------|
 | name | String | 컬렉션 이름 |
 | **반환** | Int? | 아이템 수, 알 수 없으면 null |
 
@@ -531,6 +385,18 @@ image("signature") {
 }
 ```
 
+#### imageUrl
+
+```kotlin
+fun imageUrl(name: String, url: String): Builder
+```
+
+URL로 이미지를 추가합니다. 이미지 다운로드는 렌더링 시점에 수행됩니다.
+
+```kotlin
+imageUrl("photo", "https://example.com/photo.jpg")
+```
+
 #### imageFromSupplier (Java)
 
 ```kotlin
@@ -566,17 +432,17 @@ io.github.jogakdal.tbeg.DocumentMetadata
 
 ### 속성
 
-| 속성 | 타입 | 설명 | Excel 위치 |
-|------|------|------|-----------|
-| title | String? | 문서 제목 | 파일 > 정보 > 제목 |
-| author | String? | 작성자 | 파일 > 정보 > 작성자 |
-| subject | String? | 주제 | 파일 > 정보 > 주제 |
-| keywords | List<String>? | 키워드 | 파일 > 정보 > 태그 |
-| description | String? | 설명 | 파일 > 정보 > 메모 |
-| category | String? | 범주 | 파일 > 정보 > 범주 |
-| company | String? | 회사 | 파일 > 정보 > 회사 |
-| manager | String? | 관리자 | 파일 > 정보 > 관리자 |
-| created | LocalDateTime? | 작성 일시 | 파일 > 정보 > 만든 날짜 |
+| 속성          | 타입             | 설명    | Excel 위치        |
+|:-----------:|:--------------:|:-----:|-----------------|
+| title       | String?        | 문서 제목 | 파일 > 정보 > 제목    |
+| author      | String?        | 작성자   | 파일 > 정보 > 작성자   |
+| subject     | String?        | 주제    | 파일 > 정보 > 주제    |
+| keywords    | List<String>?  | 키워드   | 파일 > 정보 > 태그    |
+| description | String?        | 설명    | 파일 > 정보 > 메모    |
+| category    | String?        | 범주    | 파일 > 정보 > 범주    |
+| company     | String?        | 회사    | 파일 > 정보 > 회사    |
+| manager     | String?        | 관리자   | 파일 > 정보 > 관리자   |
+| created     | LocalDateTime? | 작성 일시 | 파일 > 정보 > 만든 날짜 |
 
 ### 사용 예시 (DSL)
 
@@ -611,6 +477,8 @@ SimpleDataProvider provider = SimpleDataProvider.builder()
 
 ## 5. 비동기 API
 
+`submit()` / `submitToFile()` 메서드에서 사용하는 타입들입니다.
+
 ### GenerationJob
 
 비동기 작업의 핸들입니다.
@@ -621,33 +489,41 @@ interface GenerationJob {
     val isCompleted: Boolean
     val isCancelled: Boolean
     fun cancel(): Boolean
-    suspend fun await(): GenerationResult
+    fun await(): GenerationResult
     suspend fun awaitAsync(): GenerationResult
     fun toCompletableFuture(): CompletableFuture<GenerationResult>
 }
 ```
 
 | 속성/메서드 | 타입 | 설명 |
-|------------|------|------|
+|:----------:|:----:|------|
 | jobId | String | 작업 고유 ID |
-| isCompleted | Boolean | 작업 완료 여부 |
+| isCompleted | Boolean | 작업 완료 여부 (성공/실패/취소 포함) |
 | isCancelled | Boolean | 작업 취소 여부 |
 | cancel() | Boolean | 작업 취소 시도, 성공 여부 반환 |
-| await() | GenerationResult | (suspend) 작업 완료 대기 |
-| awaitAsync() | GenerationResult | (suspend) await()의 별칭 |
-| toCompletableFuture() | CompletableFuture | Java용 Future 변환 |
+| await() | GenerationResult | 작업 완료를 블로킹 방식으로 대기 |
+| awaitAsync() | GenerationResult | (suspend) 작업 완료를 비동기 방식으로 대기 |
+| toCompletableFuture() | CompletableFuture | Java에서 사용할 수 있는 Future 반환 |
 
 ### ExcelGenerationListener
 
-작업 진행 상태를 수신하는 리스너입니다.
+작업 진행 상태를 수신하는 리스너입니다. 모든 메서드에 기본 구현이 제공되므로 필요한 메서드만 오버라이드하면 됩니다.
 
 ```kotlin
 interface ExcelGenerationListener {
     fun onStarted(jobId: String) {}
     fun onProgress(jobId: String, progress: ProgressInfo) {}
-    fun onCompleted(jobId: String, result: GenerationResult)
-    fun onFailed(jobId: String, error: Exception)
+    fun onCompleted(jobId: String, result: GenerationResult) {}
+    fun onFailed(jobId: String, error: Exception) {}
     fun onCancelled(jobId: String) {}
+}
+```
+
+```kotlin
+val listener = object : ExcelGenerationListener {
+    override fun onCompleted(jobId: String, result: GenerationResult) {
+        eventPublisher.publish(ReportReadyEvent(jobId, result.filePath))
+    }
 }
 ```
 
@@ -667,7 +543,7 @@ data class GenerationResult(
 ```
 
 | 속성 | 타입 | 설명 |
-|-----|------|------|
+|:----:|:----:|------|
 | jobId | String | 작업 고유 ID |
 | filePath | Path? | 생성된 파일 경로 (submitToFile인 경우) |
 | bytes | ByteArray? | 생성된 파일 바이트 (submit인 경우) |
@@ -686,10 +562,10 @@ data class ProgressInfo(
 )
 ```
 
-| 속성 | 타입 | 설명 |
-|-----|------|------|
+| 속성            | 타입   | 설명 |
+|:-------------:|:----:|------|
 | processedRows | Int | 현재 처리된 행 수 |
-| totalRows | Int? | 전체 행 수 (count 미제공 시 null)
+| totalRows | Int? | 전체 행 수 (count 미제공 시 null) |
 
 ---
 

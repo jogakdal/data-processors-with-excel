@@ -5,11 +5,10 @@
 ## 목차
 1. [아키텍처 개요](#1-아키텍처-개요)
 2. [파이프라인 패턴](#2-파이프라인-패턴)
-3. [렌더링 전략](#3-렌더링-전략)
+3. [렌더링 엔진](#3-렌더링-엔진)
 4. [마커 파서](#4-마커-파서)
 5. [위치 계산](#5-위치-계산)
-6. [스트리밍 데이터 처리](#6-스트리밍-데이터-처리)
-7. [테스트 및 샘플](#7-테스트-작성-가이드)
+6. [테스트 및 샘플](#6-테스트-및-샘플)
 
 ---
 
@@ -34,6 +33,7 @@ io.github.jogakdal.tbeg/
 │   ├── core/                           # 핵심 유틸리티
 │   │   ├── CommonTypes.kt              # 공통 타입 (CellCoord, CellArea, IndexRange, CollectionSizes 등)
 │   │   ├── ExcelUtils.kt
+│   │   ├── ConditionalFormattingUtils.kt # 조건부 서식 유틸리티
 │   │   ├── ChartProcessor.kt
 │   │   ├── PivotTableProcessor.kt
 │   │   └── XmlVariableProcessor.kt
@@ -43,14 +43,19 @@ io.github.jogakdal.tbeg/
 │   │   ├── ProcessingContext.kt
 │   │   └── processors/                 # 개별 프로세서
 │   └── rendering/                      # 렌더링 엔진
-│       ├── RenderingStrategy.kt
-│       ├── AbstractRenderingStrategy.kt
-│       ├── StreamingRenderingStrategy.kt
-│       ├── TemplateRenderingEngine.kt
-│       ├── TemplateAnalyzer.kt
-│       ├── PositionCalculator.kt
-│       ├── StreamingDataSource.kt
-│       ├── WorkbookSpec.kt
+│       ├── TemplateRenderingEngine.kt  # 렌더링 오케스트레이터
+│       ├── RenderingStrategy.kt        # 전략 인터페이스
+│       ├── AbstractRenderingStrategy.kt # 공통 렌더링 로직
+│       ├── StreamingRenderingStrategy.kt # 스트리밍 전략 구현
+│       ├── TemplateAnalyzer.kt         # 템플릿 분석
+│       ├── PositionCalculator.kt       # 위치 계산 (체이닝 알고리즘)
+│       ├── WorkbookSpec.kt             # 템플릿 분석 결과
+│       ├── StreamingDataSource.kt      # 스트리밍 데이터 소비
+│       ├── FormulaAdjuster.kt          # 수식 참조 범위 조정
+│       ├── ChartRangeAdjuster.kt       # 차트 데이터 범위 조정
+│       ├── ImageInserter.kt            # 이미지 삽입
+│       ├── MergeTracker.kt             # repeat 확장 시 병합 셀 추적
+│       ├── SheetLayoutApplier.kt       # 시트 레이아웃 적용 (행 높이, 열 너비, 병합 등)
 │       └── parser/                     # 마커 파서
 │           ├── MarkerDefinition.kt     # 마커 정의
 │           ├── UnifiedMarkerParser.kt  # 통합 파서
@@ -72,7 +77,7 @@ io.github.jogakdal.tbeg/
    1. ChartExtractProcessor       - 차트 추출 (스트리밍 처리 시 손실 방지)
    2. PivotExtractProcessor       - 피벗 테이블 정보 추출
    3. TemplateRenderProcessor     - 템플릿 렌더링 (데이터 바인딩)
-   4. NumberFormatProcessor       - 숫자 서식 적용
+   4. NumberFormatProcessor       - 숫자/수식 셀 서식 적용
    5. XmlVariableReplaceProcessor - XML 내 변수 치환
    6. PivotRecreateProcessor      - 피벗 테이블 재생성
    7. ChartRestoreProcessor       - 차트 복원
@@ -104,6 +109,9 @@ TBEG의 핵심 철학은 **Excel 네이티브 기능 우선**이다.
 ```kotlin
 class TbegPipeline(vararg processors: ExcelProcessor) {
     fun execute(context: ProcessingContext): ProcessingContext
+    fun addProcessor(processor: ExcelProcessor): TbegPipeline      // 불변, 새 인스턴스
+    fun addProcessors(vararg processors: ExcelProcessor): TbegPipeline
+    fun excludeProcessor(name: String): TbegPipeline
 }
 ```
 
@@ -137,38 +145,118 @@ internal class ProcessingContext(
     var pivotTableInfos: List<PivotTableProcessor.PivotTableInfo> = emptyList()
     var variableResolver: ((String) -> String)? = null
     var requiredNames: RequiredNames? = null
+    var repeatExpansionInfos: Map<String, List<ChartRangeAdjuster.RepeatExpansionInfo>> = emptyMap()
 }
 ```
 
+| 프로퍼티 | 쓰기 | 읽기 |
+|---------|------|------|
+| `chartInfo` | ChartExtract | ChartRestore |
+| `pivotTableInfos` | PivotExtract | PivotRecreate |
+| `variableResolver` | TemplateRender | XmlVariableReplace |
+| `requiredNames` | TemplateRender | XmlVariableReplace |
+| `repeatExpansionInfos` | TemplateRender | ChartRestore |
+
 ### 2.4 프로세서 구현 예시
+
+`TemplateRenderProcessor`의 실제 처리 흐름:
 
 ```kotlin
 class TemplateRenderProcessor : ExcelProcessor {
     override val name = "TemplateRender"
 
     override fun process(context: ProcessingContext): ProcessingContext {
-        val analyzer = TemplateAnalyzer()
-        val blueprint = XSSFWorkbook(ByteArrayInputStream(context.resultBytes)).use {
-            analyzer.analyzeFromWorkbook(it)
+        // 1. 템플릿 분석 -> 필요한 데이터 이름 추출
+        val blueprint = XSSFWorkbook(ByteArrayInputStream(context.resultBytes)).use { workbook ->
+            TemplateAnalyzer().analyzeFromWorkbook(workbook)
         }
-        context.requiredNames = blueprint.extractRequiredNames()
+        val requiredNames = blueprint.extractRequiredNames()
+        context.requiredNames = requiredNames
 
-        val engine = TemplateRenderingEngine()
+        // 2. 누락 데이터 검증 (WARN이면 로그, THROW이면 예외)
+        validateMissingData(context, requiredNames)
+
+        // 3. processedRowCount 계산
+        context.processedRowCount = requiredNames.collections.sumOf { name ->
+            context.dataProvider.getItems(name)?.asSequence()?.count() ?: 0
+        }
+
+        // 4. 렌더링 실행
+        val engine = TemplateRenderingEngine(
+            imageUrlCacheTtlSeconds = context.config.imageUrlCacheTtlSeconds
+        )
         context.resultBytes = engine.process(
             ByteArrayInputStream(context.resultBytes),
             context.dataProvider,
-            context.requiredNames!!
+            requiredNames
         )
+
+        // 5. 차트 범위 조정을 위한 repeat 확장 정보 전달
+        context.repeatExpansionInfos = engine.lastRepeatExpansionInfos
+
         return context
     }
 }
 ```
 
+### 2.5 커스텀 프로세서
+
+파이프라인에 새로운 처리 단계를 추가할 수 있습니다.
+
+```kotlin
+class WatermarkProcessor : ExcelProcessor {
+    override val name = "Watermark"
+
+    override fun process(context: ProcessingContext): ProcessingContext {
+        // 워터마크 추가 로직
+        return context
+    }
+}
+
+// 파이프라인에 추가
+val customPipeline = pipeline.addProcessor(WatermarkProcessor())
+```
+
 ---
 
-## 3. 렌더링 전략
+## 3. 렌더링 엔진
 
-### 3.1 Strategy 패턴
+### 3.1 TemplateRenderingEngine
+
+렌더링의 중심 오케스트레이터이다. `RenderingStrategy`를 호출하여 실제 렌더링을 수행하고, `RenderingContext`를 통해 내부 컴포넌트들을 전달한다.
+
+```kotlin
+class TemplateRenderingEngine(
+    private val imageUrlCacheTtlSeconds: Long = 0
+) {
+    private val analyzer = TemplateAnalyzer()
+    private val imageInserter = ImageInserter()
+    private val sheetLayoutApplier = SheetLayoutApplier()
+    private val strategy: RenderingStrategy = StreamingRenderingStrategy()
+
+    // 마지막 렌더링의 repeat 확장 정보 (차트 범위 조정에 사용)
+    internal var lastRepeatExpansionInfos: Map<String, List<RepeatExpansionInfo>>
+
+    // Map 기반 렌더링
+    fun process(template: InputStream, data: Map<String, Any>): ByteArray
+
+    // DataProvider 기반 렌더링 (스트리밍)
+    fun process(template: InputStream, dataProvider: ExcelDataProvider,
+                requiredNames: RequiredNames? = null): ByteArray
+}
+```
+
+주요 내부 컴포넌트:
+
+| 컴포넌트 | 역할 |
+|---------|------|
+| `FormulaAdjuster` | 수식 참조 범위 조정 (행 시프트, 범위 확장, 절대 참조 보존) |
+| `ChartRangeAdjuster` | 차트 데이터 범위를 확장된 데이터에 맞게 조정 |
+| `ImageInserter` | 이미지 삽입, 크기 조정, URL 다운로드 |
+| `MergeTracker` | repeat 확장 시 `${merge()}` 마커에 의한 병합 셀 추적 |
+| `SheetLayoutApplier` | 시트 레이아웃 적용 (행 높이, 열 너비, 병합, 머리글/바닥글, 조건부 서식 복제) |
+
+### 3.2 Strategy 패턴
 
 렌더링은 `StreamingRenderingStrategy` 하나의 전략으로 처리한다. 스트리밍 방식으로 메모리 효율적인 대용량 처리를 지원한다.
 
@@ -183,12 +271,12 @@ internal interface RenderingStrategy {
     ): ByteArray
 }
 
-internal class StreamingRenderingStrategy : RenderingStrategy
+internal class StreamingRenderingStrategy : AbstractRenderingStrategy()
 ```
 
-### 3.2 AbstractRenderingStrategy
+### 3.3 AbstractRenderingStrategy
 
-공통 로직을 추상 클래스로 분리합니다.
+공통 로직을 추상 클래스로 분리한다.
 
 ```kotlin
 internal abstract class AbstractRenderingStrategy : RenderingStrategy {
@@ -215,13 +303,33 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
 }
 ```
 
+`setCellValue()`는 값이 `=`로 시작하면 Excel 수식으로 처리한다. `StreamingRenderingStrategy.setValueOrFormula()`에서 이를 분기한다.
+
+### 3.4 스트리밍 데이터 처리
+
+`StreamingDataSource`는 DataProvider의 Iterator를 순차적으로 소비하여 현재 처리 중인 아이템만 메모리에 유지한다.
+
+```kotlin
+internal class StreamingDataSource(
+    private val dataProvider: ExcelDataProvider,
+    private val expectedSizes: CollectionSizes = CollectionSizes.EMPTY
+) : Closeable {
+    fun advanceToNextItem(repeatKey: RepeatKey): Any?
+    fun getCurrentItem(repeatKey: RepeatKey): Any?
+}
+```
+
+DataProvider 조건:
+- `getItems()`는 같은 데이터를 다시 제공할 수 있어야 한다
+- 같은 컬렉션이 여러 repeat에서 사용되면 `getItems()`가 재호출된다
+
 ---
 
 ## 4. 마커 파서
 
 ### 4.1 개요
 
-템플릿 마커(`${...}`)를 파싱하는 전용 파서입니다. 선언적 정의로 마커를 쉽게 추가하고 관리합니다.
+템플릿 마커(`${...}`)를 파싱하는 전용 파서이다. 선언적 정의로 마커를 쉽게 추가하고 관리한다.
 
 ```
 ${repeat(employees, A3:C3, emp, DOWN)}
@@ -274,11 +382,24 @@ when (content) {
 | `merge`  | 자동 셀 병합   | field             |                                 |
 | `bundle` | 요소 묶음     | range             |                                 |
 
+### 4.5 중복 마커 감지
+
+`TemplateAnalyzer.analyzeWorkbook()`은 4단계로 템플릿을 분석한다:
+
+1. **수집**: 모든 시트에서 repeat 마커 수집 (`collectRepeatRegions`)
+2. **repeat 중복 제거**: 같은 컬렉션 + 같은 대상 범위의 repeat이 여러 개이면 경고 후 마지막만 유지 (`deduplicateRepeatRegions`)
+3. **SheetSpec 생성**: 중복 제거된 repeat 목록을 기반으로 각 시트 분석 (`analyzeSheet`)
+4. **셀 마커 중복 제거**: image 등 셀에 남는 범위 마커의 중복을 후처리로 제거 (`deduplicateCellMarkers`)
+
+대상 시트 결정: 범위에 시트 접두사(`'Sheet1'!A1:B2`)가 있으면 해당 시트, 없으면 마커가 위치한 시트가 대상이다.
+
+새로운 범위 마커를 추가할 때 중복 감지가 필요하면 `cellMarkerDedupKey()` 메서드의 `when` 분기에 추가한다.
+
 ---
 
 ## 5. 위치 계산
 
-### 5.0 공통 타입 (CommonTypes)
+### 5.1 공통 타입 (CommonTypes)
 
 #### CollectionSizes
 
@@ -324,22 +445,9 @@ area.overlapsRows(other)     // 행 범위 겹침 여부
 area.overlaps(other)         // 2D 공간 겹침 여부
 ```
 
-### 5.1 중복 마커 감지
-
-`TemplateAnalyzer.analyzeWorkbook()`은 4단계로 템플릿을 분석합니다:
-
-1. **수집**: 모든 시트에서 repeat 마커 수집 (`collectRepeatRegions`)
-2. **repeat 중복 제거**: 같은 컬렉션 + 같은 대상 범위의 repeat이 여러 개이면 경고 후 마지막만 유지 (`deduplicateRepeatRegions`)
-3. **SheetSpec 생성**: 중복 제거된 repeat 목록을 기반으로 각 시트 분석 (`analyzeSheet`)
-4. **셀 마커 중복 제거**: image 등 셀에 남는 범위 마커의 중복을 후처리로 제거 (`deduplicateCellMarkers`)
-
-대상 시트 결정: 범위에 시트 접두사(`'Sheet1'!A1:B2`)가 있으면 해당 시트, 없으면 마커가 위치한 시트가 대상입니다.
-
-새로운 범위 마커를 추가할 때 중복 감지가 필요하면 `cellMarkerDedupKey()` 메서드의 `when` 분기에 추가합니다.
-
 ### 5.2 PositionCalculator
 
-다중 repeat 영역의 위치를 체이닝 알고리즘으로 계산합니다.
+다중 repeat 영역의 위치를 체이닝 알고리즘으로 계산한다.
 
 ```kotlin
 class PositionCalculator(
@@ -380,7 +488,7 @@ data class RepeatExpansion(
 
 ### 5.4 위치 계산 규칙 (체이닝 알고리즘)
 
-모든 요소(repeat, 병합 셀, bundle)의 위치는 **체이닝 알고리즘**으로 결정됩니다.
+모든 요소(repeat, 병합 셀, bundle)의 위치는 **체이닝 알고리즘**으로 결정된다.
 
 1. **요소 수집**: repeat -> Expandable, repeat 밖 병합 셀 -> Fixed, bundle -> Bundle
 2. **위에서 아래로 순차 계산**: 각 요소의 열 범위에서 바로 위의 해결된 요소를 찾아 밀림량 계산
@@ -394,48 +502,20 @@ data class RepeatExpansion(
 
 ### 5.5 bundle (요소 묶음)
 
-지정된 범위 내의 요소를 하나의 단위로 묶어 밀림 계산에 참여시킵니다.
+지정된 범위 내의 요소를 하나의 단위로 묶어 밀림 계산에 참여시킨다.
 
-- 내부는 독자적인 시트처럼 밀림이 계산됩니다
-- 크기가 확정된 bundle은 넓은 요소로서 체이닝에 참여합니다
-- 경계 걸침과 중첩은 금지됩니다
-
----
-
-## 6. 스트리밍 데이터 처리
-
-### 6.1 StreamingDataSource
-
-스트리밍 렌더링에서 Iterator를 순차적으로 소비한다.
-
-```kotlin
-internal class StreamingDataSource(
-    private val dataProvider: ExcelDataProvider,
-    private val expectedSizes: CollectionSizes = CollectionSizes.EMPTY
-) : Closeable {
-    // repeat 영역별 현재 아이템
-    fun advanceToNextItem(repeatKey: RepeatKey): Any?
-    fun getCurrentItem(repeatKey: RepeatKey): Any?
-}
-```
-
-### 6.2 메모리 최적화 원칙
-
-현재 처리 중인 아이템만 메모리에 유지하여 대용량 데이터를 효율적으로 처리한다.
-
-### 6.3 DataProvider 조건
-
-- `getItems()`는 같은 데이터를 다시 제공할 수 있어야 함
-- 같은 컬렉션이 여러 repeat에서 사용되면 `getItems()` 재호출
+- 내부는 독자적인 시트처럼 밀림이 계산된다
+- 크기가 확정된 bundle은 넓은 요소로서 체이닝에 참여한다
+- 경계 걸침과 중첩은 금지된다
 
 ---
 
-## 7. 테스트 작성 가이드
+## 6. 테스트 및 샘플
 
-테스트 코드는 `src/test/kotlin/io/github/jogakdal/tbeg/`에 위치합니다.
-테스트용 템플릿은 `src/test/resources/templates/`에 위치합니다.
+테스트 코드는 `src/test/kotlin/io/github/jogakdal/tbeg/`에 위치한다.
+테스트용 템플릿은 `src/test/resources/templates/`에 위치한다.
 
-### 7.1 테스트 예시
+### 6.1 테스트 예시
 
 ```kotlin
 class PositionCalculatorTest {
@@ -462,7 +542,7 @@ class PositionCalculatorTest {
 }
 ```
 
-### 7.2 통합 테스트 예시
+### 6.2 통합 테스트 예시
 
 ```kotlin
 class ExcelGeneratorIntegrationTest {
@@ -489,7 +569,7 @@ class ExcelGeneratorIntegrationTest {
 }
 ```
 
-### 7.3 테스트 실행
+### 6.3 테스트 실행
 
 ```bash
 # 전체 테스트
@@ -499,9 +579,9 @@ class ExcelGeneratorIntegrationTest {
 ./gradlew :tbeg:test --tests "*PositionCalculator*"
 ```
 
-### 7.4 샘플 및 벤치마크
+### 6.4 샘플 및 벤치마크
 
-테스트 코드와 별도로 실행 가능한 샘플 및 벤치마크 코드는 독립된 디렉토리에 관리됩니다.
+테스트 코드와 별도로 실행 가능한 샘플 및 벤치마크 코드는 독립된 디렉토리에 관리된다.
 
 ```
 src/test/
@@ -509,6 +589,9 @@ src/test/
 │   ├── samples/                            # 샘플 코드 (Kotlin)
 │   │   ├── TbegSample.kt
 │   │   ├── EmptyCollectionSample.kt
+│   │   ├── FormulaSubstitutionSample.kt
+│   │   ├── RichSample.kt
+│   │   ├── CellMergeSampleRunner.kt
 │   │   ├── TbegSpringBootSample.kt
 │   │   └── TemplateRenderingEngineSample.kt
 │   ├── benchmark/                          # 벤치마크 코드
@@ -536,40 +619,8 @@ src/test/
 
 ---
 
-## 확장 포인트
-
-### 커스텀 DataProvider
-
-특수한 데이터 소스가 필요한 경우 `ExcelDataProvider`를 직접 구현합니다.
-
-```kotlin
-class DatabaseDataProvider(
-    private val dataSource: DataSource
-) : ExcelDataProvider {
-    override fun getValue(name: String): Any? = /* SQL 쿼리 */
-    override fun getItems(name: String): Iterator<Any>? = /* 스트리밍 쿼리 */
-    override fun getItemCount(name: String): Int? = /* COUNT 쿼리 */
-}
-```
-
-### 커스텀 프로세서
-
-파이프라인에 새로운 처리 단계를 추가할 수 있습니다.
-
-```kotlin
-class WatermarkProcessor : ExcelProcessor {
-    override val name = "Watermark"
-
-    override fun process(context: ProcessingContext): ProcessingContext {
-        // 워터마크 추가 로직
-        return context
-    }
-}
-```
-
----
-
 ## 다음 단계
 
 - [API 레퍼런스](./reference/api-reference.md) - API 상세
 - [설정 옵션](./reference/configuration.md) - 설정 옵션
+- [사용자 가이드](./user-guide.md) - 커스텀 DataProvider 구현 예시

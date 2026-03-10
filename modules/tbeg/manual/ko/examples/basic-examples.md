@@ -226,6 +226,26 @@ public class WithLogo {
 }
 ```
 
+### URL로 이미지 삽입
+
+이미지 파일을 직접 읽는 대신, URL을 지정하면 렌더링 시점에 자동으로 다운로드됩니다.
+
+```kotlin
+val provider = simpleDataProvider {
+    value("company", "(주)휴넷")
+    value("address", "서울시 구로구")
+    imageUrl("logo", "https://example.com/logo.png")
+}
+```
+
+```java
+SimpleDataProvider provider = SimpleDataProvider.builder()
+    .value("company", "(주)휴넷")
+    .value("address", "서울시 구로구")
+    .imageUrl("logo", "https://example.com/logo.png")
+    .build();
+```
+
 ---
 
 ## 4. 파일로 저장
