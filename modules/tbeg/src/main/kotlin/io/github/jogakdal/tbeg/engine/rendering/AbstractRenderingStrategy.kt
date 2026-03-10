@@ -3,6 +3,7 @@ package io.github.jogakdal.tbeg.engine.rendering
 import io.github.jogakdal.tbeg.internal.commonLogger
 import io.github.jogakdal.tbeg.engine.core.findMergedRegion
 import io.github.jogakdal.tbeg.engine.core.parseCellRef
+import io.github.jogakdal.tbeg.engine.core.toCellRef
 import org.apache.poi.ss.usermodel.Cell
 import org.apache.poi.ss.usermodel.HorizontalAlignment
 import org.apache.poi.ss.usermodel.Sheet
@@ -154,13 +155,13 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
 
             is CellContent.Variable -> {
                 val evaluated = context.evaluateText(content.originalText, data)
-                setCellValue(cell, evaluated)
+                setValueOrFormula(cell, evaluated)
             }
 
             is CellContent.ItemField -> {
                 val item = data[content.itemVariable]
                 val value = context.resolveFieldPath(item, content.fieldPath)
-                setCellValue(cell, value)
+                setValueOrFormula(cell, value)
             }
 
             is CellContent.Formula -> {
@@ -193,11 +194,11 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
                 val value = context.resolveFieldPath(item, content.fieldPath)
                 if (mergeTracker != null) {
                     if (mergeTracker.track(cell.columnIndex, cell.rowIndex, value)) {
-                        setCellValue(cell, value)  // 새 그룹 시작 -> 값 쓰기
+                        setValueOrFormula(cell, value)  // 새 그룹 시작 -> 값 쓰기
                     }
                     // false면 셀을 비워둠 (병합될 예정)
                 } else {
-                    setCellValue(cell, value)  // tracker 없으면 단순 치환
+                    setValueOrFormula(cell, value)  // tracker 없으면 단순 치환
                 }
             }
 
@@ -555,7 +556,7 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
 
     /**
      * 셀에 값을 설정한다.
-     * 값의 타입에 따라 적절한 메서드를 호출한다.
+     * 값의 타입에 따라 적절한 메서드를 호출한다. 수식 감지는 하지 않는다.
      */
     protected fun setCellValue(cell: Cell, value: Any?) {
         when (value) {
@@ -567,6 +568,18 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
             is java.time.LocalDateTime -> cell.setCellValue(value)
             is java.util.Date -> cell.setCellValue(value)
             else -> cell.setCellValue(value.toString())
+        }
+    }
+
+    /**
+     * 값이 "="로 시작하는 문자열이면 수식으로, 아니면 일반 값으로 설정한다.
+     * 사용자 데이터가 바인딩되는 경로(Variable, ItemField, MergeField)에서 사용한다.
+     */
+    protected fun setValueOrFormula(cell: Cell, value: Any?) {
+        if (value is String && value.startsWith("=")) {
+            cell.cellFormula = value.removePrefix("=")
+        } else {
+            setCellValue(cell, value)
         }
     }
 
@@ -597,24 +610,7 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
      */
     protected fun adjustCellRef(ref: String, rowOffset: Int, colOffset: Int): String {
         val (row, col) = parseCellRef(ref)
-        val newRow = row + rowOffset
-        val newCol = col + colOffset
-        return toColumnName(newCol) + (newRow + 1)
-    }
-
-    /**
-     * 열 인덱스를 열 이름으로 변환한다.
-     * 예: 0 -> A, 25 -> Z, 26 -> AA
-     */
-    protected fun toColumnName(colIndex: Int): String {
-        val sb = StringBuilder()
-        var n = colIndex + 1
-        while (n > 0) {
-            n--
-            sb.insert(0, ('A' + (n % 26)))
-            n /= 26
-        }
-        return sb.toString()
+        return toCellRef(row + rowOffset, col + colOffset)
     }
 }
 

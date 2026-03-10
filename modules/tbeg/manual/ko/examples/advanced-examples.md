@@ -16,7 +16,7 @@
 8. [오른쪽 방향 반복](#8-오른쪽-방향-반복)
 9. [빈 컬렉션 처리](#9-빈-컬렉션-처리)
 10. [다국어 지원 (I18N)](#10-다국어-지원-i18n)
-11. [종합 예제 -- 분기 매출 실적 보고서](#11-종합-예제--분기-매출-실적-보고서)
+11. [종합 예제 -- 분기 매출 실적 보고서](#11-종합-예제----분기-매출-실적-보고서)
 12. [자동 셀 병합 활용](#12-자동-셀-병합-활용)
 13. [요소 묶음 (Bundle)](#13-요소-묶음-bundle)
 
@@ -657,30 +657,31 @@ fun generateReport(departmentId: Long): ByteArray {
 
 마이크로서비스 아키텍처에서 다른 서비스의 API를 호출하여 데이터를 **분할**하여 가져온 후 Excel로 변환하는 경우입니다.
 
-#### Page 기반 Iterator
+#### Spring Data Page 기반 Iterator
 
-Spring Data의 `Page` 인터페이스를 활용합니다.
+Spring Data의 `Page` 인터페이스를 활용하여 페이징된 API 응답을 순회합니다.
 
 ```kotlin
 import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageRequest
 
-class PagedApiIterator<T>(
+class PageableIterator<T>(
     private val pageSize: Int = 100,
     private val fetcher: (page: Int, size: Int) -> Page<T>
 ) : Iterator<T> {
 
     private var currentPage = 0
     private var currentIterator: Iterator<T> = emptyList<T>().iterator()
-    private var hasMore = true
+    private var hasMorePages = true
 
     override fun hasNext(): Boolean {
         if (currentIterator.hasNext()) return true
-        if (!hasMore) return false
+        if (!hasMorePages) return false
 
         // 다음 페이지 로드 (API 호출)
         val result = fetcher(currentPage++, pageSize)
         currentIterator = result.content.iterator()
-        hasMore = result.hasNext()
+        hasMorePages = result.hasNext()
 
         return currentIterator.hasNext()
     }
@@ -721,19 +722,19 @@ fun fetchEmployeesFromApi(page: Int, size: Int): Page<EmployeeDto> {
     //     "/api/employees?page=$page&size=$size",
     //     HttpMethod.GET,
     //     null,
-    //     object : ParameterizedTypeReference<RestPageImpl<EmployeeDto>>() {}
+    //     object : ParameterizedTypeReference<RestResponsePage<EmployeeDto>>() {}
     // ).body ?: throw Exception("API 호출 실패")
 
     // WebClient 사용 시:
     // return webClient.get()
     //     .uri("/api/employees?page=$page&size=$size")
     //     .retrieve()
-    //     .bodyToMono<RestPageImpl<EmployeeDto>>()
+    //     .bodyToMono<RestResponsePage<EmployeeDto>>()
     //     .block() ?: throw Exception("API 호출 실패")
 
     // 예시용 더미 응답
     return PageImpl(
-        listOf(EmployeeDto("황용호", 8000), EmployeeDto("한용호", 6500)),
+        listOf(EmployeeDto("John", 8000), EmployeeDto("Jane", 6500)),
         PageRequest.of(page, size),
         100
     )
@@ -748,7 +749,7 @@ fun main() {
         value("title", "API 데이터 보고서")
 
         items("employees", totalCount) {
-            PagedApiIterator(pageSize = 50) { page, size ->
+            PageableIterator(pageSize = 50) { page, size ->
                 fetchEmployeesFromApi(page, size)
             }
         }
@@ -765,7 +766,7 @@ fun main() {
 ```
 
 > [!NOTE]
-> `Page`와 `PageRequest`는 Spring Data에서 제공하는 표준 페이징 인터페이스입니다. 마이크로서비스 간 페이징 API를 사용하는 경우 이 패턴을 활용할 수 있습니다.
+> `Page`는 Spring Data의 `org.springframework.data.domain.Page` 인터페이스입니다. 페이징된 API 응답을 처리하는 표준적인 방법으로, 마이크로서비스 간 페이징 데이터를 연동할 때 이 패턴을 활용할 수 있습니다.
 
 ---
 
@@ -978,7 +979,7 @@ import io.github.jogakdal.tbeg.ExcelGenerator
 
 fun main() {
     val data = mapOf(
-        "text" to "홈페이지 바로가기",
+        "text" to "Visit Homepage",
         "url" to "https://example.com"
     )
 
@@ -1051,15 +1052,13 @@ fun main() {
 ```kotlin
 import io.github.jogakdal.tbeg.ExcelGenerator
 import io.github.jogakdal.tbeg.TbegConfig
-import io.github.jogakdal.tbeg.StreamingMode
 import io.github.jogakdal.tbeg.simpleDataProvider
 import java.nio.file.Path
 
 fun main() {
     // 대용량 데이터용 설정
     val config = TbegConfig(
-        streamingMode = StreamingMode.ENABLED,  // 스트리밍 모드 활성화
-        progressReportInterval = 1000           // 1000행마다 진행률 보고
+        progressReportInterval = 1000  // 1000행마다 진행률 보고
     )
 
     // 데이터 개수 (DB COUNT 쿼리로 조회)
@@ -1490,8 +1489,8 @@ fun main() {
         value("author", "Yongho Hwang")
         value("reportDate", LocalDate.now().toString())
         value("subtitle_emp", "Employee Performance Details")
-        image("logo", File("logo.png").readBytes())
-        image("ci", File("ci.png").readBytes())
+        image("logo", File("company_logo.png").readBytes())
+        image("ci", File("company_ci.png").readBytes())
 
         items("depts") {
             listOf(

@@ -1,5 +1,29 @@
 # TBEG Changelog
 
+## 1.2.1
+
+### 새 기능
+
+- **변수형 마커 수식 치환**: `${변수}` 마커에 `=`로 시작하는 값을 바인딩하면 Excel 수식으로 처리됩니다. repeat 내 아이템 필드에서도 동일하게 동작하며, 수식 범위 자동 조정(확장, 행 시프트)이 적용됩니다.
+- **수식 셀 자동 숫자 서식**: 수식으로 치환된 셀의 표시 형식이 "일반"인 경우 정수 숫자 서식(`#,##0`)이 자동 적용됩니다. 소수점이 필요한 수식은 템플릿에서 직접 서식을 지정합니다.
+
+### 문서
+
+- 문서 내 깨진 앵커 링크 수정.
+- 템플릿 문법 레퍼런스에 `=` 접두사 텍스트 관련 주의사항 추가.
+
+<details>
+<summary>내부 개선</summary>
+
+- **`setCellValue`/`setValueOrFormula` 분리**: 수식 감지 로직을 `setValueOrFormula`로 분리하여 사용자 데이터 바인딩 경로(Variable, ItemField, MergeField)에서만 수식 치환이 동작하도록 개선하였습니다.
+- **`StreamingRenderingStrategy` 수식 처리 강화**: `processCellContentWithCalculator`에서 Variable, ItemField, MergeField 타입을 직접 처리하여 수식 값의 범위 조정(PositionCalculator 기반)이 올바르게 적용됩니다.
+- **ZIP 처리 유틸리티 추출**: `ChartProcessor`와 `PivotTableProcessor`에서 반복되던 ZIP 스트림 처리 패턴을 `ByteArray.transformZipEntries()` 고차 함수로 통합하였습니다.
+- **`escapeXml()` 공통화**: TBEG 전용이던 `escapeXml()` 확장 함수를 `common-core` 모듈로 이동하였습니다.
+- **`toColumnName()` 중복 제거**: `AbstractRenderingStrategy`의 `toColumnName()` 메서드를 제거하고 `ExcelUtils.toCellRef()`를 사용하도록 통합하였습니다.
+- 미사용 import 정리 (`ChartProcessor`, `PivotTableProcessor`).
+
+</details>
+
 ## 1.2.0
 
 ### Breaking Changes
@@ -116,7 +140,7 @@
 ## 1.1.0
 
 > [!NOTE]
-> 1.0.x에서 업그레이드하시는 분은 [마이그레이션 가이드](./manual/ko/migration-guide.md)를 참조하세요.
+> 1.0.x에서 업그레이드하시는 분은 [마이그레이션 가이드](./manual/migration-guide.md)를 참조하세요.
 
 ### 새 기능
 

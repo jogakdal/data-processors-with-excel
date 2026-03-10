@@ -47,7 +47,7 @@ repeat 마커에 `empty` 파라미터를 추가하면, 컬렉션이 비어있을
 ${repeat(employees, A2:C2, emp, DOWN, A10:C10)}
 ```
 
-자세한 내용: [템플릿 문법 - 빈 컬렉션 처리](./reference/template-syntax.md#27-빈-컬렉션-처리-empty)
+자세한 내용: [템플릿 문법 - 빈 컬렉션 처리](./reference/template-syntax.md#35-빈-컬렉션-처리-empty)
 
 #### 같은 행의 다중 독립 repeat 영역
 
@@ -57,7 +57,7 @@ ${repeat(employees, A2:C2, emp, DOWN, A10:C10)}
 | ${repeat(employees, A2:B2, emp)} | | ${repeat(departments, D2:E2, dept)} |
 ```
 
-자세한 내용: [템플릿 문법 - 다중 반복 영역](./reference/template-syntax.md#24-다중-반복-영역)
+자세한 내용: [템플릿 문법 - 다중 반복 영역](./reference/template-syntax.md#34-다중-반복-영역)
 
 #### 크로스 시트 수식 참조 확장
 
@@ -67,7 +67,7 @@ ${repeat(employees, A2:C2, emp, DOWN, A10:C10)}
 =SUM(Sheet2!B3:B3) -> =SUM(Sheet2!B3:B5)  // Sheet2의 repeat이 3행 확장된 경우
 ```
 
-자세한 내용: [템플릿 문법 - 관련 요소 자동 조정](./reference/template-syntax.md#28-관련-요소-자동-조정)
+자세한 내용: [템플릿 문법 - 관련 요소 자동 조정](./reference/template-syntax.md#36-관련-요소-자동-조정)
 
 ---
 

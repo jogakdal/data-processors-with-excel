@@ -14,11 +14,13 @@
 
 `${repeat(...)}` 마커는 반복 범위 밖이면 워크북 내 어디든 배치할 수 있습니다. 마커를 데이터 영역 위의 헤더 행에 두면 가독성이 좋아집니다.
 
-```
-| A                                  | B               | C             |
-| ${repeat(employees, A2:C2, emp)}   |                 |               |  <- 마커
-| ${emp.name}                        | ${emp.position} | ${emp.salary} |  <- 반복 범위
-```
+|   | A                                | B               | C             |
+|---|----------------------------------|-----------------|---------------|
+| 1 | ${repeat(employees, A2:C2, emp)} |                 |               |
+| 2 | ${emp.name}                      | ${emp.position} | ${emp.salary} |
+
+- 1행: repeat 마커 (반복 범위 밖에 배치)
+- 2행: 반복 범위
 
 ---
 
@@ -26,12 +28,13 @@
 
 `=SUM()` 등의 합계 수식을 repeat 영역 아래에 배치하면, 영역 확장 시 수식의 참조 범위가 자동으로 조정됩니다.
 
-```
-| A                               | B             |
-| ${repeat(items, A2:B2, item)}   |               |
-| ${item.name}                    | ${item.value} |
-| 합계                             | =SUM(B2:B2)   |  <- 자동으로 =SUM(B2:BN)으로 확장됨
-```
+|   | A                             | B             |
+|---|-------------------------------|---------------|
+| 1 | ${repeat(items, A2:B2, item)} |               |
+| 2 | ${item.name}                  | ${item.value} |
+| 3 | 합계                            | =SUM(B2:B2)   |
+
+3행의 수식은 repeat 확장 시 자동으로 `=SUM(B2:BN)`으로 범위가 조정됩니다.
 
 ---
 
@@ -39,18 +42,20 @@
 
 repeat 범위는 직관적으로 설계하세요. 1행 1데이터를 기본으로 하되, 복잡한 레이아웃이 필요하면 다중 행 반복을 사용합니다.
 
-**권장**:
-```
-${repeat(employees, A2:C2, emp)}   <- 1행 단위 반복
-${emp.name} | ${emp.position} | ${emp.salary}
-```
+**권장** -- 1행 단위 반복:
 
-**복잡한 경우**:
-```
-${repeat(employees, A2:B3, emp)}   <- 2행 단위 반복
-이름: ${emp.name}  | 직급: ${emp.position}
-급여: ${emp.salary} |
-```
+|   | A                                | B               | C             |
+|---|----------------------------------|-----------------|---------------|
+| 1 | ${repeat(employees, A2:C2, emp)} |                 |               |
+| 2 | ${emp.name}                      | ${emp.position} | ${emp.salary} |
+
+**복잡한 경우** -- 2행 단위 반복:
+
+|   | A                                | B                   |
+|---|----------------------------------|---------------------|
+| 1 | ${repeat(employees, A2:B3, emp)} |                     |
+| 2 | 이름: ${emp.name}                  | 직급: ${emp.position} |
+| 3 | 급여: ${emp.salary}                |                     |
 
 ---
 
@@ -72,17 +77,19 @@ ${repeat(collection=items, range=A2:C2, var=item, direction=DOWN, empty=A10:C10)
 
 같은 시트에 여러 repeat 영역을 배치할 때, 2D 공간(행 x 열)에서 영역이 겹치면 안 됩니다.
 
-**올바른 배치** - 열 그룹을 분리:
-```
-| A (employees) | B (employees) | C | D (departments) | E (departments) |
-```
+**올바른 배치** -- 열 그룹 분리:
 
-**올바른 배치** - 행 그룹을 분리:
-```
-| A (employees) | B (employees) |
-| ...           | ...           |
-| A (departments) | B (departments) |  <- employees 아래에 배치
-```
+|   | A (employees)  | B (employees)  | C | D (departments)  | E (departments)  |
+|---|----------------|----------------|---|------------------|------------------|
+|   | ...            | ...            |   | ...              | ...              |
+
+**올바른 배치** -- 행 그룹 분리:
+
+|   | A (employees)    | B (employees)    |
+|---|------------------|------------------|
+|   | ...              | ...              |
+|   | A (departments)  | B (departments)  |
+|   | ...              | ...              |
 
 ---
 
@@ -191,15 +198,14 @@ items("employees", employees)
 
 여러 repeat 영역이 세로로 배치된 복합 레이아웃에서, 위쪽 영역의 확장이 아래쪽 영역을 밀어내는 것이 기본 동작입니다. 서로 독립적으로 확장되어야 하는 영역이 있다면 `${bundle(범위)}`로 묶으세요.
 
-```
-| A                                  | B             | C | D                                     | E              |
-| ${bundle(A1:B5)}             |               |   | ${bundle(D1:E5)}                |                |
-| ${repeat(employees, A3:B3, emp)}   |               |   | ${repeat(departments, D3:E3, dept)}   |                |
-| 이름                                 | 연봉            |   | 부서명                                   | 예산             |
-| ${emp.name}                        | ${emp.salary} |   | ${dept.name}                          | ${dept.budget} |
-```
+|   | A                                | B             | C | D                                   | E              |
+|---|----------------------------------|---------------|---|-------------------------------------|----------------|
+| 1 | ${bundle(A1:B5)}                 |               |   | ${bundle(D1:E5)}                    |                |
+| 2 | ${repeat(employees, A3:B3, emp)} |               |   | ${repeat(departments, D3:E3, dept)} |                |
+| 3 | 이름                               | 연봉            |   | 부서명                                 | 예산             |
+| 4 | ${emp.name}                      | ${emp.salary} |   | ${dept.name}                        | ${dept.budget} |
 
-bundle은 범위 안의 요소를 하나의 단위로 묶어 다른 영역의 확장에 영향받지 않도록 합니다. bundle 범위는 반드시 repeat 영역 전체를 포함해야 합니다.
+bundle은 범위 안의 요소를 하나의 단위로 묶어 다른 영역의 확장에 영향받지 않도록 합니다. bundle 범위는 repeat 영역 전체를 포함해야 합니다.
 
 ---
 

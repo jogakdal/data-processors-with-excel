@@ -8,13 +8,13 @@ A library that generates reports by binding data to Excel templates.
 
 - **Template-based generation**: Generate reports by binding data to Excel templates
 - **Repeat data processing**: Expand list data into rows/columns with `${repeat(...)}` syntax
-- **Variable substitution**: Bind values to cells, charts, shapes, headers/footers, formula arguments, etc. with `${variableName}` syntax
+- **Variable substitution**: Bind values to cells, charts, shapes, headers/footers, formula arguments, etc. with `${variableName}` syntax. Values starting with `=` are treated as Excel formulas
 - **Image insertion**: Insert dynamic images into template cells
 - **Automatic cell merge**: Automatically merge consecutive cells with the same value in repeat data
 - **Bundle**: Group multiple elements into a single unit that moves together
 - **Formula auto-adjustment**: Automatically update formula ranges (SUM, AVERAGE, etc.) when data expands
 - **Conditional formatting duplication**: Automatically apply the original conditional formatting to repeated rows
-- **Chart data reflection**: Automatically reflect expanded data ranges in charts
+- **Chart/pivot table auto-reflection**: Automatically adjust chart data ranges and pivot table source ranges when data expands (no manual refresh required when opening the file)
 - **File encryption**: Set open password for generated Excel files
 - **Document metadata**: Set document properties such as title, author, keywords, etc.
 - **Asynchronous processing**: Process large data in the background
@@ -62,7 +62,7 @@ Formatting, charts, formulas, and conditional formatting are **all managed in th
 
 > [!TIP]
 > **Design philosophy**: We don't reinvent what Excel already does well.
-> Aggregation with `=SUM()`, conditional highlighting with conditional formatting, visualization with charts — use the familiar Excel features as they are.
+> Aggregation with `=SUM()`, conditional highlighting with conditional formatting, visualization with charts -- use the familiar Excel features as they are.
 > TBEG adds dynamic data binding on top of this, and adjusts these features to work as intended even when data expands.
 
 ## At a Glance
@@ -97,7 +97,7 @@ ExcelGenerator().use { generator ->
 
 ![Result](./src/main/resources/sample/screenshot_result.png)
 
-Variable substitution, image insertion, repeat data expansion, automatic cell merge, bundle, formula range adjustment, conditional formatting duplication, and chart data reflection — TBEG handles all of this automatically.
+Variable substitution, image insertion, repeat data expansion, automatic cell merge, bundle, formula range adjustment, conditional formatting duplication, and chart data reflection -- TBEG handles all of this automatically.
 
 > For the full code and template download, see the [Comprehensive Example](./manual/en/examples/advanced-examples.md#11-comprehensive-example--quarterly-sales-performance-report).
 
@@ -105,6 +105,7 @@ Variable substitution, image insertion, repeat data expansion, automatic cell me
 
 | Scenario | Suitability |
 |----------|-------------|
+| Excel download/export functionality | Suitable |
 | Generating standardized reports/statements | Suitable |
 | Filling data into Excel forms provided by a designer | Suitable |
 | Reports requiring complex formatting (conditional formatting, charts, pivot tables) | Suitable |
@@ -112,19 +113,24 @@ Variable substitution, image insertion, repeat data expansion, automatic cell me
 | Excel with dynamically changing column structures | Not suitable |
 | Reading/parsing Excel files | Not suitable (TBEG is generation-only) |
 
+> [!TIP]
+> TBEG is especially useful when implementing **Excel download/export** functionality.
+> The `generate()` method returns a `ByteArray`, so you can directly pass it to web responses, file storage, stream transfers, and more.
+> Thanks to streaming mode, even large datasets can be processed without memory overhead.
+
 ## Add Dependency
 
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.2.0")
+    implementation("io.github.jogakdal:tbeg:1.2.1")
 }
 ```
 
 ```groovy
 // Gradle (Groovy DSL)
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.2.0'
+    implementation 'io.github.jogakdal:tbeg:1.2.1'
 }
 ```
 
@@ -133,7 +139,7 @@ dependencies {
 <dependency>
     <groupId>io.github.jogakdal</groupId>
     <artifactId>tbeg</artifactId>
-    <version>1.2.0</version>
+    <version>1.2.1</version>
 </dependency>
 ```
 
@@ -222,7 +228,7 @@ Internally leverages Apache POI's SXSSF to process large data in a memory-effici
 | **TBEG**   | **1.1s**  |                                                             |
 | JXLS       | 5.2s      | [Benchmark source](https://github.com/jxlsteam/jxls/discussions/203) |
 
-> TBEG calls the POI API directly and writes in a single pass with streaming, whereas JXLS goes through an abstraction layer performing multiple passes of template parsing, transformation, and writing — which is believed to account for this difference.
+> TBEG calls the POI API directly and writes in a single pass with streaming, whereas JXLS goes through an abstraction layer performing multiple passes of template parsing, transformation, and writing -- which is believed to account for this difference.
 
 For details on configuration options, see the [Configuration Options Reference](./manual/en/reference/configuration.md).
 

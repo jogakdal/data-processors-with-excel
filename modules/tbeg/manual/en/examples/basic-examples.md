@@ -226,6 +226,26 @@ public class WithLogo {
 }
 ```
 
+### Inserting Images via URL
+
+Instead of reading image files directly, you can specify a URL and the image will be automatically downloaded at rendering time.
+
+```kotlin
+val provider = simpleDataProvider {
+    value("company", "Hunet Inc.")
+    value("address", "Gangnam-gu, Seoul")
+    imageUrl("logo", "https://example.com/logo.png")
+}
+```
+
+```java
+SimpleDataProvider provider = SimpleDataProvider.builder()
+    .value("company", "Hunet Inc.")
+    .value("address", "Gangnam-gu, Seoul")
+    .imageUrl("logo", "https://example.com/logo.png")
+    .build();
+```
+
 ---
 
 ## 4. Saving to File

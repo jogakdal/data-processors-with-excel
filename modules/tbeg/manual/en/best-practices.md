@@ -16,11 +16,13 @@
 
 The `${repeat(...)}` marker can be placed anywhere in the workbook as long as it is outside the repeat range. Placing the marker in a header row above the data area improves readability.
 
-```
-| A                                  | B               | C             |
-| ${repeat(employees, A2:C2, emp)}   |                 |               |  <- Marker
-| ${emp.name}                        | ${emp.position} | ${emp.salary} |  <- Repeat range
-```
+|   | A                                | B               | C             |
+|---|----------------------------------|-----------------|---------------|
+| 1 | ${repeat(employees, A2:C2, emp)} |                 |               |
+| 2 | ${emp.name}                      | ${emp.position} | ${emp.salary} |
+
+- Row 1: repeat marker (placed outside the repeat range)
+- Row 2: repeat range
 
 ---
 
@@ -28,12 +30,13 @@ The `${repeat(...)}` marker can be placed anywhere in the workbook as long as it
 
 When you place aggregate formulas such as `=SUM()` below the repeat area, the formula's reference range is automatically adjusted as the area expands.
 
-```
-| A                               | B             |
-| ${repeat(items, A2:B2, item)}   |               |
-| ${item.name}                    | ${item.value} |
-| Total                           | =SUM(B2:B2)   |  <- Automatically expands to =SUM(B2:BN)
-```
+|   | A                             | B             |
+|---|-------------------------------|---------------|
+| 1 | ${repeat(items, A2:B2, item)} |               |
+| 2 | ${item.name}                  | ${item.value} |
+| 3 | Total                         | =SUM(B2:B2)   |
+
+The formula in row 3 is automatically adjusted to `=SUM(B2:BN)` when the repeat area expands.
 
 ---
 
@@ -41,18 +44,20 @@ When you place aggregate formulas such as `=SUM()` below the repeat area, the fo
 
 Design repeat ranges intuitively. Use one row per data record as the default, and switch to multi-row repetition when a more complex layout is needed.
 
-**Recommended**:
-```
-${repeat(employees, A2:C2, emp)}   <- One-row repetition
-${emp.name} | ${emp.position} | ${emp.salary}
-```
+**Recommended** -- One-row repetition:
 
-**For complex layouts**:
-```
-${repeat(employees, A2:B3, emp)}   <- Two-row repetition
-Name: ${emp.name}  | Position: ${emp.position}
-Salary: ${emp.salary} |
-```
+|   | A                                | B               | C             |
+|---|----------------------------------|-----------------|---------------|
+| 1 | ${repeat(employees, A2:C2, emp)} |                 |               |
+| 2 | ${emp.name}                      | ${emp.position} | ${emp.salary} |
+
+**For complex layouts** -- Two-row repetition:
+
+|   | A                                | B                   |
+|---|----------------------------------|---------------------|
+| 1 | ${repeat(employees, A2:B3, emp)} |                     |
+| 2 | Name: ${emp.name}                | Position: ${emp.position} |
+| 3 | Salary: ${emp.salary}            |                     |
 
 ---
 
@@ -74,17 +79,19 @@ ${repeat(collection=items, range=A2:C2, var=item, direction=DOWN, empty=A10:C10)
 
 When placing multiple repeat areas on the same sheet, ensure that no areas overlap in 2D space (rows x columns).
 
-**Correct** - Separate column groups:
-```
-| A (employees) | B (employees) | C | D (departments) | E (departments) |
-```
+**Correct** -- Separate column groups:
 
-**Correct** - Separate row groups:
-```
-| A (employees) | B (employees) |
-| ...           | ...           |
-| A (departments) | B (departments) |  <- Placed below employees
-```
+|   | A (employees)  | B (employees)  | C | D (departments)  | E (departments)  |
+|---|----------------|----------------|---|------------------|------------------|
+|   | ...            | ...            |   | ...              | ...              |
+
+**Correct** -- Separate row groups:
+
+|   | A (employees)    | B (employees)    |
+|---|------------------|------------------|
+|   | ...              | ...              |
+|   | A (departments)  | B (departments)  |
+|   | ...              | ...              |
 
 ---
 
@@ -193,13 +200,12 @@ items("employees", employees)
 
 In complex layouts where multiple repeat regions are stacked vertically, the default behavior is for upper region expansion to push lower regions down. If regions need to expand independently, wrap them with `${bundle(range)}`.
 
-```
-| A                                  | B             | C | D                                     | E              |
-| ${bundle(A1:B5)}                   |               |   | ${bundle(D1:E5)}                      |                |
-| ${repeat(employees, A3:B3, emp)}   |               |   | ${repeat(departments, D3:E3, dept)}   |                |
-| Name                               | Salary        |   | Department                            | Budget         |
-| ${emp.name}                        | ${emp.salary} |   | ${dept.name}                          | ${dept.budget} |
-```
+|   | A                                | B             | C | D                                   | E              |
+|---|----------------------------------|---------------|---|-------------------------------------|----------------|
+| 1 | ${bundle(A1:B5)}                 |               |   | ${bundle(D1:E5)}                    |                |
+| 2 | ${repeat(employees, A3:B3, emp)} |               |   | ${repeat(departments, D3:E3, dept)} |                |
+| 3 | Name                             | Salary        |   | Department                          | Budget         |
+| 4 | ${emp.name}                      | ${emp.salary} |   | ${dept.name}                        | ${dept.budget} |
 
 A bundle groups all elements within the range into a single unit so they are unaffected by expansion of other regions. The bundle range must fully contain the repeat region.
 

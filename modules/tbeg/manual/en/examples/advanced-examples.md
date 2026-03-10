@@ -661,12 +661,13 @@ In a microservice architecture, this pattern fetches data from another service's
 
 #### Spring Data Page-Based Iterator
 
-This leverages Spring Data's `Page<T>` type to convert paginated API responses into an Iterator.
+This leverages Spring Data's `Page` interface to iterate over paginated API responses.
 
 ```kotlin
 import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageRequest
 
-class PagedApiIterator<T>(
+class PageableIterator<T>(
     private val pageSize: Int = 100,
     private val fetcher: (page: Int, size: Int) -> Page<T>
 ) : Iterator<T> {
@@ -723,19 +724,23 @@ fun fetchEmployeesFromApi(page: Int, size: Int): Page<EmployeeDto> {
     //     "/api/employees?page=$page&size=$size",
     //     HttpMethod.GET,
     //     null,
-    //     object : ParameterizedTypeReference<RestPageImpl<EmployeeDto>>() {}
+    //     object : ParameterizedTypeReference<RestResponsePage<EmployeeDto>>() {}
     // ).body ?: throw Exception("API call failed")
 
     // With WebClient:
     // return webClient.get()
     //     .uri("/api/employees?page=$page&size=$size")
     //     .retrieve()
-    //     .bodyToMono<RestPageImpl<EmployeeDto>>()
+    //     .bodyToMono<RestResponsePage<EmployeeDto>>()
     //     .block() ?: throw Exception("API call failed")
 
     // Dummy response for example
-    val content = listOf(EmployeeDto("Yongho Hwang", 8000), EmployeeDto("Yongho Han", 6500))
-    return PageImpl(content, PageRequest.of(page, size), 100)
+    // Dummy response for example
+    return PageImpl(
+        listOf(EmployeeDto("John", 8000), EmployeeDto("Jane", 6500)),
+        PageRequest.of(page, size),
+        100
+    )
 }
 
 fun main() {
@@ -747,7 +752,7 @@ fun main() {
         value("title", "API Data Report")
 
         items("employees", totalCount) {
-            PagedApiIterator(pageSize = 50) { page, size ->
+            PageableIterator(pageSize = 50) { page, size ->
                 fetchEmployeesFromApi(page, size)
             }
         }
@@ -764,7 +769,7 @@ fun main() {
 ```
 
 > [!NOTE]
-> Spring Data's `Page<T>` uses zero-based page numbers. When deserializing `Page` from a REST API, `PageImpl` lacks a default constructor, so you may need a custom class like `RestPageImpl` or define a `@JsonCreator`.
+> `Page` is the `org.springframework.data.domain.Page` interface from Spring Data. It is the standard way to handle paginated API responses, and this pattern can be used to integrate paginated data across microservices.
 
 ---
 
@@ -1050,15 +1055,13 @@ fun main() {
 ```kotlin
 import io.github.jogakdal.tbeg.ExcelGenerator
 import io.github.jogakdal.tbeg.TbegConfig
-import io.github.jogakdal.tbeg.StreamingMode
 import io.github.jogakdal.tbeg.simpleDataProvider
 import java.nio.file.Path
 
 fun main() {
     // Configuration for large-scale data
     val config = TbegConfig(
-        streamingMode = StreamingMode.ENABLED,  // Enable streaming mode
-        progressReportInterval = 1000           // Report progress every 1000 rows
+        progressReportInterval = 1000  // Report progress every 1000 rows
     )
 
     // Data count (queried via DB COUNT query)
@@ -1489,8 +1492,8 @@ fun main() {
         value("author", "Yongho Hwang")
         value("reportDate", LocalDate.now().toString())
         value("subtitle_emp", "Employee Performance Details")
-        image("logo", File("logo.png").readBytes())
-        image("ci", File("ci.png").readBytes())
+        image("logo", File("company_logo.png").readBytes())
+        image("ci", File("company_ci.png").readBytes())
 
         items("depts") {
             listOf(
@@ -1693,4 +1696,3 @@ fun main() {
 - [Spring Boot Examples](./spring-boot-examples.md) - Spring Boot integration
 - [Configuration Reference](../reference/configuration.md) - Detailed settings
 - [API Reference](../reference/api-reference.md) - API details
-- [Best Practices](../best-practices.md) - Template design and performance optimization

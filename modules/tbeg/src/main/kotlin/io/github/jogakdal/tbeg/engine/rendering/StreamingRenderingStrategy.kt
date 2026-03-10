@@ -1048,10 +1048,37 @@ internal class StreamingRenderingStrategy : AbstractRenderingStrategy() {
             cell.cellFormula = formula
         }
 
+        is CellContent.Variable -> {
+            val evaluated = ctx.context.evaluateText(content.originalText, data)
+            setValueOrFormula(ctx, cell, evaluated, repeatInfo, isStaticRow, columnIndex, actualRowIndex)
+        }
+
+        is CellContent.ItemField -> {
+            val item = data[content.itemVariable]
+            val value = ctx.context.resolveFieldPath(item, content.fieldPath)
+            setValueOrFormula(ctx, cell, value, repeatInfo, isStaticRow, columnIndex, actualRowIndex)
+        }
+
+        is CellContent.MergeField -> {
+            val item = data[content.itemVariable]
+            val value = ctx.context.resolveFieldPath(item, content.fieldPath)
+            if (mergeTracker != null) {
+                if (mergeTracker.track(cell.columnIndex, cell.rowIndex, value)) {
+                    setValueOrFormula(ctx, cell, value, repeatInfo, isStaticRow, columnIndex, actualRowIndex)
+                } else {
+                    // 같은 그룹 내 연속 셀 -> 비워둠 (병합될 예정)
+                }
+            } else {
+                setValueOrFormula(ctx, cell, value, repeatInfo, isStaticRow, columnIndex, actualRowIndex)
+            }
+        }
+
         is CellContent.ImageMarker -> processImageMarkerWithCalculator(
             cell, content, ctx.sheetIndex, ctx.imageLocations, repeatInfo.itemIndex, ctx.calculator
         )
 
+        // StaticString, StaticNumber, StaticBoolean, SizeMarker 등 수식이 아닌 콘텐츠 타입.
+        // position-aware 수식 조정(processFormulaWithCalculator)이 불필요하므로 기본 처리로 위임한다.
         else -> processCellContent(
             cell, content, data, ctx.sheetIndex, ctx.imageLocations, ctx.context,
             repeatInfo.totalRowOffset, 0, repeatInfo.itemIndex, mergeTracker
@@ -1101,6 +1128,26 @@ internal class StreamingRenderingStrategy : AbstractRenderingStrategy() {
     /** PositionCalculator를 사용하여 셀 참조를 조정한다 */
     private fun adjustCellRefWithCalculator(ref: String, calculator: PositionCalculator) =
         calculator.getFinalPosition(parseCellRef(ref)).toCellRefString()
+
+    /** 값이 "="로 시작하면 수식 범위 조정을 적용하고, 아니면 일반 값으로 설정한다 */
+    private fun setValueOrFormula(
+        ctx: RowWriteContext,
+        cell: Cell,
+        value: Any?,
+        repeatInfo: RepeatInfo,
+        isStaticRow: Boolean,
+        columnIndex: Int,
+        actualRowIndex: Int
+    ) {
+        if (value is String && value.startsWith("=")) {
+            processFormulaWithCalculator(
+                ctx, cell, CellContent.Formula(value.removePrefix("=")),
+                repeatInfo.index, isStaticRow, columnIndex, actualRowIndex
+            )
+        } else {
+            setCellValue(cell, value)
+        }
+    }
 
     /** 수식을 처리한다 (PositionCalculator 기반) */
     private fun processFormulaWithCalculator(

@@ -6,13 +6,13 @@ Excel 템플릿에 데이터를 바인딩하여 보고서를 생성하는 라이
 
 - **템플릿 기반 생성**: Excel 템플릿에 데이터를 바인딩하여 보고서 생성
 - **반복 데이터 처리**: `${repeat(...)}` 문법으로 리스트 데이터를 행/열로 확장
-- **변수 치환**: `${변수명}` 문법으로 셀, 차트, 도형, 머리글/바닥글, 수식 인자 등에 값 바인딩
+- **변수 치환**: `${변수명}` 문법으로 셀, 차트, 도형, 머리글/바닥글, 수식 인자 등에 값 바인딩. `=`로 시작하는 값은 Excel 수식으로 처리
 - **이미지 삽입**: 템플릿 셀에 동적 이미지 삽입
 - **자동 셀 병합**: 반복 데이터에서 연속된 같은 값의 셀을 자동 병합
 - **요소 묶음**: 여러 요소를 하나의 단위로 묶어 일체로 이동
 - **수식 자동 조정**: 데이터 확장 시 SUM, AVERAGE 등 수식 범위를 자동 갱신
 - **조건부 서식 복제**: 반복 행에 원본의 조건부 서식을 자동 적용
-- **차트 데이터 반영**: 확장된 데이터 범위를 차트에 자동 반영
+- **차트/피벗 테이블 자동 반영**: 데이터 확장 시 차트 데이터 범위와 피벗 테이블 소스 범위를 자동 조정 (파일을 열 때 별도의 새로고침 불필요)
 - **파일 암호화**: 생성된 Excel 파일에 열기 암호 설정
 - **문서 메타데이터**: 제목, 작성자, 키워드 등 문서 속성 설정
 - **비동기 처리**: 대용량 데이터를 백그라운드에서 처리
@@ -97,12 +97,13 @@ ExcelGenerator().use { generator ->
 
 변수 치환, 이미지 삽입, 반복 데이터 확장, 자동 셀 병합, 요소 묶음, 수식 범위 조정, 조건부 서식 복제, 차트 데이터 반영까지 TBEG이 자동으로 처리합니다.
 
-> 전체 코드와 템플릿 다운로드는 [종합 예제](./manual/ko/examples/advanced-examples.md#11-종합-예제--분기-매출-실적-보고서)를 참조하세요.
+> 전체 코드와 템플릿 다운로드는 [종합 예제](./manual/ko/examples/advanced-examples.md#11-종합-예제----분기-매출-실적-보고서)를 참조하세요.
 
 ## 이럴 때 TBEG을 사용하세요
 
 | 상황 | 적합 여부 |
 |------|----------|
+| 엑셀 다운로드/내보내기 기능 | 적합 |
 | 정형화된 보고서/명세서 생성 | 적합 |
 | 디자이너가 제공한 Excel 양식에 데이터 채우기 | 적합 |
 | 복잡한 서식(조건부 서식, 차트, 피벗 테이블)이 필요한 보고서 | 적합 |
@@ -110,19 +111,24 @@ ExcelGenerator().use { generator ->
 | 열 구조가 동적으로 변하는 Excel | 비적합 |
 | Excel 파일 읽기/파싱 | 비적합 (TBEG은 생성 전용) |
 
+> [!TIP]
+> **엑셀 다운로드/내보내기** 기능을 구현할 때 TBEG이 특히 유용합니다.
+> `generate()` 메서드가 `ByteArray`를 반환하므로 웹 응답, 파일 저장, 스트림 전송 등 어디에든 바로 전달할 수 있고,
+> 스트리밍 모드 덕분에 대용량 데이터도 메모리 부담 없이 처리할 수 있습니다.
+
 ## 의존성 추가
 
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.2.0")
+    implementation("io.github.jogakdal:tbeg:1.2.1")
 }
 ```
 
 ```groovy
 // Gradle (Groovy DSL)
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.2.0'
+    implementation 'io.github.jogakdal:tbeg:1.2.1'
 }
 ```
 
@@ -131,7 +137,7 @@ dependencies {
 <dependency>
     <groupId>io.github.jogakdal</groupId>
     <artifactId>tbeg</artifactId>
-    <version>1.2.0</version>
+    <version>1.2.1</version>
 </dependency>
 ```
 

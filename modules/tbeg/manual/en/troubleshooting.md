@@ -154,6 +154,28 @@ val employees = employeeRepository.findAll().sortedBy { it.department }
 
 ---
 
+### Image specified via URL is not inserted
+
+**Symptom**: An image URL was specified using `imageUrl()`, but the image does not appear in the output file.
+
+**Cause and Resolution**:
+
+| Cause | Log Message | Resolution |
+|-------|-------------|------------|
+| URL inaccessible | `Image download failed: HTTP 404` | Verify the URL is valid by opening it in a browser |
+| Network timeout | `Image download failed: ...Timeout` | Check the server response time (connection 5s, read 10s limit) |
+| File size exceeded | `Image download aborted: size limit exceeded` | Reduce the image size to under 10MB |
+| Too many redirects | `Maximum redirect count exceeded` | Check the URL's redirect chain (max 3 redirects) |
+
+> [!TIP]
+> If the same image is used repeatedly across multiple reports, set `imageUrlCacheTtlSeconds` to reduce unnecessary downloads.
+>
+> ```kotlin
+> TbegConfig(imageUrlCacheTtlSeconds = 60)  // Cache for 60 seconds
+> ```
+
+---
+
 ## 4. Performance Issues
 
 ### Generation speed is slow
