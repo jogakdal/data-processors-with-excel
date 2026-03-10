@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 This file is maintained in this project only and is not affected by upstream sync.
 
+## [1.2.1] - 2026-03-10
+
+### New Features
+- **Formula value substitution**: Values starting with `=` are now treated as Excel formulas
+- **Pivot table auto-reflection**: Pivot table source ranges are automatically adjusted when data expands (no manual refresh required when opening the file)
+- **Document metadata**: Set document properties such as title, author, keywords, etc.
+
+### Internal Improvements
+- `escapeXml()` function internalized (moved from common-core to TBEG internal)
+- Number format preservation for formula cells during streaming rendering
+
+### Documentation
+- Template syntax reference restructured with formula binding section
+- Developer guide rewritten
+- English translation incremental update (13 files)
+
 ## [1.2.0] - 2026-03-06
 
 ### Breaking Changes
