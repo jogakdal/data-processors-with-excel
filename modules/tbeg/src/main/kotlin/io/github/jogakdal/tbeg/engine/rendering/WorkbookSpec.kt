@@ -1,5 +1,6 @@
 package io.github.jogakdal.tbeg.engine.rendering
 
+import io.github.jogakdal.tbeg.HideMode
 import io.github.jogakdal.tbeg.engine.core.CellArea
 import io.github.jogakdal.tbeg.engine.core.ColRange
 import io.github.jogakdal.tbeg.engine.core.RowRange
@@ -32,6 +33,7 @@ data class WorkbookSpec(
                     is CellContent.ImageMarker -> images += content.imageName
                     is CellContent.FormulaWithVariables -> variables += content.variableNames
                     is CellContent.SizeMarker -> collections += content.collectionName
+                    is CellContent.HideableField -> {} // repeat 내부에서 ItemField처럼 처리됨
                     else -> {}
                 }
             }
@@ -219,6 +221,25 @@ sealed class CellContent {
      */
     data class BundleMarker(
         val range: String,
+        val originalText: String
+    ) : CellContent()
+
+    /**
+     * Hideable 마커 -- ${hideable(value=emp.salary, bundle=C1:C3)} 또는 =TBEG_HIDEABLE(emp.salary, C1:C3)
+     *
+     * hideFields로 지정된 필드를 숨길 때, bundle 범위 전체를 함께 제거한다.
+     * hideFields에 포함되지 않으면 일반 ItemField처럼 동작한다.
+     *
+     * @param itemVariable 아이템 변수명 (예: "emp")
+     * @param fieldPath 필드 경로 (예: "salary")
+     * @param bundleRange bundle 범위 (예: "C1:C3"), null이면 해당 셀만
+     * @param originalText 원본 텍스트
+     */
+    data class HideableField(
+        val itemVariable: String,
+        val fieldPath: String,
+        val bundleRange: String?,
+        val mode: HideMode = HideMode.DELETE,
         val originalText: String
     ) : CellContent()
 }

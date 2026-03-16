@@ -31,6 +31,7 @@ io.github.jogakdal.tbeg.TbegConfig
 | `pivotDecimalFormatIndex`   | `Short`               | `4`                   | Decimal number format index (`#,##0.00`)             |
 | `missingDataBehavior`       | `MissingDataBehavior` | `WARN`                | Behavior when data is missing                        |
 | `imageUrlCacheTtlSeconds`   | `Long`                | `0`                   | Image URL cache TTL (seconds, 0 = no caching)       |
+| `unmarkedHidePolicy`        | `UnmarkedHidePolicy`  | `WARN_AND_HIDE`       | Policy when hiding a field that has no hideable marker |
 
 ---
 
@@ -142,9 +143,28 @@ TTL (in seconds) for caching downloaded image data when image data is specified 
 > [!NOTE]
 > Within a single `generate()` call, the same URL is never downloaded more than once, regardless of this TTL setting.
 
+> [!NOTE]
+> The cache is stored in JVM instance memory. In a multi-instance environment, each instance maintains an independent cache.
+
 ```kotlin
 TbegConfig(imageUrlCacheTtlSeconds = 60)  // Cache for 60 seconds
 ```
+
+#### unmarkedHidePolicy
+
+Policy for when a field specified in `hideFields` exists in the template only as a regular field (`${item.field}`) without a hideable marker.
+
+| Value           | Behavior                                                    |
+|-----------------|-------------------------------------------------------------|
+| `WARN_AND_HIDE` | Logs a warning and hides just that cell (default)           |
+| `ERROR`         | Throws a `MarkerValidationException`                        |
+
+```kotlin
+TbegConfig(unmarkedHidePolicy = UnmarkedHidePolicy.ERROR)
+```
+
+> [!NOTE]
+> Fields that have a hideable marker are processed normally regardless of this policy. This setting only controls behavior for fields specified in hideFields but without a corresponding hideable marker in the template.
 
 ---
 
@@ -211,6 +231,24 @@ tbeg:
 
   # Image URL cache TTL (seconds, 0 = no caching)
   image-url-cache-ttl-seconds: 0
+
+  # Policy when hiding a field without hideable marker: warn-and-hide, error
+  unmarked-hide-policy: warn-and-hide
+```
+
+### application.properties Example
+
+```properties
+tbeg.file-naming-mode=timestamp
+tbeg.timestamp-format=yyyyMMdd_HHmmss
+tbeg.file-conflict-policy=sequence
+tbeg.progress-report-interval=100
+tbeg.preserve-template-layout=true
+tbeg.pivot-integer-format-index=3
+tbeg.pivot-decimal-format-index=4
+tbeg.missing-data-behavior=warn
+tbeg.image-url-cache-ttl-seconds=0
+tbeg.unmarked-hide-policy=warn-and-hide
 ```
 
 ### Property Mapping
@@ -227,6 +265,7 @@ tbeg:
 | `pivot-decimal-format-index`  | `pivotDecimalFormatIndex`      |
 | `missing-data-behavior`       | `missingDataBehavior`          |
 | `image-url-cache-ttl-seconds` | `imageUrlCacheTtlSeconds`      |
+| `unmarked-hide-policy`        | `unmarkedHidePolicy`           |
 
 ---
 
@@ -285,6 +324,34 @@ enum class MissingDataBehavior {
 |---------|-------------------------------------------------------------------|
 | `WARN`  | Logs a warning and preserves the marker; useful for debugging     |
 | `THROW` | Throws `MissingTemplateDataException`; for when data integrity matters |
+
+### HideMode
+
+```kotlin
+enum class HideMode {
+    DELETE,  // Physically deletes the area and shifts remaining elements (default)
+    DIM      // Applies disabled style + clears cell values
+}
+```
+
+| Value    | Behavior                                                                   |
+|----------|----------------------------------------------------------------------------|
+| `DELETE` | Deletes the area and shifts remaining elements. Formula references, merged cells, and conditional formatting are automatically adjusted |
+| `DIM`    | Applies gray background (#D9D9D9) + light text color (#BFBFBF) style and clears cell values. For bundle areas outside the repeat (e.g., field titles), only the text color is changed |
+
+### UnmarkedHidePolicy
+
+```kotlin
+enum class UnmarkedHidePolicy {
+    WARN_AND_HIDE,  // Logs a warning and hides just that cell (default)
+    ERROR           // Throws exception
+}
+```
+
+| Value           | Behavior                                                                   |
+|-----------------|----------------------------------------------------------------------------|
+| `WARN_AND_HIDE` | Logs a warning and behaves like a hideable without a bundle                |
+| `ERROR`         | Throws `MarkerValidationException`; for strict validation of template-data consistency |
 
 ---
 

@@ -3,8 +3,8 @@ package io.github.jogakdal.tbeg.engine.core
 import io.github.jogakdal.tbeg.ExcelDataProvider
 
 import io.github.jogakdal.tbeg.internal.VariableProcessor
-import io.github.jogakdal.tbeg.internal.VariableResolverRegistry
 import io.github.jogakdal.tbeg.internal.escapeXml
+import io.github.jogakdal.tbeg.internal.VariableResolverRegistry
 import org.apache.poi.openxml4j.opc.OPCPackage
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream

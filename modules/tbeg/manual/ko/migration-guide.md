@@ -1,5 +1,28 @@
 # TBEG 마이그레이션 가이드
 
+## 1.2.1 -> 1.2.2
+
+### 새 기능: 선택적 필드 노출 (hideable)
+
+상황에 따라 특정 필드의 노출을 제한할 수 있는 기능이 추가되었습니다.
+
+- 신규 마커: `${hideable(value=emp.salary, bundle=C1:C3, mode=dim)}`
+- 신규 API: `ExcelDataProvider.getHiddenFields()` (기본 구현 제공, 기존 코드 영향 없음)
+- 신규 API: `SimpleDataProvider.Builder.hideFields()`
+- 신규 설정: `TbegConfig.unmarkedHidePolicy`
+- **Breaking Change 없음**: 기존 코드는 수정 없이 동작합니다
+
+### 업그레이드 방법
+
+의존성 버전만 변경하면 됩니다.
+
+```kotlin
+// gradle.properties
+moduleVersion.tbeg=1.2.2
+```
+
+---
+
 ## 1.1.x -> 1.2.0
 
 ### StreamingMode 폐지

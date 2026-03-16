@@ -62,4 +62,14 @@ interface ExcelDataProvider {
      * @return 아이템 수, 알 수 없으면 null
      */
     fun getItemCount(name: String): Int? = null
+
+    /**
+     * 지정된 컬렉션에서 숨길 필드 목록을 반환한다.
+     *
+     * 반환된 필드명에 해당하는 hideable 마커 셀(및 bundle 범위)이 hide 전처리에서 제거된다.
+     *
+     * @param collectionName 컬렉션 이름
+     * @return 숨길 필드명 집합, 기본값은 빈 Set (모든 필드 표시)
+     */
+    fun getHiddenFields(collectionName: String): Set<String> = emptySet()
 }

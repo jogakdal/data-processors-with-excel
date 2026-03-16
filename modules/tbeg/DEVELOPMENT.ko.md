@@ -30,6 +30,13 @@
 └─────────────────────────┬───────────────────────────────────┘
                           │
 ┌─────────────────────────▼───────────────────────────────────┐
+│                   HidePreprocessor                          │
+│               (1st pass: hideable 전처리)                    │
+│                                                             │
+│  hideable 마커 스캔 → hide 대상 결정 → DELETE/DIM 처리           │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────┐
 │                      TbegPipeline                           │
 │                                                             │
 │  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐     │
@@ -53,16 +60,17 @@
 
 ### 파이프라인 처리 순서
 
-| 순서 | 프로세서               | 클래스                           | 역할                      | 실행 조건    |
-|----|--------------------|-------------------------------|-------------------------|----------|
-| 1  | ChartExtract       | `ChartExtractProcessor`       | 차트 정보 추출 및 임시 제거        | 항상       |
-| 2  | PivotExtract       | `PivotExtractProcessor`       | 피벗 테이블 정보 추출            | 항상       |
-| 3  | TemplateRender     | `TemplateRenderProcessor`     | 템플릿 렌더링                 | 항상       |
-| 4  | NumberFormat       | `NumberFormatProcessor`       | 숫자 서식 자동 적용             | 항상       |
-| 5  | XmlVariableReplace | `XmlVariableReplaceProcessor` | XML 내 변수 치환             | 항상       |
-| 6  | PivotRecreate      | `PivotRecreateProcessor`      | 피벗 테이블 재생성              | 피벗 존재 시  |
-| 7  | ChartRestore       | `ChartRestoreProcessor`       | 차트 복원 및 데이터 범위 조정       | 차트 존재 시  |
-| 8  | Metadata           | `MetadataProcessor`           | 문서 메타데이터 적용             | 항상       |
+| 순서 | 프로세서               | 클래스                           | 역할                      | 실행 조건         |
+|----|--------------------|-------------------------------|-------------------------|----------------|
+| 0  | HidePreprocess     | `HidePreprocessor`            | hideable 마커 전처리 (삭제/DIM) | hideFields 존재 시 |
+| 1  | ChartExtract       | `ChartExtractProcessor`       | 차트 정보 추출 및 임시 제거        | 항상             |
+| 2  | PivotExtract       | `PivotExtractProcessor`       | 피벗 테이블 정보 추출            | 항상             |
+| 3  | TemplateRender     | `TemplateRenderProcessor`     | 템플릿 렌더링                 | 항상             |
+| 4  | NumberFormat       | `NumberFormatProcessor`       | 숫자 서식 자동 적용             | 항상             |
+| 5  | XmlVariableReplace | `XmlVariableReplaceProcessor` | XML 내 변수 치환             | 항상             |
+| 6  | PivotRecreate      | `PivotRecreateProcessor`      | 피벗 테이블 재생성              | 피벗 존재 시        |
+| 7  | ChartRestore       | `ChartRestoreProcessor`       | 차트 복원 및 데이터 범위 조정       | 차트 존재 시        |
+| 8  | Metadata           | `MetadataProcessor`           | 문서 메타데이터 적용             | 항상             |
 
 ### 렌더링 전략
 
@@ -111,10 +119,17 @@ src/main/kotlin/io/github/jogakdal/tbeg/
 │   │       ├── TemplateRenderProcessor.kt
 │   │       └── XmlVariableReplaceProcessor.kt
 │   │
+│   ├── preprocessing/                      # 전처리 (렌더링 파이프라인 전 실행)
+│   │   ├── HidePreprocessor.kt            #   hideable 전처리기 (마커 스캔, hide 결정, 삭제/DIM)
+│   │   ├── HideValidator.kt               #   bundle 범위 검증 (repeat 내 위치, 열 정렬, 병합 셀, 겹침)
+│   │   ├── ElementShifter.kt              #   삭제 후 요소 이동 (열/행 시프트, 수식 참조 조정)
+│   │   ├── HideableRegion.kt              #   hide 대상 영역 데이터 클래스
+│   │   └── CellUtils.kt                   #   셀 유틸리티 (containsCell, setFormulaRaw)
+│   │
 │   └── rendering/                          # 렌더링 전략
 │       ├── RenderingStrategy.kt            # 렌더링 전략 인터페이스
 │       ├── AbstractRenderingStrategy.kt    # 공통 로직
-│       ├── StreamingRenderingStrategy.kt     # 기본 렌더링 전략
+│       ├── StreamingRenderingStrategy.kt   # 기본 렌더링 전략
 │       ├── TemplateRenderingEngine.kt      # 렌더링 엔진
 │       ├── TemplateAnalyzer.kt             # 템플릿 분석기
 │       ├── parser/                         # 마커 파서 (통합)
@@ -171,6 +186,15 @@ src/main/kotlin/io/github/jogakdal/tbeg/
 | `WorkbookSpec`            | 분석된 템플릿 명세 (SheetSpec, RowSpec, CellSpec, RepeatRegionSpec, BundleRegionSpec) |
 | `PositionCalculator`      | repeat 확장 시 셀 위치 계산 (체이닝 알고리즘)                                                |
 | `FormulaAdjuster`         | 수식 참조 자동 확장                                                                   |
+
+### 전처리 (preprocessing)
+
+| 클래스                 | 역할                                                 |
+|---------------------|----------------------------------------------------|
+| `HidePreprocessor`  | 렌더링 파이프라인 전에 hideable 마커를 스캔하고 hide 대상 필드를 삭제/DIM 처리 |
+| `HideValidator`     | hideable의 bundle 범위 검증 (repeat 내 위치, 열 정렬, 병합 셀 겹침) |
+| `ElementShifter`    | DELETE 모드에서 삭제 후 나머지 요소를 시프트 (열/행, 수식 참조 조정)       |
+| `HideableRegion`    | hide 대상 영역 정보 데이터 클래스                              |
 
 ### 스트리밍 지원
 
@@ -342,6 +366,56 @@ ${merge(emp.dept)}
 =TBEG_MERGE(emp.dept)
 ```
 
+### 필드 숨기기 (hideable)
+
+repeat 확장 시 특정 필드(열)를 조건에 따라 숨길 수 있다. 숨길 필드는 `ExcelDataProvider.getHideFields()`로 지정한다.
+
+**텍스트 마커:**
+```
+${hideable(value=emp.salary, bundle=C1:C3, mode=dim)}
+${hideable(emp.salary)}
+```
+
+**수식 마커:**
+```
+=TBEG_HIDEABLE(emp.salary, C1:C3, dim)
+=TBEG_HIDEABLE(emp.salary)
+```
+
+**파라미터:**
+
+| 파라미터   | 설명                          | 필수 | 기본값    | 별칭           |
+|--------|-----------------------------|----|---------|--------------|
+| value  | item.field 형태의 필드 참조        | O  |         | field, val   |
+| bundle | 함께 숨길 셀 범위                  |    |         | range        |
+| mode   | 숨김 모드 (DELETE / DIM)        |    | delete  |              |
+
+**숨김 모드:**
+
+| 모드       | 동작                                |
+|----------|-----------------------------------|
+| `DELETE` | 물리적으로 삭제하고 나머지 요소를 당긴다 (기본값)     |
+| `DIM`    | 데이터 영역에 비활성화 스타일(배경 + 글자색)을 적용하고 값을 제거한다. 필드 타이틀 등 repeat 밖 bundle 영역은 글자색만 변경한다 |
+
+**처리 흐름:**
+
+1. `HidePreprocessor`가 렌더링 파이프라인 전에 실행 (1st pass 전처리)
+2. 2-pass 스캔: 1st phase에서 repeat 변수명 파악, 2nd phase에서 ItemField/HideableField 식별
+3. `getHideFields()`에 지정된 필드에 대해 DELETE 또는 DIM 처리
+4. 숨기지 않는 hideable 마커는 `${item.field}` 형태로 변환되어 일반 ItemField로 처리
+
+**DIM 모드 처리:**
+- repeat 데이터 영역만 DIM 처리 (bundle 범위와 repeat 범위의 교집합)
+- 필드 타이틀 등 repeat 밖의 셀은 배경/값 변경 대상이 아니다 (글자색만 변경)
+
+**예시:**
+```
+${repeat(employees, A2:H2, emp)}
+${hideable(emp.salary, C1:C3)}          <- salary 필드: C열 + 필드 타이틀(C1) 포함 bundle
+${hideable(emp.bonus, D1:D3, dim)}      <- bonus 필드: DIM 모드
+${hideable(emp.name)}                   <- name 필드: bundle 없음, DELETE 기본
+```
+
 ### 수식 내 변수
 
 수식에서도 변수를 사용할 수 있습니다:
@@ -388,6 +462,7 @@ parser/
 | `size`   | `collection`                                       |
 | `merge`  | `field`                                            |
 | `bundle` | `range`                                            |
+| `hideable` | `value`(필수, 별칭: field/val), `bundle`(별칭: range), `mode`(기본: delete) |
 
 **파라미터 형식:**
 - 위치 기반: `${repeat(employees, A2:C2, emp)}`
@@ -424,6 +499,7 @@ parser/
 | 조건부 서식     | 범위 자동 조정             | `FormulaAdjuster`         |
 | 머리글/바닥글    | 변수 치환 지원             | `XmlVariableProcessor`    |
 | 파일 암호화     | 열기 암호 설정             | `ExcelGenerator`          |
+| 필드 숨기기     | hideable 마커로 필드 삭제/DIM | `HidePreprocessor`        |
 | 비동기 처리     | 백그라운드 생성 + 진행률       | `GenerationJob`           |
 
 ---
@@ -776,7 +852,7 @@ ${bundle(A15:H20)}
   Col A-D:  Row 1:    [repeat(depts)] (A1:D1)     <- 5건 (확장량 +4)
   Col A-H:  Row 5-12: ${bundle(A5:H12)}     <- 요소 묶음 (8행)
               Row 5:  "직원별 실적" (타이틀)
-              Row 6:  헤더행
+              Row 6:  필드 타이틀 행
               Row 7:  [repeat(employees)] (A7:H7)  <- 11건 (확장량 +10)
               Row 12: SUM행
 
@@ -860,6 +936,7 @@ bundle 있으면:
 | `pivotIntegerFormatIndex` | `3`                 | 정수 포맷 인덱스 (`#,##0`)               |
 | `pivotDecimalFormatIndex` | `4`                 | 소수 포맷 인덱스 (`#,##0.00`)            |
 | `missingDataBehavior`     | `WARN`              | WARN / THROW                      |
+| `unmarkedHidePolicy`      | `WARN_AND_HIDE`     | hideable 마커 없이 hideFields에 지정된 필드 처리 정책 |
 
 ### 프리셋 설정
 
@@ -1005,6 +1082,7 @@ src/test/
 │   ├── engine/
 │   │   ├── TemplateRenderingEngineTest.kt  # 렌더링 엔진 테스트
 │   │   ├── DuplicateRepeatDetectionTest.kt # 중복 마커 감지 테스트
+│   │   ├── HideableIntegrationTest.kt     # hideable 통합 테스트
 │   │   ├── PositionCalculatorTest.kt
 │   │   ├── ForwardReferenceTest.kt
 │   │   └── ...

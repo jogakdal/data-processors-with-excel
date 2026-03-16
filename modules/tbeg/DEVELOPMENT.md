@@ -32,6 +32,13 @@ This document defines the architecture, implementation principles, and developme
 └─────────────────────────┬───────────────────────────────────┘
                           │
 ┌─────────────────────────▼───────────────────────────────────┐
+│                   HidePreprocessor                          │
+│              (1st pass: hideable preprocessing)             │
+│                                                             │
+│  hideable marker scan → determine hide targets → DELETE/DIM │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────┐
 │                      TbegPipeline                           │
 │                                                             │
 │  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐     │
@@ -55,16 +62,17 @@ This document defines the architecture, implementation principles, and developme
 
 ### Pipeline Processing Order
 
-| Order | Processor          | Class                         | Role                                      | Execution Condition |
-|-------|--------------------|-------------------------------|--------------------------------------------|---------------------|
-| 1     | ChartExtract       | `ChartExtractProcessor`       | Extract chart info and temporarily remove   | Always              |
-| 2     | PivotExtract       | `PivotExtractProcessor`       | Extract pivot table info                    | Always              |
-| 3     | TemplateRender     | `TemplateRenderProcessor`     | Template rendering                          | Always              |
-| 4     | NumberFormat       | `NumberFormatProcessor`       | Auto-apply number formats                   | Always              |
-| 5     | XmlVariableReplace | `XmlVariableReplaceProcessor` | Variable substitution within XML            | Always              |
-| 6     | PivotRecreate      | `PivotRecreateProcessor`      | Recreate pivot tables                       | When pivots exist   |
-| 7     | ChartRestore       | `ChartRestoreProcessor`       | Restore charts and adjust data ranges       | When charts exist   |
-| 8     | Metadata           | `MetadataProcessor`           | Apply document metadata                     | Always              |
+| Order | Processor          | Class                         | Role                                      | Execution Condition     |
+|-------|--------------------|-------------------------------|--------------------------------------------|-------------------------|
+| 0     | HidePreprocess     | `HidePreprocessor`            | Hideable marker preprocessing (delete/DIM)  | When hideFields present |
+| 1     | ChartExtract       | `ChartExtractProcessor`       | Extract chart info and temporarily remove   | Always                  |
+| 2     | PivotExtract       | `PivotExtractProcessor`       | Extract pivot table info                    | Always                  |
+| 3     | TemplateRender     | `TemplateRenderProcessor`     | Template rendering                          | Always                  |
+| 4     | NumberFormat       | `NumberFormatProcessor`       | Auto-apply number formats                   | Always                  |
+| 5     | XmlVariableReplace | `XmlVariableReplaceProcessor` | Variable substitution within XML            | Always                  |
+| 6     | PivotRecreate      | `PivotRecreateProcessor`      | Recreate pivot tables                       | When pivots exist       |
+| 7     | ChartRestore       | `ChartRestoreProcessor`       | Restore charts and adjust data ranges       | When charts exist       |
+| 8     | Metadata           | `MetadataProcessor`           | Apply document metadata                     | Always                  |
 
 ### Rendering Strategy
 
@@ -112,6 +120,13 @@ src/main/kotlin/io/github/jogakdal/tbeg/
 │   │       ├── PivotRecreateProcessor.kt
 │   │       ├── TemplateRenderProcessor.kt
 │   │       └── XmlVariableReplaceProcessor.kt
+│   │
+│   ├── preprocessing/                      # Preprocessing (runs before the rendering pipeline)
+│   │   ├── HidePreprocessor.kt            #   Hideable preprocessor (marker scan, hide decision, delete/DIM)
+│   │   ├── HideValidator.kt               #   Bundle range validation (repeat position, column alignment, merged cells, overlap)
+│   │   ├── ElementShifter.kt              #   Post-deletion element shifting (column/row shift, formula reference adjustment)
+│   │   ├── HideableRegion.kt              #   Hide target region data class
+│   │   └── CellUtils.kt                   #   Cell utilities (containsCell, setFormulaRaw)
 │   │
 │   └── rendering/                          # Rendering strategies
 │       ├── RenderingStrategy.kt            # Rendering strategy interface
@@ -173,6 +188,15 @@ src/main/kotlin/io/github/jogakdal/tbeg/
 | `WorkbookSpec`              | Analyzed template specification (SheetSpec, RowSpec, CellSpec, RepeatRegionSpec, BundleRegionSpec) |
 | `PositionCalculator`        | Cell position calculation during repeat expansion (chaining algorithm)                 |
 | `FormulaAdjuster`           | Automatic formula reference expansion                                                  |
+
+### Preprocessing
+
+| Class                | Role                                                                                 |
+|----------------------|--------------------------------------------------------------------------------------|
+| `HidePreprocessor`   | Scans hideable markers before the rendering pipeline and applies delete/DIM to target fields |
+| `HideValidator`      | Validates hideable bundle ranges (repeat position, column alignment, merged cell overlap)    |
+| `ElementShifter`     | Shifts remaining elements after deletion (column/row shift, formula reference adjustment)   |
+| `HideableRegion`     | Data class for hide target region information                                               |
 
 ### Streaming Support
 
@@ -344,6 +368,56 @@ ${merge(emp.dept)}
 =TBEG_MERGE(emp.dept)
 ```
 
+### Selective Field Visibility (hideable)
+
+Specific fields (columns) can be conditionally hidden during repeat expansion. Fields to hide are specified via `ExcelDataProvider.getHideFields()`.
+
+**Text markers:**
+```
+${hideable(value=emp.salary, bundle=C1:C3, mode=dim)}
+${hideable(emp.salary)}
+```
+
+**Formula markers:**
+```
+=TBEG_HIDEABLE(emp.salary, C1:C3, dim)
+=TBEG_HIDEABLE(emp.salary)
+```
+
+**Parameters:**
+
+| Parameter | Description                           | Required | Default | Aliases      |
+|-----------|---------------------------------------|----------|---------|--------------|
+| value     | Field reference in item.field format  | Yes      |         | field, val   |
+| bundle    | Cell range to hide together           |          |         | range        |
+| mode      | Hide mode (DELETE / DIM)              |          | delete  |              |
+
+**Hide modes:**
+
+| Mode     | Behavior                                                                                   |
+|----------|--------------------------------------------------------------------------------------------|
+| `DELETE` | Physically delete and shift remaining elements (default)                                    |
+| `DIM`    | Apply disabled style (background + font color) and remove values in the data region. For field titles and other cells outside the repeat range within the bundle, only font color is changed |
+
+**Processing flow:**
+
+1. `HidePreprocessor` runs before the rendering pipeline (1st pass preprocessing)
+2. 2-pass scan: 1st phase identifies repeat variable names, 2nd phase identifies ItemField/HideableField
+3. For fields specified in `getHideFields()`, DELETE or DIM processing is applied
+4. Hideable markers for non-hidden fields are converted to `${item.field}` format and processed as regular ItemFields
+
+**DIM mode behavior:**
+- Only the repeat data region is DIM-processed (intersection of the bundle range and the repeat range)
+- Cells outside the repeat range, such as field titles, are not subject to background/value changes (only font color is changed)
+
+**Examples:**
+```
+${repeat(employees, A2:H2, emp)}
+${hideable(emp.salary, C1:C3)}          <- salary field: column C + field title (C1) in bundle
+${hideable(emp.bonus, D1:D3, dim)}      <- bonus field: DIM mode
+${hideable(emp.name)}                   <- name field: no bundle, DELETE default
+```
+
 ### Variables in Formulas
 
 Variables can also be used within formulas:
@@ -390,6 +464,7 @@ parser/
 | `size`   | `collection`                                               |
 | `merge`  | `field`                                                    |
 | `bundle` | `range`                                                    |
+| `hideable` | `value` (required, aliases: field/val), `bundle` (alias: range), `mode` (default: delete) |
 
 **Parameter formats:**
 - Positional: `${repeat(employees, A2:C2, emp)}`
@@ -426,6 +501,7 @@ parser/
 | Conditional formatting   | Automatic range adjustment                   | `FormulaAdjuster`         |
 | Header/Footer            | Variable substitution support                | `XmlVariableProcessor`    |
 | File encryption          | Open password setting                        | `ExcelGenerator`          |
+| Selective field visibility | Hide fields via hideable marker (delete/DIM) | `HidePreprocessor`        |
 | Async processing         | Background generation + progress tracking    | `GenerationJob`           |
 
 ---
@@ -862,6 +938,7 @@ List of properties that must be preserved during style copying:
 | `pivotIntegerFormatIndex`   | `3`                   | Integer format index (`#,##0`)             |
 | `pivotDecimalFormatIndex`   | `4`                   | Decimal format index (`#,##0.00`)          |
 | `missingDataBehavior`       | `WARN`                | WARN / THROW                               |
+| `unmarkedHidePolicy`        | `WARN_AND_HIDE`       | Policy for fields in hideFields without a hideable marker |
 
 ### Preset Configurations
 
@@ -1007,6 +1084,7 @@ src/test/
 │   ├── engine/
 │   │   ├── TemplateRenderingEngineTest.kt  # Rendering engine tests
 │   │   ├── DuplicateRepeatDetectionTest.kt # Duplicate marker detection tests
+│   │   ├── HideableIntegrationTest.kt     # Hideable integration tests
 │   │   ├── PositionCalculatorTest.kt
 │   │   ├── ForwardReferenceTest.kt
 │   │   └── ...

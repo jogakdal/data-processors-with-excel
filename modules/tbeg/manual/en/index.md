@@ -59,6 +59,7 @@ A template-based Excel file generation library
 - [Developer Guide](./developer-guide.md) - Internal architecture and extension methods
 
 ### Appendix
+- [Glossary](./glossary.md) - Key terms used in TBEG documentation
 - [Library Comparison](./appendix/library-comparison.md) - Feature comparison across Excel report libraries
 
 ---

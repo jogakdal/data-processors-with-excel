@@ -15,6 +15,7 @@
 7. [Variables in Formulas](#7-variables-in-formulas)
 8. [Element Bundling (bundle)](#8-element-bundling-bundle)
 9. [Formatting Preservation](#9-formatting-preservation)
+10. [Selective Field Visibility (hideable)](#10-selective-field-visibility-hideable)
 
 ---
 
@@ -58,6 +59,7 @@ Function markers take the form `${function(parameters...)}` and perform specific
 | `size` | Outputs the number of items in a collection | `${size(employees)}` |
 | `merge` | Automatically merges consecutive cells with the same value | `${merge(emp.dept)}` |
 | `bundle` | Groups multiple elements as a single unit | `${bundle(A5:H12)}` |
+| `hideable` | Selectively shows or hides a field | `${hideable(emp.salary, C1:C3)}` |
 
 #### Case Sensitivity
 
@@ -79,6 +81,7 @@ Function markers can also be written in the **formula style** `=TBEG_FUNCTION(pa
 | `${size(col)}` | `=TBEG_SIZE(col)` |
 | `${merge(item.field)}` | `=TBEG_MERGE(item.field)` |
 | `${bundle(range)}` | `=TBEG_BUNDLE(range)` |
+| `${hideable(value, bundle)}` | `=TBEG_HIDEABLE(value, bundle)` |
 
 > [!NOTE]
 > Formula-style markers display as `#NAME?` errors in Excel. This is expected and they are processed correctly during generation.
@@ -92,6 +95,20 @@ The following rules apply to all function markers.
 Function markers can be placed anywhere in the workbook as long as they are outside the target range. They can even be placed on a different sheet.
 
 For example, `${repeat(employees, A2:C2, emp)}` can be placed in any cell on the same sheet or a different sheet, as long as it is outside the repeat range A2:C2. Similarly, `${bundle(A5:H12)}` can be placed anywhere outside the bundle range.
+
+#### Cell Range Notation
+
+Range parameters in function markers (`range`, `bundle`, `empty`, `position`, etc.) use Excel's cell range notation. Columns are represented by letters (A, B, ..., Z, AA, AB, ...) and rows by numbers starting from 1.
+
+| Notation | Meaning | Example |
+|----------|---------|---------|
+| `A1` | Single cell | Column A, row 1 |
+| `A1:C3` | Cell range | Area from column A row 1 to column C row 3 |
+| `$A$1:$C$3` | Absolute reference | Same as above (`$` is ignored) |
+| `'SheetName'!A1:C3` | Range on another sheet | A1:C3 area on the specified sheet |
+
+> [!NOTE]
+> Range notation uses the same format that Excel auto-generates when you drag-select a cell area during editing. In formula-style (`=TBEG_REPEAT(...)`) markers, you can conveniently specify ranges using Excel's cell reference features (clicking, drag-selecting).
 
 #### Explicit Parameter Format
 
@@ -122,6 +139,18 @@ In the explicit format, optional parameters can be omitted entirely, set to `NUL
 ${repeat(collection=items, range=A2:C2, empty=A10:C10)}           // var omitted
 ${repeat(collection=items, range=A2:C2, var=NULL, empty=A10:C10)} // var=NULL
 ${repeat(collection=items, range=A2:C2, var=, empty=A10:C10)}     // var= (empty value)
+```
+
+#### Quotes
+
+All parameter values can be wrapped in quotes (`"`, `'`, `` ` ``). Whether wrapped or not, they are processed identically. This applies to both positional and explicit formats.
+
+```
+// All four are equivalent
+${repeat(collection=employees, range=A2:C2, var=emp)}
+${repeat(collection="employees", range="A2:C2", var="emp")}
+${repeat(collection='employees', range='A2:C2', var='emp')}
+${repeat(collection=`employees`, range=`A2:C2`, var=`emp`)}
 ```
 
 #### Mixing Not Allowed
@@ -842,6 +871,183 @@ All formatting applied to the template is preserved in the generated Excel file.
 ### 9.2 Repeat Region Formatting
 
 Formatting applied to the template rows within a repeat region is applied identically to all repeated rows.
+
+---
+
+## 10. Selective Field Visibility (hideable)
+
+### 10.1 Basic Usage
+
+Repeat fields can be selectively hidden as needed. Change the repeat field marker (e.g., `${emp.salary}`) to a hideable marker, and specify which fields to hide in the DataProvider. The corresponding area is automatically removed.
+
+**Syntax**: `${hideable(value=field, bundle=range, mode=mode)}`
+
+If the field in the marker cell is not a hide target, it behaves identically to a regular field (`${item.field}`).
+
+#### Template
+
+|   | A                                | B               | C                              | D             |
+|---|----------------------------------|-----------------|--------------------------------|---------------|
+| 1 | Name                             | Position        | Salary                         | Department    |
+| 2 | ${emp.name}                      | ${emp.position} | ${hideable(emp.salary)}        | ${emp.dept}   |
+| 3 | ${repeat(employees, A2:D2, emp)} |                 |                                |               |
+
+#### Data
+
+```kotlin
+val provider = simpleDataProvider {
+    items("employees", listOf(
+        mapOf("name" to "Yongho Hwang", "position" to "Director", "salary" to 8000, "dept" to "Development"),
+        mapOf("name" to "Yongho Han", "position" to "Manager", "salary" to 6500, "dept" to "Sales")
+    ))
+    hideFields("employees", "salary")
+}
+```
+
+#### Result (salary hidden)
+
+|   | A   | B  | C   |
+|---|-----|----|-----|
+| 1 | Name  | Position | Department  |
+| 2 | Yongho Hwang | Director | Development |
+| 3 | Yongho Han | Manager | Sales |
+
+Column C (Salary) is removed and column D (Department) shifts left.
+
+#### Result (not hidden)
+
+When `hideFields` is not specified, the hideable marker behaves like a regular field.
+
+|   | A   | B  | C     | D   |
+|---|-----|----|-------|-----|
+| 1 | Name  | Position | Salary    | Department  |
+| 2 | Yongho Hwang | Director | 8,000 | Development |
+| 3 | Yongho Han | Manager | 6,500 | Sales |
+
+### 10.2 Bundle Range
+
+By default, a hideable marker only hides the cell where the marker is located. Use the `bundle` parameter to specify a range so that related cells such as headers and totals are hidden together.
+
+#### Template
+
+|   | A                                | B               | C                                        | D             |
+|---|----------------------------------|-----------------|------------------------------------------|---------------|
+| 1 | ${repeat(employees, A3:D3, emp)} |                 |                                          |               |
+| 2 | Name                             | Position        | Salary                                   | Department    |
+| 3 | ${emp.name}                      | ${emp.position} | ${hideable(emp.salary, C2:C4)}           | ${emp.dept}   |
+| 4 | Total                            |                 | =SUM(C3:C3)                              |               |
+
+The bundle range `C2:C4` includes the field title (C2), data (C3), and total (C4). When hidden, this entire range is removed together.
+
+> [!NOTE]
+> The bundle range must include the hideable marker cell. If the marker cell is a merged cell, the column/row range of the bundle must match the merge range.
+
+### 10.3 Hide Modes
+
+The hideable marker supports two hide modes.
+
+#### DELETE Mode (default)
+
+Physically deletes the area and shifts the remaining elements. Formula references, merged cells, conditional formatting, etc. are automatically adjusted.
+
+```
+${hideable(emp.salary, C1:C3)}            // DELETE mode (default)
+${hideable(emp.salary, C1:C3, delete)}    // DELETE mode (explicit)
+=TBEG_HIDEABLE(emp.salary, C1:C3)         // Formula style
+```
+
+#### DIM Mode
+
+Applies a disabled style (gray background + light text color) to cells in the repeat data area and clears cell values. For bundle range areas outside the repeat (such as field titles), only the text color is lightened while the background color and values are preserved.
+
+```
+${hideable(emp.salary, C1:C3, dim)}       // DIM mode
+${hideable(value=emp.salary, bundle=C1:C3, mode=dim)}  // Explicit parameters
+=TBEG_HIDEABLE(emp.salary, C1:C3, dim)    // Formula style
+```
+
+| Mode | Behavior | Best For |
+|------|----------|----------|
+| `DELETE` | Deletes the area and shifts remaining elements | Completely removing unnecessary columns/rows |
+| `DIM` | Applies disabled style + clears values | Hiding data while preserving the layout |
+
+### 10.4 Specifying Hidden Fields in DataProvider
+
+Hidden fields are specified via `ExcelDataProvider.getHiddenFields()`. In `SimpleDataProvider`, use the `hideFields()` method.
+
+#### Kotlin DSL
+
+```kotlin
+val provider = simpleDataProvider {
+    items("employees", employeeList)
+    hideFields("employees", "salary", "age")
+}
+```
+
+#### Java Builder
+
+```java
+SimpleDataProvider provider = SimpleDataProvider.builder()
+    .items("employees", employeeList)
+    .hideFields("employees", "salary", "age")
+    .build();
+```
+
+#### Custom DataProvider
+
+```kotlin
+class MyDataProvider : ExcelDataProvider {
+    override fun getValue(name: String): Any? = /* ... */
+    override fun getItems(name: String): Iterator<Any>? = /* ... */
+
+    override fun getHiddenFields(collectionName: String): Set<String> =
+        when (collectionName) {
+            "employees" -> setOf("salary", "age")
+            else -> emptySet()
+        }
+}
+```
+
+### 10.5 Parameter Reference
+
+| Parameter | Required | Aliases | Default | Description |
+|-----------|----------|---------|---------|-------------|
+| `value` | Yes | `field`, `val` | - | Field to hide (`item.field` form, nesting supported) |
+| `bundle` | No | `range` | Marker cell | Cell range to hide together |
+| `mode` | No | - | `delete` | Hide mode (`delete` / `dim`) |
+
+#### Positional Notation
+
+```
+${hideable(emp.salary)}                   // value only (hides that cell only)
+${hideable(emp.salary, C1:C3)}            // value + bundle
+${hideable(emp.salary, C1:C3, dim)}       // value + bundle + mode
+```
+
+#### Explicit Parameter Notation
+
+```
+${hideable(value=emp.salary)}
+${hideable(value=emp.salary, bundle=C1:C3)}
+${hideable(value=emp.salary, bundle=C1:C3, mode=dim)}
+${hideable(field=emp.salary)}             // Using alias
+```
+
+#### Formula Style
+
+```
+=TBEG_HIDEABLE(emp.salary)
+=TBEG_HIDEABLE(emp.salary, C1:C3)
+=TBEG_HIDEABLE(emp.salary, C1:C3, dim)
+```
+
+### 10.6 Validation Rules / Notes
+
+- **Repeat field only**: The hideable marker can only be used on repeat item fields. Using it on a cell unrelated to a repeat causes an error.
+- **Bundle must include marker**: The bundle range must include the hideable marker cell. Omitting it causes an error.
+- **No partial merge overlap**: If the bundle range partially includes a merged cell, an error occurs.
+- **No overlap between hideable areas**: Hideable areas (bundle ranges) cannot overlap each other. However, overlapping is allowed when both are in DIM mode.
+- **Bundle range must match merge**: If the marker cell is a merged cell, the column/row range of the bundle must match the merge range.
 
 ---
 

@@ -83,7 +83,7 @@ internal class ChartProcessor {
 
                 when {
                     entry.name == "[Content_Types].xml" -> {
-                        contentTypesXml = String(zis.readBytes(), Charsets.UTF_8)
+                        contentTypesXml = zis.readBytes().decodeToString()
                     }
                     CHART_PATH_PATTERN.matches(path) && !path.contains("/_rels/") -> {
                         chartFiles[path] = zis.readBytes()
@@ -194,10 +194,10 @@ internal class ChartProcessor {
                 when {
                     entryName == "[Content_Types].xml" -> {
                         val updatedContent = addChartAndDrawingContentTypes(
-                            String(zis.readBytes(), Charsets.UTF_8), ctx.chartInfo
+                            zis.readBytes().decodeToString(), ctx.chartInfo
                         )
                         ctx.zos.putNextEntry(ZipEntry(entryName))
-                        ctx.zos.write(updatedContent.toByteArray(Charsets.UTF_8))
+                        ctx.zos.write(updatedContent.encodeToByteArray())
                         ctx.zos.closeEntry()
                         ctx.writtenEntries.add(entryName)
                     }
@@ -206,7 +206,7 @@ internal class ChartProcessor {
                     }
                     DRAWING_RELS_PATH_PATTERN.matches(path) -> {
                         val content = zis.readBytes()
-                        currentDrawingRels[path] = String(content, Charsets.UTF_8)
+                        currentDrawingRels[path] = content.decodeToString()
                         pendingDrawingRelsFiles.add(PendingFile(path, entryName, content))
                     }
                     else -> {
@@ -229,7 +229,7 @@ internal class ChartProcessor {
     ): Map<String, Map<String, String>> = buildMap {
         chartInfo.drawingRelsFiles.forEach { (relsPath, originalRelsBytes) ->
             currentDrawingRels[relsPath]?.let { currentRelsXml ->
-                put(relsPath, calculateRidMapping(currentRelsXml, String(originalRelsBytes, Charsets.UTF_8)))
+                put(relsPath, calculateRidMapping(currentRelsXml, originalRelsBytes.decodeToString()))
             }
         }
     }
@@ -252,19 +252,19 @@ internal class ChartProcessor {
 
             val rawContent = if (originalDrawing != null) {
                 mergeDrawingXml(
-                    String(currentContent, Charsets.UTF_8),
-                    String(originalDrawing, Charsets.UTF_8),
+                    currentContent.decodeToString(),
+                    originalDrawing.decodeToString(),
                     ridMapping,
                     expansions
                 )
             } else {
-                String(currentContent, Charsets.UTF_8)
+                currentContent.decodeToString()
             }
 
             val mergedContent = ctx.variableResolver?.invoke(rawContent) ?: rawContent
 
             ctx.zos.putNextEntry(ZipEntry(entryName))
-            ctx.zos.write(mergedContent.toByteArray(Charsets.UTF_8))
+            ctx.zos.write(mergedContent.encodeToByteArray())
             ctx.zos.closeEntry()
             ctx.writtenEntries.add(entryName)
         }
@@ -281,16 +281,16 @@ internal class ChartProcessor {
 
             val mergedContent = if (originalRels != null) {
                 mergeDrawingRelsXml(
-                    String(currentContent, Charsets.UTF_8),
-                    String(originalRels, Charsets.UTF_8),
+                    currentContent.decodeToString(),
+                    originalRels.decodeToString(),
                     ridMapping
                 )
             } else {
-                String(currentContent, Charsets.UTF_8)
+                currentContent.decodeToString()
             }
 
             ctx.zos.putNextEntry(ZipEntry(entryName))
-            ctx.zos.write(mergedContent.toByteArray(Charsets.UTF_8))
+            ctx.zos.write(mergedContent.encodeToByteArray())
             ctx.zos.closeEntry()
             ctx.writtenEntries.add(entryName)
         }
@@ -314,7 +314,7 @@ internal class ChartProcessor {
      */
     private fun buildDrawingToSheetMapping(chartInfo: ChartInfo): Map<String, String> = buildMap {
         chartInfo.drawingRelsFiles.forEach { (relsPath, relsBytes) ->
-            val relsXml = String(relsBytes, Charsets.UTF_8)
+            val relsXml = relsBytes.decodeToString()
             // 속성 순서에 무관한 CHART_REL_TARGET_PATTERN으로 차트 관계를 찾고, Target 경로 추출
             val chartTargets = CHART_REL_TARGET_PATTERN.findAll(relsXml)
                 .mapNotNull { CHART_TARGET_ATTR_PATTERN.find(it.value)?.value }
@@ -325,7 +325,7 @@ internal class ChartProcessor {
                 // Target: "../charts/chart1.xml" -> "/xl/charts/chart1.xml"
                 val chartPath = "/xl/charts/" + target.substringAfterLast("/")
                 val chartBytes = chartInfo.chartFiles[chartPath] ?: continue
-                val sheetName = extractSheetNameFromChartXml(String(chartBytes, Charsets.UTF_8)) ?: continue
+                val sheetName = extractSheetNameFromChartXml(chartBytes.decodeToString()) ?: continue
 
                 // relsPath: "/xl/drawings/_rels/drawing1.xml.rels" -> drawingPath: "/xl/drawings/drawing1.xml"
                 val drawingPath = "/xl/drawings/" + relsPath.substringAfterLast("/_rels/").removeSuffix(".rels")
@@ -381,7 +381,7 @@ internal class ChartProcessor {
     private fun writeChartFiles(ctx: RestoreContext) {
         ctx.chartInfo.chartFiles.forEach { (path, bytes) ->
             val processedBytes = if (path.endsWith(".xml")) {
-                var xml = String(bytes, Charsets.UTF_8)
+                var xml = bytes.decodeToString()
 
                 // 차트 데이터 범위 조정 (repeat 확장에 맞게)
                 if (ctx.repeatExpansionInfos.isNotEmpty()) {
@@ -395,7 +395,7 @@ internal class ChartProcessor {
                 // 변수 치환
                 ctx.variableResolver?.let { xml = it(xml) }
 
-                xml.toByteArray(Charsets.UTF_8)
+                xml.encodeToByteArray()
             } else bytes
 
             addZipEntry(ctx.zos, path, processedBytes, ctx.writtenEntries)
@@ -422,7 +422,7 @@ internal class ChartProcessor {
                 val ridValue = match.groupValues[1]
                 ridValue.removePrefix("rId").toIntOrNull().also { rid ->
                     if (rid == null) {
-                        LOG.warn("잘못된 rId 형식: $ridValue")
+                        LOG.warn("Invalid rId format: $ridValue")
                     }
                 }
             }
@@ -461,8 +461,8 @@ internal class ChartProcessor {
             setFeature("http://xml.org/sax/features/external-parameter-entities", false)
         }.newDocumentBuilder()
 
-        val currentDoc = docBuilder.parse(currentXml.byteInputStream(Charsets.UTF_8))
-        val originalDoc = docBuilder.parse(originalXml.byteInputStream(Charsets.UTF_8))
+        val currentDoc = docBuilder.parse(currentXml.byteInputStream())
+        val originalDoc = docBuilder.parse(originalXml.byteInputStream())
 
         val currentRoot = currentDoc.documentElement
         val originalRoot = originalDoc.documentElement
@@ -532,7 +532,10 @@ internal class ChartProcessor {
                         else -> shapeAnchors.add(node)  // 기본: 도형으로 분류
                     }
                 }
-                "oneCellAnchor" -> oneCellAnchors.add(node)
+                "oneCellAnchor" -> {
+                    if (hasDescendant(node, "graphicFrame")) chartAnchors.add(node)
+                    else oneCellAnchors.add(node)
+                }
             }
         }
 
@@ -614,7 +617,7 @@ internal class ChartProcessor {
         allDrawingRels: Map<String, ByteArray>
     ): ChartRelatedDrawings {
         val chartRelatedDrawingRels = allDrawingRels.filter { (_, content) ->
-            CHART_TARGET_ATTR_PATTERN.containsMatchIn(String(content, Charsets.UTF_8))
+            CHART_TARGET_ATTR_PATTERN.containsMatchIn(content.decodeToString())
         }
 
         val relatedDrawingNames = chartRelatedDrawingRels.keys.map { relsPath ->

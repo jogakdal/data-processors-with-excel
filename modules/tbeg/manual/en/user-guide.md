@@ -27,7 +27,7 @@ repositories {
 
 // 2. Add dependency
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.2.1")
+    implementation("io.github.jogakdal:tbeg:1.2.2")
 }
 ```
 
@@ -43,7 +43,7 @@ repositories {
 
 // 2. Add dependency
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.2.1'
+    implementation 'io.github.jogakdal:tbeg:1.2.2'
 }
 ```
 
@@ -57,7 +57,7 @@ dependencies {
     <dependency>
         <groupId>io.github.jogakdal</groupId>
         <artifactId>tbeg</artifactId>
-        <version>1.2.1</version>
+        <version>1.2.2</version>
     </dependency>
 </dependencies>
 ```
@@ -159,6 +159,7 @@ TBEG uses special markers in Excel templates to bind data.
 | `${size(collection)}`      | Collection size              | `${size(employees)}`               |
 | `${merge(item.field)}`     | Automatic cell merge         | `${merge(emp.dept)}`               |
 | `${bundle(range)}`         | Bundle                       | `${bundle(A5:H12)}`               |
+| `${hideable(...)}`         | Selective field visibility   | `${hideable(value=emp.salary, bundle=C1:C3)}` |
 
 For detailed syntax, see the [Template Syntax Reference](./reference/template-syntax.md).
 
@@ -244,9 +245,54 @@ fun main() {
 
 > URL images are downloaded during the `generate()` call and embedded in the Excel file. Within the same call, identical URLs are downloaded only once. Even if the download fails, Excel generation completes normally. For detailed settings, see [Image URL Syntax](./reference/template-syntax.md#45-url-images) and [Cache Configuration](./reference/configuration.md#imageurlcachettlseconds).
 
+### 2.4 Selective Field Visibility
+
+You can restrict the visibility of specific fields in repeated output depending on the situation. Place `hideable` markers in the template and specify which fields to hide in code -- the corresponding columns will be automatically removed or deactivated.
+
+#### Template (employees.xlsx)
+
+|   | A                                | B               | C                                           | D               |
+|---|----------------------------------|-----------------|---------------------------------------------|-----------------|
+| 1 | ${repeat(employees, A3:D3, emp)} |                 |                                             |                 |
+| 2 | Name                             | Position        | Salary                                      | Hire Date       |
+| 3 | ${emp.name}                      | ${emp.position} | ${hideable(value=emp.salary, bundle=C2:C3)} | ${emp.hireDate} |
+
+#### Kotlin Code
+
+```kotlin
+val provider = simpleDataProvider {
+    items("employees", employeeList)
+    hideFields("employees", "salary")  // Hide the salary field
+}
+
+ExcelGenerator().use { generator ->
+    val bytes = generator.generate(templateStream, provider)
+}
+```
+
+When `"salary"` is specified in `hideFields`, the entire salary column (including the title) is removed and the remaining columns shift accordingly. If `hideFields` is not specified, values are rendered as a normal field.
+
+#### Hide Modes
+
+| Mode | Description |
+|:----:|-------------|
+| `DELETE` | Physically deletes the column and shifts remaining elements (default) |
+| `DIM` | Applies a deactivation style (gray background + light text color) to the data area and removes values. Bundle areas outside the repeat range (such as field titles) only have their text color changed |
+
+> [!TIP]
+> For detailed syntax and usage in formulas, see the [Template Syntax Reference](./reference/template-syntax.md#10-selective-field-visibility-hideable).
+
 ---
 
 ## 3. Using DataProvider
+
+Choose the appropriate method based on your data volume and source.
+
+| Data Volume | Recommended Approach | Notes |
+|-------------|---------------------|-------|
+| Up to 1,000 rows | `Map<String, Any>` | Simplest, no extra setup needed |
+| 1,000 - 10,000 rows | `simpleDataProvider` + count | Lazy loading saves memory |
+| Over 10,000 rows | Custom `DataProvider` + Stream | Optimal performance with DB streaming |
 
 ### 3.1 Map vs DataProvider
 
@@ -284,6 +330,9 @@ val provider = simpleDataProvider {
     // Image (URL - automatically downloaded during rendering)
     imageUrl("banner", "https://example.com/banner.png")
 
+    // Selective field visibility (for fields with hideable markers)
+    hideFields("employees", "salary")
+
     // Document metadata
     metadata {
         title = "Monthly Report"
@@ -306,6 +355,7 @@ SimpleDataProvider provider = SimpleDataProvider.builder()
     .value("date", LocalDate.now().toString())
     .items("departments", List.of(dept1, dept2, dept3))
     .itemsFromSupplier("employees", () -> employeeRepository.findAll().iterator())
+    .hideFields("employees", "salary")  // Selective field visibility
     .image("logo", logoBytes)
     .metadata(meta -> meta
         .title("Monthly Report")

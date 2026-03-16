@@ -57,6 +57,7 @@
 - [개발자 가이드](./developer-guide.md) - 내부 아키텍처 및 확장 방법
 
 ### 별첨
+- [용어집](./glossary.md) - TBEG 문서에서 사용하는 주요 용어 정리
 - [타 라이브러리 비교](./appendix/library-comparison.md) - Excel 보고서 라이브러리 간 기능 비교
 
 ---

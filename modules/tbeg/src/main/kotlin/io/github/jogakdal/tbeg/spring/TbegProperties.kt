@@ -5,6 +5,7 @@ import io.github.jogakdal.tbeg.FileConflictPolicy
 import io.github.jogakdal.tbeg.FileNamingMode
 import io.github.jogakdal.tbeg.MissingDataBehavior
 import io.github.jogakdal.tbeg.StreamingMode
+import io.github.jogakdal.tbeg.UnmarkedHidePolicy
 import org.springframework.boot.context.properties.ConfigurationProperties
 
 /**
@@ -85,7 +86,14 @@ data class TbegProperties(
      * 이미지 URL 다운로드 결과의 캐시 TTL (초).
      * 0이면 호출 간 캐싱을 하지 않는다 (기본값).
      */
-    var imageUrlCacheTtlSeconds: Long = 0
+    var imageUrlCacheTtlSeconds: Long = 0,
+
+    /**
+     * hideable 마커 없이 hideFields에 지정된 필드의 처리 정책.
+     * - warn-and-hide: 경고 로그 출력 후 해당 셀만 숨김 (기본값)
+     * - error: 예외 발생
+     */
+    var unmarkedHidePolicy: UnmarkedHidePolicyProperty = UnmarkedHidePolicyProperty.WARN_AND_HIDE
 ) {
     /**
      * TbegConfig로 변환한다.
@@ -99,7 +107,8 @@ data class TbegProperties(
         pivotIntegerFormatIndex = pivotIntegerFormatIndex,
         pivotDecimalFormatIndex = pivotDecimalFormatIndex,
         missingDataBehavior = missingDataBehavior.toMissingDataBehavior(),
-        imageUrlCacheTtlSeconds = imageUrlCacheTtlSeconds
+        imageUrlCacheTtlSeconds = imageUrlCacheTtlSeconds,
+        unmarkedHidePolicy = unmarkedHidePolicy.toUnmarkedHidePolicy()
     )
 }
 
@@ -152,5 +161,17 @@ enum class MissingDataBehaviorProperty {
     fun toMissingDataBehavior(): MissingDataBehavior = when (this) {
         WARN -> MissingDataBehavior.WARN
         THROW -> MissingDataBehavior.THROW
+    }
+}
+
+/**
+ * unmarkedHidePolicy 프로퍼티 (application.yml 바인딩용).
+ */
+enum class UnmarkedHidePolicyProperty {
+    WARN_AND_HIDE, ERROR;
+
+    fun toUnmarkedHidePolicy(): UnmarkedHidePolicy = when (this) {
+        WARN_AND_HIDE -> UnmarkedHidePolicy.WARN_AND_HIDE
+        ERROR -> UnmarkedHidePolicy.ERROR
     }
 }

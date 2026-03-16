@@ -8,6 +8,7 @@
 5. [암호 설정](#5-암호-설정)
 6. [문서 메타데이터](#6-문서-메타데이터)
 7. [자동 셀 병합](#7-자동-셀-병합)
+8. [선택적 필드 노출](#8-선택적-필드-노출)
 
 ---
 
@@ -515,6 +516,87 @@ ExcelGenerator().use { generator ->
 
 > A2:A3이 "영업부", A4:A6이 "개발부"로 자동 병합됩니다.
 > 데이터가 병합 기준(부서)으로 사전 정렬되어 있어야 합니다.
+
+---
+
+## 8. 선택적 필드 노출
+
+기본적으로 모든 필드가 노출되며, 상황에 따라 특정 필드의 노출을 제한할 수 있습니다. 권한이나 용도에 따라 일부 컬럼을 제외한 보고서를 생성할 때 유용합니다.
+
+### 템플릿 (hideable_template.xlsx)
+
+|   | A                                  | B               | C                                          | D                |
+|---|------------------------------------|-----------------|--------------------------------------------|------------------|
+| 1 | ${repeat(employees, A3:D3, emp)}   |                 |                                            |                  |
+| 2 | 이름                                 | 부서              | 급여                                         | 입사일              |
+| 3 | ${emp.name}                        | ${emp.dept}     | ${hideable(emp.salary, C2:C3)}             | ${emp.hireDate}  |
+
+- **C3**: `${hideable(emp.salary, C2:C3)}` -- `salary` 필드가 숨김 대상이면 필드 타이틀(C2)과 데이터(C3)를 함께 삭제합니다
+
+### Kotlin 코드
+
+```kotlin
+import io.github.jogakdal.tbeg.ExcelGenerator
+import io.github.jogakdal.tbeg.simpleDataProvider
+
+fun main() {
+    val provider = simpleDataProvider {
+        items("employees", listOf(
+            mapOf("name" to "김철수", "dept" to "개발팀", "salary" to 5000, "hireDate" to "2020-01-15"),
+            mapOf("name" to "이영희", "dept" to "기획팀", "salary" to 4500, "hireDate" to "2021-03-20")
+        ))
+        hideFields("employees", "salary")  // 급여 컬럼 숨김
+    }
+
+    ExcelGenerator().use { generator ->
+        val template = File("hideable_template.xlsx").inputStream()
+        val bytes = generator.generate(template, provider)
+        File("output.xlsx").writeBytes(bytes)
+    }
+}
+```
+
+### Java 코드
+
+```java
+import io.github.jogakdal.tbeg.ExcelGenerator;
+import io.github.jogakdal.tbeg.SimpleDataProvider;
+import java.io.*;
+import java.util.*;
+
+public class HideableExample {
+    public static void main(String[] args) throws Exception {
+        SimpleDataProvider provider = SimpleDataProvider.builder()
+            .items("employees", List.of(
+                Map.of("name", "김철수", "dept", "개발팀", "salary", 5000, "hireDate", "2020-01-15"),
+                Map.of("name", "이영희", "dept", "기획팀", "salary", 4500, "hireDate", "2021-03-20")
+            ))
+            .hideFields("employees", "salary")
+            .build();
+
+        try (ExcelGenerator generator = new ExcelGenerator();
+             InputStream template = new FileInputStream("hideable_template.xlsx")) {
+
+            byte[] bytes = generator.generate(template, provider);
+            try (FileOutputStream output = new FileOutputStream("output.xlsx")) {
+                output.write(bytes);
+            }
+        }
+    }
+}
+```
+
+### 결과 (급여 컬럼이 삭제됨)
+
+|   | A    | B    | C          |
+|---|------|------|------------|
+| 1 |      |      |            |
+| 2 | 이름   | 부서   | 입사일        |
+| 3 | 김철수  | 개발팀  | 2020-01-15 |
+| 4 | 이영희  | 기획팀  | 2021-03-20 |
+
+- `hideFields()`를 호출하지 않으면 급여 컬럼이 포함된 전체 보고서가 생성됩니다
+- 고급 활용(DIM 모드, 다중 필드 숨기기)은 [고급 예제 - 선택적 필드 노출 활용](./advanced-examples.md#14-선택적-필드-노출-활용)을 참조하세요
 
 ---
 

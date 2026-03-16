@@ -76,8 +76,8 @@ internal class StreamingDataSource(
 
             if (existingIteratorForCollection && repeatKey.collectionName !in warnedCollections) {
                 LOG.warn(
-                    "컬렉션 '{}'이 여러 repeat 영역에서 사용되고 있습니다. " +
-                        "DataProvider를 재호출하여 새 Iterator를 생성합니다. (repeat 영역: row={}, col={})",
+                    "Collection '{}' is used in multiple repeat regions. " +
+                        "Re-invoking DataProvider to create a new Iterator. (repeat region: row={}, col={})",
                     repeatKey.collectionName,
                     repeatKey.startRow,
                     repeatKey.startCol
@@ -116,9 +116,9 @@ internal class StreamingDataSource(
 
         if (actualCount < expectedCount) {
             LOG.warn(
-                "컬렉션 '{}' count 불일치: 제공된 count={}개, 실제 아이템={}개. " +
-                    "Iterator가 예상보다 일찍 소진되어 {}개의 빈 행이 생성됩니다. " +
-                    "(repeat 영역: sheet={}, row={}, col={})",
+                "Collection '{}' count mismatch: provided count={}, actual items={}. " +
+                    "Iterator exhausted earlier than expected; {} empty rows will be generated. " +
+                    "(repeat region: sheet={}, row={}, col={})",
                 repeatKey.collectionName,
                 expectedCount,
                 actualCount,
@@ -157,9 +157,9 @@ internal class StreamingDataSource(
             val hasMore = iterator.hasNext()
 
             LOG.warn(
-                "컬렉션 '{}' count 불일치: 제공된 count={}개, 실제 아이템={}개 이상. " +
-                    "제공된 count만큼만 처리되고 나머지 아이템은 무시됩니다. " +
-                    "(repeat 영역: sheet={}, row={}, col={})",
+                "Collection '{}' count mismatch: provided count={}, actual items={} or more. " +
+                    "Only the provided count will be processed; remaining items are ignored. " +
+                    "(repeat region: sheet={}, row={}, col={})",
                 repeatKey.collectionName,
                 expectedCount,
                 consumedCount + remainingCount + (if (hasMore) 1 else 0),

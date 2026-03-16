@@ -15,6 +15,7 @@ A JVM library that generates reports by binding data to Excel templates. Works s
 - **Image insertion**: Insert dynamic images into template cells
 - **Automatic cell merge**: Automatically merge consecutive cells with the same value in repeat data
 - **Bundle**: Group multiple elements into a single unit that moves together
+- **Selective field visibility**: Restrict visibility of specific fields based on conditions. Choose between DELETE (physical removal) or DIM (deactivation style) modes
 - **Formula auto-adjustment**: Automatically update formula ranges (SUM, AVERAGE, etc.) when data expands
 - **Conditional formatting duplication**: Automatically apply the original conditional formatting to repeated rows
 - **Chart/pivot table auto-reflection**: Automatically adjust chart data ranges and pivot table source ranges when data expands (no manual refresh required when opening the file)
@@ -100,7 +101,7 @@ ExcelGenerator().use { generator ->
 
 ![Result](modules/tbeg/src/main/resources/sample/screenshot_result.png)
 
-Variable substitution, image insertion, repeat data expansion, automatic cell merge, bundle, formula range adjustment, conditional formatting duplication, and chart data reflection — TBEG handles all of this automatically.
+Variable substitution, image insertion, repeat data expansion, automatic cell merge, bundle, selective field visibility, formula range adjustment, conditional formatting duplication, and chart data reflection — TBEG handles all of this automatically.
 
 > For the full code and template download, see the [Comprehensive Example](modules/tbeg/manual/en/examples/advanced-examples.md#11-comprehensive-example--quarterly-sales-performance-report).
 
@@ -113,7 +114,7 @@ Variable substitution, image insertion, repeat data expansion, automatic cell me
 | Filling data into Excel forms provided by a designer | Suitable |
 | Reports requiring complex formatting (conditional formatting, charts, pivot tables) | Suitable |
 | Processing large datasets with tens to hundreds of thousands of rows | Suitable |
-| Excel with dynamically changing column structures | Not suitable |
+| Excel with dynamically changing column structures | Suitable (RIGHT repeat, selective field visibility) |
 | Reading/parsing Excel files | Not suitable (TBEG is generation-only) |
 
 > [!TIP]
@@ -126,14 +127,14 @@ Variable substitution, image insertion, repeat data expansion, automatic cell me
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.2.1")
+    implementation("io.github.jogakdal:tbeg:1.2.2")
 }
 ```
 
 ```groovy
 // Gradle (Groovy DSL)
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.2.1'
+    implementation 'io.github.jogakdal:tbeg:1.2.2'
 }
 ```
 
@@ -142,7 +143,7 @@ dependencies {
 <dependency>
     <groupId>io.github.jogakdal</groupId>
     <artifactId>tbeg</artifactId>
-    <version>1.2.1</version>
+    <version>1.2.2</version>
 </dependency>
 ```
 
@@ -242,6 +243,7 @@ SimpleDataProvider provider = SimpleDataProvider.builder()
 | `${size(collection)}` | Collection size | `${size(items)}` |
 | `${merge(item.field)}` | Automatic cell merge | `${merge(emp.dept)}` |
 | `${bundle(range)}` | Bundle | `${bundle(A5:H12)}` |
+| `${hideable(value=item.field, ...)}` | Selective field visibility | `${hideable(value=emp.salary, bundle=C1:C3, mode=dim)}` |
 
 For detailed syntax, see the [Template Syntax Reference](modules/tbeg/manual/en/reference/template-syntax.md).
 
@@ -360,6 +362,10 @@ Samples use the `modules/tbeg/src/test/resources/templates/template.xlsx` templa
 # Java sample
 ./gradlew :tbeg:runJavaSample
 # Output: build/samples-java/
+
+# Hideable sample
+./gradlew :tbeg:runHideableSample
+# Output: build/samples-hideable/
 
 # Spring Boot sample
 ./gradlew :tbeg:runSpringBootSample

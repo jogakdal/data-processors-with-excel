@@ -39,6 +39,12 @@ io.github.jogakdal.tbeg/
 │   │   ├── ChartProcessor.kt
 │   │   ├── PivotTableProcessor.kt
 │   │   └── XmlVariableProcessor.kt
+│   ├── preprocessing/                  # Preprocessing (template transformation before rendering)
+│   │   ├── HidePreprocessor.kt         # Hide preprocessing orchestrator
+│   │   ├── HideValidator.kt           # Hideable marker validation
+│   │   ├── HideableRegion.kt          # Hideable region information collection
+│   │   ├── ElementShifter.kt          # Column/row deletion shift and formula reference adjustment
+│   │   └── CellUtils.kt              # Cell manipulation utilities
 │   ├── pipeline/                       # Pipeline pattern
 │   │   ├── TbegPipeline.kt
 │   │   ├── ExcelProcessor.kt
@@ -74,6 +80,14 @@ Template + Data
        │
        ▼
 ───────────────────────────────────────────────────────────────
+                  Hide Preprocessing (HidePreprocessor)
+───────────────────────────────────────────────────────────────
+   0. HidePreprocessor            - Delete or DIM columns/rows based on hideable markers
+                                    (transforms the template itself before pipeline entry)
+───────────────────────────────────────────────────────────────
+       │
+       ▼
+───────────────────────────────────────────────────────────────
                        TbegPipeline
 ───────────────────────────────────────────────────────────────
    1. ChartExtractProcessor       - Extract charts (prevent streaming loss)
@@ -89,6 +103,8 @@ Template + Data
        ▼
   Generated Excel
 ```
+
+Hide preprocessing runs before the pipeline entry. It only activates when the DataProvider's `getHiddenFields()` returns non-empty collections, generating **new template bytes** with the hideable marker's bundle range columns (DELETE mode) or cell values (DIM mode) transformed, and passing them to the pipeline.
 
 ### 1.3 Design Principles
 
@@ -366,6 +382,12 @@ when (content) {
         content.direction    // RepeatDirection.DOWN
     }
     is CellContent.ImageMarker -> { content.name; content.position }
+    is CellContent.HideableField -> {
+        content.itemVariable  // "emp"
+        content.fieldPath     // "salary"
+        content.bundleRange   // "C1:C3" (nullable)
+        content.mode          // HideMode.DELETE or HideMode.DIM
+    }
     is CellContent.Variable -> content.name
     is CellContent.ItemField -> content.fieldPath
     is CellContent.Formula -> content.formula
@@ -383,6 +405,7 @@ when (content) {
 | `size` | Output collection size | collection | |
 | `merge` | Automatic cell merge | field | |
 | `bundle` | Element bundling | range | |
+| `hideable` | Field hiding | value | bundle(=cell only), mode(=delete) |
 
 ### 4.5 Duplicate Marker Detection
 
@@ -509,6 +532,17 @@ Groups elements within a specified range into a single unit for displacement cal
 - Internal displacement is calculated as if it were an independent sheet
 - Once a bundle's size is determined, it participates in the chaining as a wide element
 - Boundary overlap and nesting are prohibited
+
+### 5.6 ElementShifter (Hide Preprocessing Shift)
+
+`ElementShifter` is responsible for adjusting element positions after physically deleting columns/rows in hide DELETE mode.
+
+Key functions:
+- **Column shift**: Shifts cells, merged regions, and conditional formatting ranges to the left after a column is deleted
+- **Formula reference adjustment**: Shifts cell references in formulas that reference deleted columns/rows
+- **Marker range adjustment**: Updates cell range strings inside repeat, bundle, and other markers
+
+While PositionCalculator handles **rendering-time** position calculation from repeat expansion, ElementShifter transforms the template structure itself at **preprocessing time**.
 
 ---
 

@@ -2,6 +2,25 @@
 
 # TBEG Changelog
 
+## 1.2.2
+
+### New Features
+
+- **Selective field visibility (hideable)**: Conditionally control the visibility of specific fields. Use with `${hideable(value=emp.salary, bundle=C1:C3, mode=dim)}` or `=TBEG_HIDEABLE(...)` formula marker
+  - **HideMode**: Choose between `DELETE` (physical deletion + shift, default) or `DIM` (apply disabled style + remove values)
+  - **UnmarkedHidePolicy**: Configures behavior when attempting to hide a field that has no hideable marker. Supports `WARN_AND_HIDE` (warn and hide, default) or `ERROR` (throw exception)
+  - **API**: Specify fields to hide via `ExcelDataProvider.getHiddenFields()`, or use `SimpleDataProvider.Builder.hideFields()` for convenient configuration
+  - **Spring Boot configuration**: Set the policy via the `tbeg.unmarked-hide-policy` property
+
+<details>
+<summary>Internal Improvements</summary>
+
+- **New preprocessing package**: Added `HidePreprocessor`, `HideValidator`, `ElementShifter`, and `CellUtils` classes under the `engine/preprocessing/` package to organize field-hiding preprocessing logic.
+- **Marker parser extension**: Added hideable marker parsing to `UnifiedMarkerParser`.
+- **Configuration extension**: Added `unmarkedHidePolicy` option to `TbegConfig`.
+
+</details>
+
 ## 1.2.1
 
 ### New Features

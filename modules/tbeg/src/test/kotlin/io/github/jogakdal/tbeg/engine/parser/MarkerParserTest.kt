@@ -2,6 +2,7 @@
 
 package io.github.jogakdal.tbeg.engine.parser
 
+import io.github.jogakdal.tbeg.HideMode
 import io.github.jogakdal.tbeg.engine.rendering.CellContent
 import io.github.jogakdal.tbeg.engine.rendering.ImageSizeSpec
 import io.github.jogakdal.tbeg.engine.rendering.RepeatDirection
@@ -557,6 +558,152 @@ class MarkerParserTest {
             val content = UnifiedMarkerParser.parse(null, isFormula = false)
             assertTrue(content is CellContent.Empty)
         }
+
+        @Test
+        fun `텍스트 hideable 마커 파싱 - bundle 포함`() {
+            val content = UnifiedMarkerParser.parse(
+                "\${hideable(value=emp.salary, bundle=C1:C3)}",
+                isFormula = false
+            )
+
+            assertTrue(content is CellContent.HideableField)
+            val field = content as CellContent.HideableField
+            assertEquals("emp", field.itemVariable)
+            assertEquals("salary", field.fieldPath)
+            assertEquals("C1:C3", field.bundleRange)
+        }
+
+        @Test
+        fun `텍스트 hideable 마커 파싱 - bundle 생략`() {
+            val content = UnifiedMarkerParser.parse(
+                "\${hideable(value=emp.salary)}",
+                isFormula = false
+            )
+
+            assertTrue(content is CellContent.HideableField)
+            val field = content as CellContent.HideableField
+            assertEquals("emp", field.itemVariable)
+            assertEquals("salary", field.fieldPath)
+            assertNull(field.bundleRange)
+        }
+
+        @Test
+        fun `텍스트 hideable 마커 파싱 - 위치 기반 파라미터`() {
+            val content = UnifiedMarkerParser.parse(
+                "\${hideable(emp.salary, C1:C3)}",
+                isFormula = false
+            )
+
+            assertTrue(content is CellContent.HideableField)
+            val field = content as CellContent.HideableField
+            assertEquals("emp", field.itemVariable)
+            assertEquals("salary", field.fieldPath)
+            assertEquals("C1:C3", field.bundleRange)
+        }
+
+        @Test
+        fun `수식 hideable 마커 파싱`() {
+            val content = UnifiedMarkerParser.parse(
+                "TBEG_HIDEABLE(emp.salary, C1:C3)",
+                isFormula = true
+            )
+
+            assertTrue(content is CellContent.HideableField)
+            val field = content as CellContent.HideableField
+            assertEquals("emp", field.itemVariable)
+            assertEquals("salary", field.fieldPath)
+            assertEquals("C1:C3", field.bundleRange)
+        }
+
+        @Test
+        fun `수식 hideable 마커 파싱 - 등호 포함`() {
+            val content = UnifiedMarkerParser.parse(
+                "=TBEG_HIDEABLE(emp.salary)",
+                isFormula = true
+            )
+
+            assertTrue(content is CellContent.HideableField)
+            val field = content as CellContent.HideableField
+            assertEquals("emp", field.itemVariable)
+            assertEquals("salary", field.fieldPath)
+            assertNull(field.bundleRange)
+        }
+
+        @Test
+        fun `hideable 마커 파싱 - 별칭 field`() {
+            val content = UnifiedMarkerParser.parse(
+                "\${hideable(field=emp.age)}",
+                isFormula = false
+            )
+
+            assertTrue(content is CellContent.HideableField)
+            val field = content as CellContent.HideableField
+            assertEquals("emp", field.itemVariable)
+            assertEquals("age", field.fieldPath)
+        }
+
+        @Test
+        fun `hideable 마커 파싱 - 중첩 필드 경로`() {
+            val content = UnifiedMarkerParser.parse(
+                "\${hideable(value=emp.department.name, bundle=C1:C5)}",
+                isFormula = false
+            )
+
+            assertTrue(content is CellContent.HideableField)
+            val field = content as CellContent.HideableField
+            assertEquals("emp", field.itemVariable)
+            assertEquals("department.name", field.fieldPath)
+            assertEquals("C1:C5", field.bundleRange)
+        }
+
+        @Test
+        fun `hideable 마커 파싱 - mode=dim 명시적 파라미터`() {
+            val content = UnifiedMarkerParser.parse(
+                "\${hideable(value=emp.salary, bundle=C1:C3, mode=dim)}",
+                isFormula = false
+            )
+
+            assertTrue(content is CellContent.HideableField)
+            val field = content as CellContent.HideableField
+            assertEquals("emp", field.itemVariable)
+            assertEquals("salary", field.fieldPath)
+            assertEquals("C1:C3", field.bundleRange)
+            assertEquals(HideMode.DIM, field.mode)
+        }
+
+        @Test
+        fun `hideable 마커 파싱 - mode=dim 위치 기반`() {
+            val content = UnifiedMarkerParser.parse(
+                "\${hideable(emp.salary, C1:C3, dim)}",
+                isFormula = false
+            )
+
+            assertTrue(content is CellContent.HideableField)
+            val field = content as CellContent.HideableField
+            assertEquals(HideMode.DIM, field.mode)
+        }
+
+        @Test
+        fun `hideable 마커 파싱 - mode 생략 시 기본값 DELETE`() {
+            val content = UnifiedMarkerParser.parse(
+                "\${hideable(value=emp.salary, bundle=C1:C3)}",
+                isFormula = false
+            )
+
+            assertTrue(content is CellContent.HideableField)
+            assertEquals(HideMode.DELETE, (content as CellContent.HideableField).mode)
+        }
+
+        @Test
+        fun `hideable 마커 파싱 - 수식형 mode=dim`() {
+            val content = UnifiedMarkerParser.parse(
+                "TBEG_HIDEABLE(emp.salary, C1:C3, dim)",
+                isFormula = true
+            )
+
+            assertTrue(content is CellContent.HideableField)
+            assertEquals(HideMode.DIM, (content as CellContent.HideableField).mode)
+        }
     }
 
     @Nested
@@ -636,6 +783,41 @@ class MarkerParserTest {
             }
 
             assertTrue(exception.message!!.contains("size"))
+        }
+
+        @Test
+        fun `hideable - value가 item_field 형태가 아니면 오류 발생`() {
+            val exception = assertThrows<MarkerValidationException> {
+                UnifiedMarkerParser.parse(
+                    "\${hideable(value=salary)}",
+                    isFormula = false
+                )
+            }
+            assertTrue(exception.message!!.contains("item.field"))
+        }
+
+        @Test
+        fun `hideable - mode에 잘못된 값이면 오류 발생`() {
+            val exception = assertThrows<MarkerValidationException> {
+                UnifiedMarkerParser.parse(
+                    "\${hideable(value=emp.salary, mode=invalid)}",
+                    isFormula = false
+                )
+            }
+            assertTrue(exception.message!!.contains("mode"))
+            assertTrue(exception.message!!.contains("DELETE"))
+            assertTrue(exception.message!!.contains("DIM"))
+        }
+
+        @Test
+        fun `hideable - bundle에 잘못된 범위 형식이면 오류 발생`() {
+            val exception = assertThrows<MarkerValidationException> {
+                UnifiedMarkerParser.parse(
+                    "\${hideable(value=emp.salary, bundle=invalid-range)}",
+                    isFormula = false
+                )
+            }
+            assertTrue(exception.message!!.contains("bundle"))
         }
 
         @Test

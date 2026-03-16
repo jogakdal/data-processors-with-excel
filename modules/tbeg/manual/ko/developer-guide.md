@@ -37,6 +37,12 @@ io.github.jogakdal.tbeg/
 │   │   ├── ChartProcessor.kt
 │   │   ├── PivotTableProcessor.kt
 │   │   └── XmlVariableProcessor.kt
+│   ├── preprocessing/                  # 전처리 (렌더링 전 템플릿 변환)
+│   │   ├── HidePreprocessor.kt         # hide 전처리 오케스트레이터
+│   │   ├── HideValidator.kt           # hideable 마커 유효성 검증
+│   │   ├── HideableRegion.kt          # hideable 영역 정보 수집
+│   │   ├── ElementShifter.kt          # 열/행 삭제 후 시프트 및 수식 참조 조정
+│   │   └── CellUtils.kt              # 셀 조작 유틸리티
 │   ├── pipeline/                       # 파이프라인 패턴
 │   │   ├── TbegPipeline.kt
 │   │   ├── ExcelProcessor.kt
@@ -72,6 +78,14 @@ io.github.jogakdal.tbeg/
        │
        ▼
 ───────────────────────────────────────────────────────────────
+                  Hide 전처리 (HidePreprocessor)
+───────────────────────────────────────────────────────────────
+   0. HidePreprocessor            - hideable 마커 기반 열/행 삭제 또는 DIM 처리
+                                    (파이프라인 진입 전에 템플릿 자체를 변환)
+───────────────────────────────────────────────────────────────
+       │
+       ▼
+───────────────────────────────────────────────────────────────
                        TbegPipeline
 ───────────────────────────────────────────────────────────────
    1. ChartExtractProcessor       - 차트 추출 (스트리밍 처리 시 손실 방지)
@@ -87,6 +101,8 @@ io.github.jogakdal.tbeg/
        ▼
   생성된 Excel
 ```
+
+Hide 전처리는 파이프라인에 진입하기 전에 실행된다. DataProvider의 `getHiddenFields()`가 비어있지 않은 컬렉션이 있을 때만 동작하며, hideable 마커의 bundle 범위에 해당하는 열(DELETE 모드) 또는 셀 값(DIM 모드)을 변환한 **새 템플릿 바이트**를 생성하여 파이프라인에 전달한다.
 
 ### 1.3 설계 원칙
 
@@ -364,6 +380,12 @@ when (content) {
         content.direction    // RepeatDirection.DOWN
     }
     is CellContent.ImageMarker -> { content.name; content.position }
+    is CellContent.HideableField -> {
+        content.itemVariable  // "emp"
+        content.fieldPath     // "salary"
+        content.bundleRange   // "C1:C3" (nullable)
+        content.mode          // HideMode.DELETE or HideMode.DIM
+    }
     is CellContent.Variable -> content.name
     is CellContent.ItemField -> content.fieldPath
     is CellContent.Formula -> content.formula
@@ -376,11 +398,12 @@ when (content) {
 
 | 마커       | 용도        | 필수 파라미터           | 선택 파라미터                         |
 |----------|-----------|-------------------|---------------------------------|
-| `repeat` | 반복 데이터 확장 | collection, range | var, direction(=DOWN), empty    |
-| `image`  | 이미지 삽입    | name              | position, size(=fit)            |
-| `size`   | 컬렉션 크기 출력 | collection        |                                 |
-| `merge`  | 자동 셀 병합   | field             |                                 |
-| `bundle` | 요소 묶음     | range             |                                 |
+| `repeat`   | 반복 데이터 확장 | collection, range | var, direction(=DOWN), empty    |
+| `image`    | 이미지 삽입    | name              | position, size(=fit)            |
+| `size`     | 컬렉션 크기 출력 | collection        |                                 |
+| `merge`    | 자동 셀 병합   | field             |                                 |
+| `bundle`   | 요소 묶음     | range             |                                 |
+| `hideable` | 필드 숨기기    | value             | bundle(=해당 셀만), mode(=delete) |
 
 ### 4.5 중복 마커 감지
 
@@ -507,6 +530,17 @@ data class RepeatExpansion(
 - 내부는 독자적인 시트처럼 밀림이 계산된다
 - 크기가 확정된 bundle은 넓은 요소로서 체이닝에 참여한다
 - 경계 걸침과 중첩은 금지된다
+
+### 5.6 ElementShifter (Hide 전처리 시프트)
+
+`ElementShifter`는 hide DELETE 모드에서 열/행을 물리적으로 삭제한 후 나머지 요소의 위치를 조정하는 역할을 한다.
+
+주요 기능:
+- **열 시프트**: 삭제된 열 이후의 셀, 병합 영역, 조건부 서식 범위를 왼쪽으로 당긴다
+- **수식 참조 조정**: 삭제된 열/행을 참조하는 수식의 셀 참조를 시프트한다
+- **마커 범위 조정**: repeat, bundle 등 마커 내부의 셀 범위 문자열을 갱신한다
+
+PositionCalculator가 repeat 확장에 의한 **렌더링 시점** 위치 계산을 담당하는 반면, ElementShifter는 **전처리 시점**에 템플릿 자체의 구조를 변환한다.
 
 ---
 

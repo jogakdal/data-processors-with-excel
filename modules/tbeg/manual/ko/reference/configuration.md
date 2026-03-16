@@ -29,6 +29,7 @@ io.github.jogakdal.tbeg.TbegConfig
 | `pivotDecimalFormatIndex` | `Short`               | `4`                 | 소수 숫자 서식 인덱스 (`#,##0.00`) |
 | `missingDataBehavior`     | `MissingDataBehavior` | `WARN`              | 데이터 누락 시 동작              |
 | `imageUrlCacheTtlSeconds` | `Long`                | `0`                 | 이미지 URL 캐시 TTL (초, 0=캐싱 안 함) |
+| `unmarkedHidePolicy`      | `UnmarkedHidePolicy`  | `WARN_AND_HIDE`     | hideable 마커 없는 필드의 숨김 요청 시 처리 정책 |
 
 ---
 
@@ -140,9 +141,28 @@ TbegConfig(missingDataBehavior = MissingDataBehavior.THROW)
 > [!NOTE]
 > 단일 `generate()` 호출 내에서는 TTL 설정과 무관하게 같은 URL을 중복 다운로드하지 않습니다.
 
+> [!NOTE]
+> 캐시는 JVM 인스턴스의 메모리에 저장됩니다. 멀티 인스턴스 환경에서는 각 인스턴스가 독립적인 캐시를 유지합니다.
+
 ```kotlin
 TbegConfig(imageUrlCacheTtlSeconds = 60)  // 60초간 캐싱
 ```
+
+#### unmarkedHidePolicy
+
+`hideFields`에 지정된 필드가 템플릿에 hideable 마커 없이 일반 필드(`${item.field}`)로만 존재할 때의 처리 정책입니다.
+
+| 값               | 동작                                              |
+|-----------------|---------------------------------------------------|
+| `WARN_AND_HIDE` | 경고 로그를 출력하고 해당 셀만 숨김 (기본값)           |
+| `ERROR`         | `MarkerValidationException` 예외 발생               |
+
+```kotlin
+TbegConfig(unmarkedHidePolicy = UnmarkedHidePolicy.ERROR)
+```
+
+> [!NOTE]
+> hideable 마커가 있는 필드는 이 정책과 무관하게 정상적으로 처리됩니다. 이 설정은 마커 없이 hideFields에만 지정된 필드에 대한 동작을 제어합니다.
 
 ---
 
@@ -209,6 +229,24 @@ tbeg:
 
   # 이미지 URL 캐시 TTL (초, 0=캐싱 안 함)
   image-url-cache-ttl-seconds: 0
+
+  # hideable 마커 없는 필드의 숨김 요청 시 처리 정책: warn-and-hide, error
+  unmarked-hide-policy: warn-and-hide
+```
+
+### application.properties 예시
+
+```properties
+tbeg.file-naming-mode=timestamp
+tbeg.timestamp-format=yyyyMMdd_HHmmss
+tbeg.file-conflict-policy=sequence
+tbeg.progress-report-interval=100
+tbeg.preserve-template-layout=true
+tbeg.pivot-integer-format-index=3
+tbeg.pivot-decimal-format-index=4
+tbeg.missing-data-behavior=warn
+tbeg.image-url-cache-ttl-seconds=0
+tbeg.unmarked-hide-policy=warn-and-hide
 ```
 
 ### 프로퍼티 매핑
@@ -225,6 +263,7 @@ tbeg:
 | `pivot-decimal-format-index`  | `pivotDecimalFormatIndex`  |
 | `missing-data-behavior`       | `missingDataBehavior`      |
 | `image-url-cache-ttl-seconds` | `imageUrlCacheTtlSeconds`  |
+| `unmarked-hide-policy`        | `unmarkedHidePolicy`       |
 
 ---
 
@@ -283,6 +322,34 @@ enum class MissingDataBehavior {
 |---------|-------------------------------------------------|
 | `WARN`  | 경고 로그 출력 후 마커 유지, 디버깅에 유용                       |
 | `THROW` | `MissingTemplateDataException` 발생, 데이터 무결성 중요 시 |
+
+### HideMode
+
+```kotlin
+enum class HideMode {
+    DELETE,  // 물리적 삭제 후 나머지 요소를 당김 (기본값)
+    DIM      // 비활성화 스타일 적용 + 셀 값 제거
+}
+```
+
+| 값       | 동작                                                        |
+|---------|-----------------------------------------------------------|
+| `DELETE` | 해당 영역을 삭제하고 나머지 요소를 당김. 수식, 병합 셀, 조건부 서식 자동 조정 |
+| `DIM`    | 회색 배경(#D9D9D9) + 연한 글자색(#BFBFBF) 스타일 적용, 셀 값 제거. 필드 타이틀 등 repeat 밖 bundle 영역은 글자색만 변경 |
+
+### UnmarkedHidePolicy
+
+```kotlin
+enum class UnmarkedHidePolicy {
+    WARN_AND_HIDE,  // 경고 로그 출력 후 해당 셀만 숨김 (기본값)
+    ERROR           // 예외 발생
+}
+```
+
+| 값               | 동작                                                          |
+|-----------------|-------------------------------------------------------------|
+| `WARN_AND_HIDE` | 경고 로그를 출력하고 bundle 없는 hideable처럼 동작                  |
+| `ERROR`         | `MarkerValidationException` 발생, 템플릿-데이터 간 불일치를 엄격하게 검증할 때 |
 
 ---
 

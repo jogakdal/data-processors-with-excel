@@ -25,7 +25,8 @@ data class TbegConfig(
     val pivotIntegerFormatIndex: Short = 3,
     val pivotDecimalFormatIndex: Short = 4,
     val missingDataBehavior: MissingDataBehavior = MissingDataBehavior.WARN,
-    val imageUrlCacheTtlSeconds: Long = 0
+    val imageUrlCacheTtlSeconds: Long = 0,
+    val unmarkedHidePolicy: UnmarkedHidePolicy = UnmarkedHidePolicy.WARN_AND_HIDE
 ) {
     companion object {
         /**
@@ -72,6 +73,7 @@ data class TbegConfig(
         private var pivotDecimalFormatIndex: Short = 4
         private var missingDataBehavior: MissingDataBehavior = MissingDataBehavior.WARN
         private var imageUrlCacheTtlSeconds: Long = 0
+        private var unmarkedHidePolicy: UnmarkedHidePolicy = UnmarkedHidePolicy.WARN_AND_HIDE
 
         @Deprecated("Since 1.2.0, streaming mode is always used. This method will be removed in a future version.")
         fun streamingMode(mode: StreamingMode) = apply { this.streamingMode = mode }
@@ -84,6 +86,7 @@ data class TbegConfig(
         fun pivotDecimalFormatIndex(index: Short) = apply { this.pivotDecimalFormatIndex = index }
         fun missingDataBehavior(behavior: MissingDataBehavior) = apply { this.missingDataBehavior = behavior }
         fun imageUrlCacheTtlSeconds(ttl: Long) = apply { this.imageUrlCacheTtlSeconds = ttl }
+        fun unmarkedHidePolicy(policy: UnmarkedHidePolicy) = apply { this.unmarkedHidePolicy = policy }
 
         fun build() = TbegConfig(
             streamingMode = streamingMode,
@@ -95,7 +98,8 @@ data class TbegConfig(
             pivotIntegerFormatIndex = pivotIntegerFormatIndex,
             pivotDecimalFormatIndex = pivotDecimalFormatIndex,
             missingDataBehavior = missingDataBehavior,
-            imageUrlCacheTtlSeconds = imageUrlCacheTtlSeconds
+            imageUrlCacheTtlSeconds = imageUrlCacheTtlSeconds,
+            unmarkedHidePolicy = unmarkedHidePolicy
         )
     }
 
@@ -132,4 +136,7 @@ data class TbegConfig(
 
     fun withImageUrlCacheTtlSeconds(ttl: Long): TbegConfig =
         copy(imageUrlCacheTtlSeconds = ttl)
+
+    fun withUnmarkedHidePolicy(policy: UnmarkedHidePolicy): TbegConfig =
+        copy(unmarkedHidePolicy = policy)
 }

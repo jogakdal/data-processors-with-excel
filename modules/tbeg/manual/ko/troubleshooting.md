@@ -38,6 +38,26 @@
 
 ---
 
+### hideable 마커가 repeat의 반복 필드가 아닙니다
+
+**증상**: "hideable 마커가 repeat의 반복 항목 필드 범위에 속하지 않습니다" 오류가 발생합니다.
+
+**원인**: hideable 마커가 repeat의 반복 항목 필드가 아닌 셀에 배치되어 있습니다.
+
+**해결**: hideable 마커를 repeat의 데이터 행(반복 범위 내)으로 이동하세요. hideable은 repeat의 반복 항목 필드에서만 사용할 수 있습니다.
+
+---
+
+### bundle 열 범위가 hideable 셀과 일치하지 않습니다
+
+**증상**: "bundle 열 범위가 hideable 셀의 열 범위와 일치하지 않습니다" 오류가 발생합니다.
+
+**원인**: bundle 범위의 열이 hideable 마커 셀(또는 병합 셀)의 열과 다릅니다.
+
+**해결**: bundle 범위의 열을 hideable 마커 셀과 동일하게 조정하세요. 예를 들어, hideable 마커가 C2에 있다면 bundle 범위도 C열을 포함해야 합니다 (예: `C1:C3`).
+
+---
+
 ## 2. 실행 시 오류
 
 ### `TemplateProcessingException`
@@ -171,6 +191,24 @@ val employees = employeeRepository.findAll().sortedBy { it.department }
 > ```kotlin
 > TbegConfig(imageUrlCacheTtlSeconds = 60)  // 60초간 캐싱
 > ```
+
+---
+
+### hideFields를 지정했지만 필드가 숨겨지지 않습니다
+
+**증상**: `hideFields()`로 숨길 필드를 지정했지만 결과 파일에서 필드가 숨겨지지 않습니다.
+
+**원인**: 템플릿에 해당 필드의 hideable 마커가 없습니다.
+
+**해결**: 템플릿에 `${hideable(value=item.필드명)}` 마커를 추가하세요. `unmarkedHidePolicy`가 `WARN_AND_HIDE`로 설정된 경우 마커 없이도 숨겨지지만, 경고 로그가 출력됩니다.
+
+---
+
+### DIM 모드에서 필드 타이틀의 글자색이 변경됩니다
+
+**증상**: DIM 모드를 사용했는데 필드 타이틀의 글자색이 연한 색으로 변경되었습니다.
+
+**참고**: DIM 모드는 repeat 데이터 영역에는 배경색 + 글자색 + 값 제거를 적용하고, bundle 범위 중 repeat 밖 영역(필드 타이틀 등)에는 글자색만 연한 색으로 변경합니다. 배경색과 값은 유지됩니다.
 
 ---
 

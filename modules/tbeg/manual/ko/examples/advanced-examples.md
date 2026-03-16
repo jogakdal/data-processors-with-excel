@@ -19,6 +19,7 @@
 11. [종합 예제 -- 분기 매출 실적 보고서](#11-종합-예제----분기-매출-실적-보고서)
 12. [자동 셀 병합 활용](#12-자동-셀-병합-활용)
 13. [요소 묶음 (Bundle)](#13-요소-묶음-bundle)
+14. [선택적 필드 노출 활용](#14-선택적-필드-노출-활용)
 
 > [!NOTE]
 > 이 문서의 예제는 `resources/templates/` 디렉토리에서 템플릿을 로드합니다.
@@ -657,19 +658,17 @@ fun generateReport(departmentId: Long): ByteArray {
 
 마이크로서비스 아키텍처에서 다른 서비스의 API를 호출하여 데이터를 **분할**하여 가져온 후 Excel로 변환하는 경우입니다.
 
-#### Spring Data Page 기반 Iterator
+#### Page 기반 Iterator
 
-Spring Data의 `Page` 인터페이스를 활용하여 페이징된 API 응답을 순회합니다.
+Spring Data의 `Page` 인터페이스를 활용하여 페이징된 API 응답을 Iterator로 변환합니다.
 
 ```kotlin
 import org.springframework.data.domain.Page
-import org.springframework.data.domain.PageRequest
 
-class PageableIterator<T>(
+class PagedApiIterator<T>(
     private val pageSize: Int = 100,
     private val fetcher: (page: Int, size: Int) -> Page<T>
 ) : Iterator<T> {
-
     private var currentPage = 0
     private var currentIterator: Iterator<T> = emptyList<T>().iterator()
     private var hasMorePages = true
@@ -678,10 +677,10 @@ class PageableIterator<T>(
         if (currentIterator.hasNext()) return true
         if (!hasMorePages) return false
 
-        // 다음 페이지 로드 (API 호출)
-        val result = fetcher(currentPage++, pageSize)
+        val result = fetcher(currentPage, pageSize)
         currentIterator = result.content.iterator()
         hasMorePages = result.hasNext()
+        currentPage++
 
         return currentIterator.hasNext()
     }
@@ -722,19 +721,19 @@ fun fetchEmployeesFromApi(page: Int, size: Int): Page<EmployeeDto> {
     //     "/api/employees?page=$page&size=$size",
     //     HttpMethod.GET,
     //     null,
-    //     object : ParameterizedTypeReference<RestResponsePage<EmployeeDto>>() {}
+    //     object : ParameterizedTypeReference<Page<EmployeeDto>>() {}
     // ).body ?: throw Exception("API 호출 실패")
 
     // WebClient 사용 시:
     // return webClient.get()
     //     .uri("/api/employees?page=$page&size=$size")
     //     .retrieve()
-    //     .bodyToMono<RestResponsePage<EmployeeDto>>()
+    //     .bodyToMono<Page<EmployeeDto>>()
     //     .block() ?: throw Exception("API 호출 실패")
 
     // 예시용 더미 응답
     return PageImpl(
-        listOf(EmployeeDto("John", 8000), EmployeeDto("Jane", 6500)),
+        listOf(EmployeeDto("황용호", 8000), EmployeeDto("한용호", 6500)),
         PageRequest.of(page, size),
         100
     )
@@ -749,7 +748,7 @@ fun main() {
         value("title", "API 데이터 보고서")
 
         items("employees", totalCount) {
-            PageableIterator(pageSize = 50) { page, size ->
+            PagedApiIterator(pageSize = 50) { page, size ->
                 fetchEmployeesFromApi(page, size)
             }
         }
@@ -766,7 +765,7 @@ fun main() {
 ```
 
 > [!NOTE]
-> `Page`는 Spring Data의 `org.springframework.data.domain.Page` 인터페이스입니다. 페이징된 API 응답을 처리하는 표준적인 방법으로, 마이크로서비스 간 페이징 데이터를 연동할 때 이 패턴을 활용할 수 있습니다.
+> `Page`와 `PageImpl`은 Spring Data에서 제공하는 페이징 타입입니다. REST API에서 페이징된 응답을 받아 처리하는 경우 이 패턴을 활용할 수 있습니다.
 
 ---
 
@@ -979,8 +978,8 @@ import io.github.jogakdal.tbeg.ExcelGenerator
 
 fun main() {
     val data = mapOf(
-        "text" to "Visit Homepage",
-        "url" to "https://example.com"
+        "text" to "휴넷 홈페이지 바로가기",
+        "url" to "https://www.hunet.co.kr"
     )
 
     ExcelGenerator().use { generator ->
@@ -1489,8 +1488,8 @@ fun main() {
         value("author", "Yongho Hwang")
         value("reportDate", LocalDate.now().toString())
         value("subtitle_emp", "Employee Performance Details")
-        image("logo", File("company_logo.png").readBytes())
-        image("ci", File("company_ci.png").readBytes())
+        image("logo", File("hunet_logo.png").readBytes())
+        image("ci", File("hunet_ci.png").readBytes())
 
         items("depts") {
             listOf(
@@ -1684,6 +1683,119 @@ fun main() {
 
 > [!NOTE]
 > bundle 범위는 그 안에 포함된 repeat 영역 전체를 감싸야 합니다. repeat이 bundle 경계에 걸치면 오류가 발생합니다.
+
+---
+
+## 14. 선택적 필드 노출 활용
+
+선택적 필드 노출의 고급 시나리오입니다. 기본 사용법은 [기본 예제 - 선택적 필드 노출](./basic-examples.md#8-선택적-필드-노출)을 참조하세요.
+
+### 14.1 DIM 모드 -- 비활성화 스타일 적용
+
+DELETE 모드(기본값)는 열을 물리적으로 제거하지만, DIM 모드는 열을 유지하면서 데이터 영역의 값을 제거하고 비활성화 스타일(회색 배경, 연한 글자색)을 적용합니다. 필드 타이틀 등 repeat 밖 bundle 영역은 글자색만 연한 색으로 변경되며, 값과 배경은 유지됩니다.
+
+#### 템플릿 (hideable_dim_template.xlsx)
+
+|   | A                                  | B               | C                                                          | D                |
+|---|------------------------------------|-----------------|------------------------------------------------------------|------------------|
+| 1 | ${repeat(employees, A3:D3, emp)}   |                 |                                                            |                  |
+| 2 | 이름                                 | 부서              | 급여                                                         | 입사일              |
+| 3 | ${emp.name}                        | ${emp.dept}     | ${hideable(value=emp.salary, bundle=C2:C3, mode=dim)}      | ${emp.hireDate}  |
+
+- hideable 마커는 데이터 행(repeat 범위 내)에 배치하고, bundle로 필드 타이틀(C2)까지 포함합니다
+- `mode=dim`을 지정하면 열 구조는 유지하면서 데이터 영역의 값만 비웁니다
+
+#### Kotlin 코드
+
+```kotlin
+val provider = simpleDataProvider {
+    items("employees", listOf(
+        mapOf("name" to "김철수", "dept" to "개발팀", "salary" to 5000, "hireDate" to "2020-01-15"),
+        mapOf("name" to "이영희", "dept" to "기획팀", "salary" to 4500, "hireDate" to "2021-03-20")
+    ))
+    hideFields("employees", "salary")
+}
+
+ExcelGenerator().use { generator ->
+    val template = File("hideable_dim_template.xlsx").inputStream()
+    val bytes = generator.generate(template, provider)
+    File("output.xlsx").writeBytes(bytes)
+}
+```
+
+#### 결과 (급여 컬럼이 비활성화 스타일로 표시됨)
+
+|   | A   | B   | C          | D          |
+|---|-----|-----|------------|------------|
+| 1 |     |     |            |            |
+| 2 | 이름  | 부서  | 급여(흐리게 표시) | 입사일        |
+| 3 | 김철수 | 개발팀 | _(비활성화)_   | 2020-01-15 |
+| 4 | 이영희 | 기획팀 | _(비활성화)_   | 2021-03-20 |
+
+- C열 데이터 셀에 회색 배경이 적용되고 값은 비어 있습니다. 필드 타이틀(급여)은 글자색만 연한 색으로 변경됩니다
+- 열 구조가 유지되므로 수식 참조가 깨지지 않습니다
+
+### 14.2 다중 필드 숨기기
+
+여러 필드를 동시에 숨길 수 있습니다.
+
+#### 템플릿
+
+|   | A                                  | B                                    | C               | D                                    | E                |
+|---|------------------------------------|------------------------------------- |-----------------|--------------------------------------|--------------------|
+| 1 | ${repeat(employees, A3:E3, emp)}   |                                      |                 |                                      |                    |
+| 2 | 이름                                 | 부서                                   | 직급              | 급여                                   | 입사일                |
+| 3 | ${emp.name}                        | ${hideable(emp.dept, B2:B3)}         | ${emp.rank}     | ${hideable(emp.salary, D2:D3)}       | ${emp.hireDate}    |
+
+#### Kotlin 코드
+
+```kotlin
+val provider = simpleDataProvider {
+    items("employees", listOf(
+        mapOf("name" to "김철수", "dept" to "개발팀", "rank" to "과장", "salary" to 5000, "hireDate" to "2020-01-15"),
+        mapOf("name" to "이영희", "dept" to "기획팀", "rank" to "대리", "salary" to 4500, "hireDate" to "2021-03-20")
+    ))
+    hideFields("employees", "dept", "salary")  // 부서와 급여 컬럼 동시 숨김
+}
+
+ExcelGenerator().use { generator ->
+    val template = File("multi_hide_template.xlsx").inputStream()
+    val bytes = generator.generate(template, provider)
+    File("output.xlsx").writeBytes(bytes)
+}
+```
+
+#### 결과
+
+|   | A    | B    | C          |
+|---|------|------|------------|
+| 1 |      |      |            |
+| 2 | 이름   | 직급   | 입사일        |
+| 3 | 김철수  | 과장   | 2020-01-15 |
+| 4 | 이영희  | 대리   | 2021-03-20 |
+
+### 14.3 bundle 범위 활용
+
+`bundle` 파라미터는 숨길 때 함께 제거할 범위를 지정합니다. 필드 타이틀이나 수식 등 데이터 행 이외의 영역까지 포함해야 할 때 유용합니다.
+
+```
+${hideable(emp.salary, C2:C3)}
+```
+
+- `C2:C3` -- 필드 타이틀(C2)과 데이터 행(C3)을 하나의 단위로 처리합니다
+- bundle을 생략하면 hideable 마커가 있는 셀만 대상이 됩니다
+
+### 14.4 수식 형식
+
+마커 문법 대신 Excel 수식 형식으로도 사용할 수 있습니다.
+
+```
+=TBEG_HIDEABLE(emp.salary, C1:C3)
+=TBEG_HIDEABLE(value=emp.salary, bundle=C1:C3, mode=dim)
+```
+
+> [!TIP]
+> `hideFields()`를 호출하지 않으면 hideable 마커는 일반 필드(`${emp.salary}`)와 동일하게 동작합니다. 따라서 하나의 템플릿으로 전체 보고서와 축소 보고서를 모두 생성할 수 있습니다.
 
 ---
 

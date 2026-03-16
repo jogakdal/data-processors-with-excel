@@ -2,6 +2,29 @@
 
 # TBEG Migration Guide
 
+## 1.2.1 to 1.2.2
+
+### New Feature: Selective Field Visibility (hideable)
+
+A new feature has been added that allows restricting the visibility of specific fields based on context.
+
+- New marker: `${hideable(value=emp.salary, bundle=C1:C3, mode=dim)}`
+- New API: `ExcelDataProvider.getHiddenFields()` (default implementation provided, no impact on existing code)
+- New API: `SimpleDataProvider.Builder.hideFields()`
+- New setting: `TbegConfig.unmarkedHidePolicy`
+- **No breaking changes**: Existing code works without modification
+
+### How to Upgrade
+
+Simply update the dependency version.
+
+```kotlin
+// gradle.properties
+moduleVersion.tbeg=1.2.2
+```
+
+---
+
 ## 1.1.x to 1.2.0
 
 ### StreamingMode Removed

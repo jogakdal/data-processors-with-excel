@@ -145,13 +145,13 @@ val result = job.await()
 
 `TemplateProcessingException`의 ErrorType:
 
-| ErrorType | 설명 |
-|:---------:|------|
-| `INVALID_REPEAT_SYNTAX` | repeat 마커 문법 오류 |
-| `MISSING_REQUIRED_PARAMETER` | 필수 파라미터 누락 |
-| `INVALID_RANGE_FORMAT` | 잘못된 셀 범위 형식 |
-| `SHEET_NOT_FOUND` | 존재하지 않는 시트 참조 |
-| `INVALID_PARAMETER_VALUE` | 잘못된 파라미터 값 |
+| ErrorType | 설명 | 발생 예시 |
+|:---------:|------|----------|
+| `INVALID_REPEAT_SYNTAX` | repeat 마커 문법 오류 | `${repeat(employees)}` -- 범위 미지정 |
+| `MISSING_REQUIRED_PARAMETER` | 필수 파라미터 누락 | `${image()}` -- 이미지 이름 누락 |
+| `INVALID_RANGE_FORMAT` | 잘못된 셀 범위 형식 | `${repeat(items, A:C, item)}` -- 행 번호 누락 |
+| `SHEET_NOT_FOUND` | 존재하지 않는 시트 참조 | `${repeat(items, '없는시트'!A1:C1, item)}` |
+| `INVALID_PARAMETER_VALUE` | 잘못된 파라미터 값 | `${repeat(items, A1:C1, item, DIAGONAL)}` -- 잘못된 방향 |
 
 상세한 오류 대응 방법은 [문제 해결 가이드](../troubleshooting.md#2-실행-시-오류)를 참조하세요.
 
@@ -256,6 +256,33 @@ fun getItemCount(name: String): Int? = null
 
 > [!TIP]
 > 대용량 데이터 처리 시 이 메서드를 구현하면 데이터 이중 순회를 방지하여 최적의 성능을 얻을 수 있습니다.
+
+#### getHiddenFields
+
+```kotlin
+fun getHiddenFields(collectionName: String): Set<String> = emptySet()
+```
+
+지정된 컬렉션에서 숨길 필드 목록을 반환합니다. 반환된 필드명에 해당하는 `hideable` 마커 셀(및 bundle 범위)이 숨김 처리됩니다.
+
+| 파라미터 | 타입 | 설명 |
+|:-------:|:----:|------|
+| collectionName | String | 컬렉션 이름 |
+| **반환** | Set\<String\> | 숨길 필드명 집합, 기본값은 빈 Set (모든 필드 표시) |
+
+```kotlin
+class MyDataProvider : ExcelDataProvider {
+    // ... getValue, getItems 등 구현 ...
+
+    override fun getHiddenFields(collectionName: String): Set<String> = when (collectionName) {
+        "employees" -> setOf("salary", "age")  // salary, age 필드 숨김
+        else -> emptySet()
+    }
+}
+```
+
+> [!TIP]
+> `hideable` 마커의 상세 문법은 [템플릿 문법 레퍼런스](./template-syntax.md#10-선택적-필드-노출-hideable)를 참조하세요.
 
 ---
 
@@ -408,6 +435,38 @@ Java Supplier를 사용한 지연 로딩 이미지입니다.
 ```java
 .imageFromSupplier("signature", () -> downloadSignature())
 ```
+
+#### hideFields
+
+```kotlin
+fun hideFields(collectionName: String, vararg fields: String): Builder
+```
+
+지정된 컬렉션에서 숨길 필드를 설정합니다. 여러 번 호출하면 필드가 누적됩니다.
+
+| 파라미터 | 타입 | 설명 |
+|:-------:|:----:|------|
+| collectionName | String | 컬렉션 이름 |
+| fields | String (가변 인자) | 숨길 필드명 |
+
+**Kotlin (DSL)**
+```kotlin
+val provider = simpleDataProvider {
+    items("employees", employeeList)
+    hideFields("employees", "salary", "age")  // salary, age 필드 숨김
+}
+```
+
+**Java (Builder)**
+```java
+SimpleDataProvider provider = SimpleDataProvider.builder()
+    .items("employees", employeeList)
+    .hideFields("employees", "salary", "age")
+    .build();
+```
+
+> [!TIP]
+> `hideable` 마커의 상세 문법은 [템플릿 문법 레퍼런스](./template-syntax.md#10-선택적-필드-노출-hideable)를 참조하세요.
 
 #### metadata
 

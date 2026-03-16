@@ -21,6 +21,7 @@
 11. [Comprehensive Example -- Quarterly Sales Performance Report](#11-comprehensive-example--quarterly-sales-performance-report)
 12. [Automatic Cell Merge in Practice](#12-automatic-cell-merge-in-practice)
 13. [Bundle](#13-bundle)
+14. [Selective Field Visibility](#14-selective-field-visibility)
 
 > [!NOTE]
 > The examples in this document load templates from the `resources/templates/` directory.
@@ -1687,6 +1688,119 @@ fun main() {
 
 > [!NOTE]
 > The bundle range must fully encompass all repeat regions contained within it. An error occurs if a repeat region crosses a bundle boundary.
+
+---
+
+## 14. Selective Field Visibility
+
+Advanced scenarios for selective field visibility. For basic usage, see [Basic Examples - Selective Field Visibility](./basic-examples.md#8-selective-field-visibility).
+
+### 14.1 DIM Mode -- Deactivation Style
+
+The DELETE mode (default) physically removes columns, while DIM mode keeps the columns in place, removes data area values, and applies a deactivation style (gray background, light text color). For bundle areas outside the repeat range (such as field titles), only the text color is lightened -- values and background are preserved.
+
+#### Template (hideable_dim_template.xlsx)
+
+|   | A                                  | B               | C                                                          | D                |
+|---|------------------------------------|-----------------|------------------------------------------------------------|------------------|
+| 1 | ${repeat(employees, A3:D3, emp)}   |                 |                                                            |                  |
+| 2 | Name                               | Department      | Salary                                                     | Hire Date        |
+| 3 | ${emp.name}                        | ${emp.dept}     | ${hideable(value=emp.salary, bundle=C2:C3, mode=dim)}      | ${emp.hireDate}  |
+
+- The hideable marker is placed in the data row (within the repeat range), and bundle includes the field title (C2)
+- Specifying `mode=dim` preserves the column structure while clearing only data area values
+
+#### Kotlin Code
+
+```kotlin
+val provider = simpleDataProvider {
+    items("employees", listOf(
+        mapOf("name" to "Cheolsu Kim", "dept" to "Development", "salary" to 5000, "hireDate" to "2020-01-15"),
+        mapOf("name" to "Younghee Lee", "dept" to "Planning", "salary" to 4500, "hireDate" to "2021-03-20")
+    ))
+    hideFields("employees", "salary")
+}
+
+ExcelGenerator().use { generator ->
+    val template = File("hideable_dim_template.xlsx").inputStream()
+    val bytes = generator.generate(template, provider)
+    File("output.xlsx").writeBytes(bytes)
+}
+```
+
+#### Result (salary column displayed with deactivation style)
+
+|   | A   | B   | C              | D          |
+|---|-----|-----|----------------|------------|
+| 1 |     |     |                |            |
+| 2 | Name | Dept | Salary (dimmed) | Hire Date  |
+| 3 | Kim | Dev  | _(deactivated)_ | 2020-01-15 |
+| 4 | Lee | Plan | _(deactivated)_ | 2021-03-20 |
+
+- Data cells in column C have a gray background with empty values. The field title (Salary) has only its text color lightened
+- Since the column structure is preserved, formula references remain intact
+
+### 14.2 Hiding Multiple Fields
+
+Multiple fields can be hidden simultaneously.
+
+#### Template
+
+|   | A                                  | B                                    | C               | D                                    | E                |
+|---|------------------------------------|------------------------------------- |-----------------|--------------------------------------|--------------------|
+| 1 | ${repeat(employees, A3:E3, emp)}   |                                      |                 |                                      |                    |
+| 2 | Name                               | Department                           | Rank            | Salary                               | Hire Date          |
+| 3 | ${emp.name}                        | ${hideable(emp.dept, B2:B3)}         | ${emp.rank}     | ${hideable(emp.salary, D2:D3)}       | ${emp.hireDate}    |
+
+#### Kotlin Code
+
+```kotlin
+val provider = simpleDataProvider {
+    items("employees", listOf(
+        mapOf("name" to "Cheolsu Kim", "dept" to "Development", "rank" to "Manager", "salary" to 5000, "hireDate" to "2020-01-15"),
+        mapOf("name" to "Younghee Lee", "dept" to "Planning", "rank" to "Assistant Manager", "salary" to 4500, "hireDate" to "2021-03-20")
+    ))
+    hideFields("employees", "dept", "salary")  // Hide both department and salary columns
+}
+
+ExcelGenerator().use { generator ->
+    val template = File("multi_hide_template.xlsx").inputStream()
+    val bytes = generator.generate(template, provider)
+    File("output.xlsx").writeBytes(bytes)
+}
+```
+
+#### Result
+
+|   | A    | B    | C          |
+|---|------|------|------------|
+| 1 |      |      |            |
+| 2 | Name | Rank | Hire Date  |
+| 3 | Kim  | Manager | 2020-01-15 |
+| 4 | Lee  | Asst. Manager | 2021-03-20 |
+
+### 14.3 Using Bundle Range
+
+The `bundle` parameter specifies the range to remove along with the hidden field. This is useful when you need to include areas beyond the data row, such as field titles or formulas.
+
+```
+${hideable(emp.salary, C2:C3)}
+```
+
+- `C2:C3` -- treats the field title (C2) and data row (C3) as a single unit
+- If bundle is omitted, only the cell containing the hideable marker is targeted
+
+### 14.4 Formula Format
+
+You can use Excel formula format instead of marker syntax.
+
+```
+=TBEG_HIDEABLE(emp.salary, C1:C3)
+=TBEG_HIDEABLE(value=emp.salary, bundle=C1:C3, mode=dim)
+```
+
+> [!TIP]
+> If `hideFields()` is not called, the hideable marker behaves identically to a regular field (`${emp.salary}`). This means you can generate both full and condensed reports from a single template.
 
 ---
 

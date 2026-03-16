@@ -40,6 +40,26 @@
 
 ---
 
+### Hideable marker is not within a repeat field
+
+**Symptom**: Error "hideable marker is not within the repeat item field range."
+
+**Cause**: The hideable marker is placed in a cell that is not a repeat item field.
+
+**Resolution**: Move the hideable marker into the data row (within the repeat range). Hideable can only be used in repeat item fields.
+
+---
+
+### Bundle column range does not match hideable cell
+
+**Symptom**: Error "bundle column range does not match the hideable cell's column range."
+
+**Cause**: The bundle range's column differs from the hideable marker cell's (or merged cell's) column.
+
+**Resolution**: Adjust the bundle range column to match the hideable marker cell. For example, if the hideable marker is in C2, the bundle range should include column C (e.g., `C1:C3`).
+
+---
+
 ## 2. Runtime Errors
 
 ### `TemplateProcessingException`
@@ -173,6 +193,24 @@ val employees = employeeRepository.findAll().sortedBy { it.department }
 > ```kotlin
 > TbegConfig(imageUrlCacheTtlSeconds = 60)  // Cache for 60 seconds
 > ```
+
+---
+
+### hideFields was specified but the field is not hidden
+
+**Symptom**: A field was specified in `hideFields()`, but it is not hidden in the output file.
+
+**Cause**: The template does not have a hideable marker for the specified field.
+
+**Resolution**: Add a `${hideable(value=item.fieldName)}` marker to the template. If `unmarkedHidePolicy` is set to `WARN_AND_HIDE`, the field will be hidden even without a marker, but a warning log will be emitted.
+
+---
+
+### In DIM mode, field title text color is changed
+
+**Symptom**: When DIM mode is used, the field title text color is lightened.
+
+**Note**: DIM mode applies background color + text color + value removal to the repeat data area, while for bundle areas outside the repeat range (such as field titles), only the text color is lightened. Background and values are preserved.
 
 ---
 

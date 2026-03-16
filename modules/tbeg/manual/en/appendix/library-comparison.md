@@ -59,6 +59,7 @@ A Kotlin/JVM-based Excel report generation library. Markers are written directly
 | **Formula Auto-Adjustment** | Supported | POI level | Basic level | All reference types supported; auto-adjusted on expansion |
 | **Large Data Processing** | Streaming (with limitations) | No streaming support | Full in-memory load | Efficient large data processing (100K+ rows) |
 | **Asynchronous Processing** | Not supported | Not supported | Not supported | Background generation, progress tracking, cancellation |
+| **Selective Field Visibility** | Workaround via `jx:if` | Workaround via `<jt:if>` | Not supported | Dedicated hideable marker (DELETE/DIM modes) |
 | **Built-in Aggregation** | GroupSum | jAgg (Sum, Avg, etc.) | Sum, Avg, Count, Min, Max | Uses Excel formulas |
 | **Grouping** | groupBy (each attribute) | Not supported | GroupBy (auto cell merge) | Requires pre-grouped data |
 | **Spring Boot** | Not supported | Not supported | Not supported | Ready to use by simply adding a dependency |
@@ -106,7 +107,20 @@ A Kotlin/JVM-based Excel report generation library. Markers are written directly
 
 ---
 
-### 3.5 Charts and Pivot Tables
+### 3.5 Selective Field Visibility
+
+| | ERG | JXLS | JETT | TBEG |
+|---|---|---|---|---|
+| **Dedicated syntax** | X | X | X | `${hideable(...)}` marker |
+| **Delete mode** | X | Workaround via `jx:if` | Workaround via `<jt:if>` | DELETE (physical removal + shift) |
+| **Deactivation mode** | X | X | X | DIM (layout preserved + style applied) |
+| **Code-level control** | X | Requires condition variables | Requires condition variables | Single `hideFields()` call |
+
+This feature allows restricting the visibility of specific fields from the same template depending on context. JXLS and JETT can achieve similar results using general-purpose conditional rendering (`jx:if`, `<jt:if>`), but require writing condition blocks for each field, and automatic adjustment of formulas and merged cells is not guaranteed. TBEG expresses this concisely with the dedicated `hideable` marker, and when fields are hidden, formula references, merged cells, and conditional formatting are automatically adjusted.
+
+---
+
+### 3.6 Charts and Pivot Tables
 
 | | ERG | JXLS | JETT | TBEG |
 |---|---|---|---|---|
@@ -120,7 +134,7 @@ TBEG automatically adjusts chart data ranges and pivot table source ranges at ge
 
 ---
 
-### 3.6 Framework Integration
+### 3.7 Framework Integration
 
 | | ERG | JXLS | JETT | TBEG |
 |---|---|---|---|---|
@@ -142,7 +156,7 @@ In TBEG, you can achieve the same result using Excel formulas (`=SUM()`, `=AVERA
 
 **Conditional Rendering**
 
-The `jx:if` command can show or hide regions based on conditions. In TBEG, you can achieve the same result by pre-processing data in the DataProvider.
+The `jx:if` command can show or hide regions based on conditions. In TBEG, field-level visibility control is handled by the `hideable` marker, while other conditional rendering can be achieved by pre-processing data in the DataProvider.
 
 **Automatic Multi-Sheet Generation**
 
@@ -202,6 +216,7 @@ Parent/Children panel trees enable complex nested report structures, with per-pa
 | Cross-sheet repeat | X | X | X | O |
 | Empty collection replacement content | △ | X | X | O |
 | Automatic cell merge | △ | X | O | O |
+| Selective field visibility | △ | △ | X | O |
 | Built-in grouping | O | X | O | X |
 | Conditional rendering | O | O | X | X |
 | Automatic multi-sheet generation | O | X | X | X |
@@ -260,6 +275,7 @@ Parent/Children panel trees enable complex nested report structures, with per-pa
 - You need to use **designer-created Excel forms** as-is
 - Reports include **images, charts, or pivot tables**
 - **Formula-based automatic calculations** are critical
+- You need to **restrict visible fields based on permissions or purpose** from the same template
 - You need to reliably process **tens of thousands to hundreds of thousands of rows**
 - **Asynchronous processing** and **progress tracking** are required
 - You want seamless integration in a **Spring Boot** environment

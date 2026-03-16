@@ -10,6 +10,7 @@
 5. [Password Protection](#5-password-protection)
 6. [Document Metadata](#6-document-metadata)
 7. [Automatic Cell Merge](#7-automatic-cell-merge)
+8. [Selective Field Visibility](#8-selective-field-visibility)
 
 ---
 
@@ -515,6 +516,87 @@ ExcelGenerator().use { generator ->
 
 > Cells A2:A3 are automatically merged as "Sales", and A4:A6 as "Development".
 > The data must be pre-sorted by the merge criteria (department).
+
+---
+
+## 8. Selective Field Visibility
+
+By default, all fields are displayed. You can restrict the visibility of specific fields depending on the situation. This is useful for generating reports with certain columns excluded based on permissions or purpose.
+
+### Template (hideable_template.xlsx)
+
+|   | A                                  | B               | C                                          | D                |
+|---|------------------------------------|-----------------|--------------------------------------------|------------------|
+| 1 | ${repeat(employees, A3:D3, emp)}   |                 |                                            |                  |
+| 2 | Name                               | Department      | Salary                                     | Hire Date        |
+| 3 | ${emp.name}                        | ${emp.dept}     | ${hideable(emp.salary, C2:C3)}             | ${emp.hireDate}  |
+
+- **C3**: `${hideable(emp.salary, C2:C3)}` -- when the `salary` field is hidden, the field title (C2) and data (C3) are removed together
+
+### Kotlin Code
+
+```kotlin
+import io.github.jogakdal.tbeg.ExcelGenerator
+import io.github.jogakdal.tbeg.simpleDataProvider
+
+fun main() {
+    val provider = simpleDataProvider {
+        items("employees", listOf(
+            mapOf("name" to "Cheolsu Kim", "dept" to "Development", "salary" to 5000, "hireDate" to "2020-01-15"),
+            mapOf("name" to "Younghee Lee", "dept" to "Planning", "salary" to 4500, "hireDate" to "2021-03-20")
+        ))
+        hideFields("employees", "salary")  // Hide the salary column
+    }
+
+    ExcelGenerator().use { generator ->
+        val template = File("hideable_template.xlsx").inputStream()
+        val bytes = generator.generate(template, provider)
+        File("output.xlsx").writeBytes(bytes)
+    }
+}
+```
+
+### Java Code
+
+```java
+import io.github.jogakdal.tbeg.ExcelGenerator;
+import io.github.jogakdal.tbeg.SimpleDataProvider;
+import java.io.*;
+import java.util.*;
+
+public class HideableExample {
+    public static void main(String[] args) throws Exception {
+        SimpleDataProvider provider = SimpleDataProvider.builder()
+            .items("employees", List.of(
+                Map.of("name", "Cheolsu Kim", "dept", "Development", "salary", 5000, "hireDate", "2020-01-15"),
+                Map.of("name", "Younghee Lee", "dept", "Planning", "salary", 4500, "hireDate", "2021-03-20")
+            ))
+            .hideFields("employees", "salary")
+            .build();
+
+        try (ExcelGenerator generator = new ExcelGenerator();
+             InputStream template = new FileInputStream("hideable_template.xlsx")) {
+
+            byte[] bytes = generator.generate(template, provider);
+            try (FileOutputStream output = new FileOutputStream("output.xlsx")) {
+                output.write(bytes);
+            }
+        }
+    }
+}
+```
+
+### Result (salary column removed)
+
+|   | A    | B    | C          |
+|---|------|------|------------|
+| 1 |      |      |            |
+| 2 | Name | Department | Hire Date  |
+| 3 | Kim  | Dev Team   | 2020-01-15 |
+| 4 | Lee  | Planning   | 2021-03-20 |
+
+- If `hideFields()` is not called, the full report including the salary column is generated
+- For advanced usage (DIM mode, hiding multiple fields), see [Advanced Examples - Selective Field Visibility](./advanced-examples.md#14-selective-field-visibility)
 
 ---
 

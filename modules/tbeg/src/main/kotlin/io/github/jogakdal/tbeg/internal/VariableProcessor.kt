@@ -52,8 +52,8 @@ internal class VariableProcessor(registries: List<VariableResolverRegistry>) {
     /** 토큰 구분자 정의 */
     data class Delimiters(val open: String = "%{", val close: String = "}%") {
         init {
-            require(open.isNotEmpty()) { "open delimiter는 비어 있을 수 없습니다" }
-            require(close.isNotEmpty()) { "close delimiter는 비어 있을 수 없습니다" }
+            require(open.isNotEmpty()) { "Open delimiter must not be empty" }
+            require(close.isNotEmpty()) { "Close delimiter must not be empty" }
         }
     }
 
@@ -81,7 +81,7 @@ internal class VariableProcessor(registries: List<VariableResolverRegistry>) {
         if (template.isEmpty()) return template
         if (options.ignoreCase && lowerKeyCollisions.isNotEmpty()) {
             throw IllegalStateException(
-                "대소문자 무시(ignoreCase=true) 불가: 충돌 토큰 = " + lowerKeyCollisions.values.joinToString { "$it" }
+                "Cannot use ignoreCase=true: conflicting tokens = " + lowerKeyCollisions.values.joinToString { "$it" }
             )
         }
         val origParamMap = params.toMap()
@@ -97,10 +97,10 @@ internal class VariableProcessor(registries: List<VariableResolverRegistry>) {
             if (function == null) {
                 if (defaultValue != null) {
                     if (options.ignoreMissing) return@replace defaultValue
-                    else throw IllegalArgumentException("지원하지 않는 변수명: $tokenName")
+                    else throw IllegalArgumentException("Unsupported variable name: $tokenName")
                 }
                 if (options.ignoreMissing) return@replace m.value
-                throw IllegalArgumentException("지원하지 않는 변수명: $tokenName")
+                throw IllegalArgumentException("Unsupported variable name: $tokenName")
             }
             val argument = if (!options.ignoreCase) origParamMap[tokenName] else paramMapInsensitive[lookupKey]
             val args = when (argument) {

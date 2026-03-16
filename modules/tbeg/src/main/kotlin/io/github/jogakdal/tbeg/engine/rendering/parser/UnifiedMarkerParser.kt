@@ -1,5 +1,6 @@
 package io.github.jogakdal.tbeg.engine.rendering.parser
 
+import io.github.jogakdal.tbeg.HideMode
 import io.github.jogakdal.tbeg.engine.rendering.CellContent
 import io.github.jogakdal.tbeg.engine.rendering.ImageSizeSpec
 import io.github.jogakdal.tbeg.engine.rendering.RepeatDirection
@@ -91,6 +92,7 @@ object UnifiedMarkerParser {
             "size" -> convertSizeMarker(marker)
             "merge" -> convertMergeMarker(marker)
             "bundle" -> convertBundleMarker(marker)
+            "hideable" -> convertHideableMarker(marker)
             else -> CellContent.StaticString(marker.originalText)
         }
     }
@@ -131,6 +133,35 @@ object UnifiedMarkerParser {
         }
 
         return CellContent.StaticString(text)
+    }
+
+    /**
+     * hideable 마커를 CellContent.HideableField로 변환 (검증 포함)
+     */
+    private fun convertHideableMarker(marker: ParsedMarker): CellContent.HideableField {
+        val value = marker.require("value")
+        val bundle = marker.get("bundle")
+        val modeValue = marker.get("mode")
+
+        // value는 반드시 item.field 형태여야 한다
+        val dotIndex = value.indexOf('.')
+        if (dotIndex < 0) {
+            throw MarkerValidationException(
+                "Parameter 'value' must be in 'item.field' format. " +
+                "Input: '$value', Marker: ${marker.originalText}"
+            )
+        }
+
+        // bundle 범위 검증
+        bundle?.let { validateRange(it, "bundle", marker.originalText) }
+
+        return CellContent.HideableField(
+            itemVariable = value.substring(0, dotIndex),
+            fieldPath = value.substring(dotIndex + 1),
+            bundleRange = bundle,
+            mode = parseHideMode(modeValue, marker.originalText),
+            originalText = marker.originalText
+        )
     }
 
     /**
@@ -281,6 +312,16 @@ object UnifiedMarkerParser {
     }
 
     // === 파싱 헬퍼 ===
+
+    private fun parseHideMode(value: String?, originalText: String): HideMode =
+        when (value?.trim()?.lowercase()) {
+            null, "", "delete" -> HideMode.DELETE
+            "dim" -> HideMode.DIM
+            else -> throw MarkerValidationException(
+                "Parameter 'mode' only accepts DELETE or DIM. " +
+                "Input: '$value', Marker: $originalText"
+            )
+        }
 
     private fun parseDirection(value: String?): RepeatDirection =
         when (value?.uppercase()) {

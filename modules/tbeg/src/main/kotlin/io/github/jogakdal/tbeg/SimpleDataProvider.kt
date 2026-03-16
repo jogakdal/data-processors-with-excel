@@ -20,13 +20,16 @@ class SimpleDataProvider private constructor(
     private val collections: Map<String, () -> Iterator<Any>>,
     private val collectionCounts: Map<String, Int>,
     private val images: Map<String, () -> ByteArray>,
-    private val metadata: DocumentMetadata?
+    private val metadata: DocumentMetadata?,
+    private val hiddenFields: Map<String, Set<String>> = emptyMap()
 ) : ExcelDataProvider {
     override fun getValue(name: String): Any? = values[name]
     override fun getItems(name: String): Iterator<Any>? = collections[name]?.invoke()
     override fun getImage(name: String): ByteArray? = images[name]?.invoke()
     override fun getMetadata(): DocumentMetadata? = metadata
     override fun getItemCount(name: String): Int? = collectionCounts[name]
+    override fun getHiddenFields(collectionName: String): Set<String> =
+        hiddenFields[collectionName] ?: emptySet()
 
     companion object {
         /**
@@ -97,6 +100,7 @@ class SimpleDataProvider private constructor(
         private val collectionCounts = mutableMapOf<String, Int>()
         private val images = mutableMapOf<String, () -> ByteArray>()
         private var metadata: DocumentMetadata? = null
+        private val hiddenFields = mutableMapOf<String, MutableSet<String>>()
 
         /** 단일 값을 추가한다. */
         fun value(name: String, value: Any) = apply { values[name] = value }
@@ -166,6 +170,23 @@ class SimpleDataProvider private constructor(
             images[name] = { imageSupplier.get() }
         }
 
+        /**
+         * 지정된 컬렉션에서 숨길 필드를 설정한다.
+         *
+         * ```kotlin
+         * simpleDataProvider {
+         *     items("employees", employeeList)
+         *     hideFields("employees", "salary", "age")
+         * }
+         * ```
+         *
+         * @param collectionName 컬렉션 이름
+         * @param fields 숨길 필드명 (가변 인자)
+         */
+        fun hideFields(collectionName: String, vararg fields: String) = apply {
+            hiddenFields.getOrPut(collectionName) { mutableSetOf() }.addAll(fields)
+        }
+
         /** 문서 메타데이터를 설정한다. (Kotlin DSL) */
         fun metadata(block: DocumentMetadataBuilder.() -> Unit) = apply {
             this.metadata = DocumentMetadataBuilder().apply(block).build()
@@ -180,7 +201,7 @@ class SimpleDataProvider private constructor(
         fun metadata(metadata: DocumentMetadata) = apply { this.metadata = metadata }
 
         /** SimpleDataProvider를 빌드한다. */
-        fun build() = SimpleDataProvider(values, collections, collectionCounts, images, metadata)
+        fun build() = SimpleDataProvider(values, collections, collectionCounts, images, metadata, hiddenFields)
     }
 }
 

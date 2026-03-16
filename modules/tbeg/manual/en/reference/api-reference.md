@@ -421,6 +421,33 @@ Returns the number of items in a collection.
 > [!TIP]
 > Implementing this method prevents double iteration of the data, enabling optimal performance when processing large datasets.
 
+#### getHiddenFields
+
+```kotlin
+fun getHiddenFields(collectionName: String): Set<String> = emptySet()
+```
+
+Returns the set of field names to hide for the specified collection. The `hideable` marker cells (and their bundle ranges) corresponding to the returned field names are hidden.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| collectionName | String | Collection name |
+| **Returns** | Set\<String\> | Set of field names to hide; defaults to empty Set (all fields visible) |
+
+```kotlin
+class MyDataProvider : ExcelDataProvider {
+    // ... getValue, getItems, etc. ...
+
+    override fun getHiddenFields(collectionName: String): Set<String> = when (collectionName) {
+        "employees" -> setOf("salary", "age")  // Hide salary and age fields
+        else -> emptySet()
+    }
+}
+```
+
+> [!TIP]
+> For detailed hideable marker syntax, see the [Template Syntax Reference](./template-syntax.md#10-selective-field-visibility-hideable).
+
 ---
 
 ## 3. SimpleDataProvider
@@ -572,6 +599,38 @@ Lazy loading image using a Java Supplier.
 ```java
 .imageFromSupplier("signature", () -> downloadSignature())
 ```
+
+#### hideFields
+
+```kotlin
+fun hideFields(collectionName: String, vararg fields: String): Builder
+```
+
+Specifies fields to hide for the given collection. Multiple calls accumulate the fields.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| collectionName | String | Collection name |
+| fields | String (vararg) | Field names to hide |
+
+**Kotlin (DSL)**
+```kotlin
+val provider = simpleDataProvider {
+    items("employees", employeeList)
+    hideFields("employees", "salary", "age")  // Hide salary and age fields
+}
+```
+
+**Java (Builder)**
+```java
+SimpleDataProvider provider = SimpleDataProvider.builder()
+    .items("employees", employeeList)
+    .hideFields("employees", "salary", "age")
+    .build();
+```
+
+> [!TIP]
+> For detailed hideable marker syntax, see the [Template Syntax Reference](./template-syntax.md#10-selective-field-visibility-hideable).
 
 #### metadata
 

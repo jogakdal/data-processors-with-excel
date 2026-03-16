@@ -72,8 +72,18 @@ data class MarkerDefinition(
             )
         )
 
+        /** hideable 마커 정의 */
+        val HIDEABLE = MarkerDefinition(
+            name = "hideable",
+            parameters = listOf(
+                ParameterDef("value", required = true, aliases = setOf("field", "val")),
+                ParameterDef("bundle", aliases = setOf("range")),
+                ParameterDef("mode", defaultValue = "delete")
+            )
+        )
+
         /** 등록된 모든 마커 정의 */
-        val ALL = listOf(REPEAT, IMAGE, SIZE, MERGE, BUNDLE)
+        val ALL = listOf(REPEAT, IMAGE, SIZE, MERGE, BUNDLE, HIDEABLE)
 
         /** 이름으로 마커 정의 조회 */
         fun byName(name: String): MarkerDefinition? =

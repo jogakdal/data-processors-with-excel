@@ -75,6 +75,29 @@ ${repeat(collection=items, range=A2:C2, var=item, direction=DOWN, empty=A10:C10)
 
 ---
 
+### Mark potentially hideable fields with hideable markers
+
+Using `${hideable(...)}` markers allows dynamically hiding specific fields from code.
+
+|   | A                                | B               | C                                           |
+|---|----------------------------------|-----------------|---------------------------------------------|
+| 1 | Name                             | Position        | Salary                                      |
+| 2 | ${emp.name}                      | ${emp.position} | ${hideable(value=emp.salary, bundle=C1:C3)} |
+| 3 | Total                            |                 | =SUM(C2:C2)                                 |
+| 4 | ${repeat(employees, A2:C2, emp)} |                 |                                             |
+
+- The `bundle` parameter lets you manage the field title and formulas together
+- `DIM` mode is useful when you want to deactivate while preserving the layout
+- `DELETE` mode (default) physically removes the column
+
+---
+
+### Align bundle range with merged cells
+
+If the `bundle` range of a hideable marker partially includes a merged cell, an error occurs. Set the bundle range to either fully include or completely exclude merged cells.
+
+---
+
 ### Avoid overlapping repeat areas
 
 When placing multiple repeat areas on the same sheet, ensure that no areas overlap in 2D space (rows x columns).
@@ -97,19 +120,11 @@ When placing multiple repeat areas on the same sheet, ensure that no areas overl
 
 ## 2. Performance Optimization
 
-### Four-Step Optimization Guide
+### Three-Step Optimization Guide
 
 Apply the following steps based on your data size.
 
-#### Step 1: Streaming mode (enabled by default)
-
-```kotlin
-val config = TbegConfig(streamingMode = StreamingMode.ENABLED) // default
-```
-
-Streaming mode provides 2-3x or better performance improvement for large datasets.
-
-#### Step 2: Provide count
+#### Step 1: Provide count
 
 Supplying the total count alongside the collection in a DataProvider prevents double traversal of the data.
 
@@ -123,7 +138,7 @@ val provider = simpleDataProvider {
 }
 ```
 
-#### Step 3: Lazy loading
+#### Step 2: Lazy loading
 
 Instead of loading all data into memory upfront, use a lambda to load data on demand.
 
@@ -138,7 +153,7 @@ items("employees", count) {
 }
 ```
 
-#### Step 4: DB streaming
+#### Step 3: DB streaming
 
 For datasets exceeding 100,000 rows, use JPA Stream or MyBatis Cursor.
 
@@ -170,8 +185,7 @@ fun generateLargeReport(): Path {
 |-----------|----------------------|---------------------|
 | Up to 1,000 rows | `Map<String, Any>` | None |
 | 1,000 - 10,000 rows | `simpleDataProvider` + count | None |
-| 10,000 - 100,000 rows | `simpleDataProvider` + count + Stream | `generateToFile()` recommended |
-| Over 100,000 rows | Custom DataProvider + Stream | `generateToFile()` + memory settings |
+| Over 10,000 rows | `simpleDataProvider` + count + Stream | `generateToFile()` recommended |
 
 ---
 
@@ -198,16 +212,18 @@ items("employees", employees)
 
 ### Use bundle to protect complex layouts
 
-In complex layouts where multiple repeat regions are stacked vertically, the default behavior is for upper region expansion to push lower regions down. If regions need to expand independently, wrap them with `${bundle(range)}`.
+When a table spanning multiple columns exists below a repeat area, the table may become misaligned due to repeat expansion. Wrapping the table with `${bundle(range)}` ensures it always moves as a unit.
 
-|   | A                                | B             | C | D                                   | E              |
-|---|----------------------------------|---------------|---|-------------------------------------|----------------|
-| 1 | ${bundle(A1:B5)}                 |               |   | ${bundle(D1:E5)}                    |                |
-| 2 | ${repeat(employees, A3:B3, emp)} |               |   | ${repeat(departments, D3:E3, dept)} |                |
-| 3 | Name                             | Salary        |   | Department                          | Budget         |
-| 4 | ${emp.name}                      | ${emp.salary} |   | ${dept.name}                        | ${dept.budget} |
+|   | A                               | B               | C    | D    | E      |
+|---|----------------------------------|-----------------|------|------|--------|
+| 1 | ${repeat(depts, A2:B2, dept)}   |                 |      |      |        |
+| 2 | ${dept.name}                    | ${dept.revenue} |      |      |        |
+| 3 | ${bundle(A4:E6)}                |                 |      |      |        |
+| 4 | Name                            | Revenue         | Cost | Profit | Total |
+| 5 | Yongho Hwang                    | 1000            | 500  | 500  | 2000   |
+| 6 | Total                           |                 |      |      | =SUM() |
 
-A bundle groups all elements within the range into a single unit so they are unaffected by expansion of other regions. The bundle range must fully contain the repeat region.
+Without a bundle, only columns within the repeat column range (A-B) would shift while the rest (C-E) stay in their original rows, breaking the table layout. Wrapping rows 4-6 with a bundle ensures all columns A-E move as a unit, preserving the layout. For a detailed comparison, see the [Template Syntax Reference - Bundle](../reference/template-syntax.md#8-bundle).
 
 ---
 

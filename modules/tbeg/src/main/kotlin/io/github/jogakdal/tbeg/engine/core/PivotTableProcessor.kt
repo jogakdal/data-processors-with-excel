@@ -254,7 +254,7 @@ internal class PivotTableProcessor(
 
         PivotTableStyles(headerStyles, dataRowStyles, grandTotalStyles)
     }.onFailure {
-        LOG.warn("원본 스타일 추출 실패: ${it.message}")
+        LOG.warn("Failed to extract original styles: ${it.message}")
     }.getOrNull()
 
     private fun Row?.extractStyleInfos(range: CellRangeAddress): Map<Int, StyleInfo> =
@@ -326,7 +326,7 @@ internal class PivotTableProcessor(
         val (sourceSheet, sourceRef) = cacheDefPath?.let { cacheSourceMap[it] }
             ?: cacheSourceMap.values.firstOrNull()
             ?: run {
-                LOG.warn("피벗 테이블 '$pivotTableName' 캐시 소스 정보 없음")
+                LOG.warn("Pivot table '$pivotTableName' has no cache source information")
                 return null
             }
 
@@ -410,7 +410,7 @@ internal class PivotTableProcessor(
 
         if (pivotSheet == null || sourceSheet == null) {
             LOG.warn(
-                "피벗 테이블 재생성 실패: 시트를 찾을 수 없음 " +
+                "Failed to recreate pivot table: sheet not found " +
                     "(pivot=${info.pivotTableSheetName}, source=${info.sourceSheetName})"
             )
             return
@@ -604,7 +604,7 @@ internal class PivotTableProcessor(
         // 총합계 행 - alignment와 숫자 형식만 적용 (피벗 테이블 스타일이 볼드, 테두리 등 적용)
         ctx.pivotSheet.getOrCreateRow(startRow + 1 + uniqueValues.size).apply {
             getOrCreateCell(startCol).apply {
-                setCellValue(ctx.grandTotalCaption ?: "전체")
+                setCellValue(ctx.grandTotalCaption ?: "Grand Total")
                 axisAlignmentStyle?.let { cellStyle = it }
             }
 

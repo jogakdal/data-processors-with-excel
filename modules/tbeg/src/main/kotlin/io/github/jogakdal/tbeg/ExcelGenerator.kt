@@ -12,6 +12,7 @@ import io.github.jogakdal.tbeg.engine.core.encryptExcelTo
 import io.github.jogakdal.tbeg.engine.pipeline.TbegPipeline
 import io.github.jogakdal.tbeg.engine.pipeline.ProcessingContext
 import io.github.jogakdal.tbeg.engine.pipeline.processors.*
+import io.github.jogakdal.tbeg.engine.preprocessing.HidePreprocessor
 import kotlinx.coroutines.*
 import kotlinx.coroutines.future.future
 import java.io.*
@@ -501,9 +502,12 @@ class ExcelGenerator @JvmOverloads constructor(
         dataProvider: ExcelDataProvider,
         output: OutputStream
     ): Int {
+        // 1st Pass: Hide 전처리 (hideFields가 지정된 경우에만)
+        val preprocessor = HidePreprocessor(config)
+
         // ProcessingContext 생성
         val context = ProcessingContext(
-            templateBytes = template.readBytes(),
+            templateBytes = preprocessor.preprocess(template.readBytes(), dataProvider),
             dataProvider = dataProvider,
             config = config,
             metadata = dataProvider.getMetadata()

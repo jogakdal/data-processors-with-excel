@@ -1,5 +1,24 @@
 # TBEG Changelog
 
+## 1.2.2
+
+### 새 기능
+
+- **선택적 필드 노출 (hideable)**: 상황에 따라 특정 필드의 노출을 제한할 수 있습니다. `${hideable(value=emp.salary, bundle=C1:C3, mode=dim)}` 또는 `=TBEG_HIDEABLE(...)` 수식 마커로 사용합니다
+  - **HideMode**: `DELETE`(물리적 삭제 + 시프트, 기본값) 또는 `DIM`(비활성화 스타일 + 값 제거) 중 선택할 수 있습니다
+  - **UnmarkedHidePolicy**: hideable 마커가 없는 필드를 숨기려 할 때의 동작을 설정합니다. `WARN_AND_HIDE`(경고 후 숨김, 기본값) 또는 `ERROR`(예외 발생)를 지원합니다
+  - **API**: `ExcelDataProvider.getHiddenFields()`로 숨길 필드 목록을 지정하고, `SimpleDataProvider.Builder.hideFields()`로 간편하게 설정할 수 있습니다
+  - **Spring Boot 설정**: `tbeg.unmarked-hide-policy` 프로퍼티로 정책을 설정할 수 있습니다
+
+<details>
+<summary>내부 개선</summary>
+
+- **전처리 패키지 신설**: `engine/preprocessing/` 패키지에 `HidePreprocessor`, `HideValidator`, `ElementShifter`, `CellUtils` 클래스를 추가하여 필드 숨기기 관련 전처리 로직을 구성하였습니다.
+- **마커 파서 확장**: `UnifiedMarkerParser`에 hideable 마커 파싱을 추가하였습니다.
+- **설정 확장**: `TbegConfig`에 `unmarkedHidePolicy` 옵션을 추가하였습니다.
+
+</details>
+
 ## 1.2.1
 
 ### 새 기능

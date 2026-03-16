@@ -74,3 +74,34 @@ enum class MissingDataBehavior {
      */
     THROW
 }
+
+/**
+ * hideable 마커의 숨김 모드.
+ */
+enum class HideMode {
+    /** 물리적 삭제 후 나머지 요소를 당긴다 (기본값). */
+    DELETE,
+
+    /** 비활성화 스타일(회색 배경 + 연한 글자색)을 적용하고 셀 값만 제거한다. */
+    DIM
+}
+
+/**
+ * hideable 마커 없이 hideFields에 지정된 필드의 처리 정책.
+ */
+enum class UnmarkedHidePolicy {
+    /**
+     * 경고 로그를 출력하고 해당 셀만 숨긴다 (기본값).
+     *
+     * 템플릿에 hideable 마커가 없는 필드가 hideFields에 지정된 경우,
+     * 경고를 출력하고 bundle 없는 hideable처럼 동작한다.
+     */
+    WARN_AND_HIDE,
+
+    /**
+     * 예외를 발생시킨다.
+     *
+     * 템플릿과 hideFields 간의 불일치를 엄격하게 검증할 때 사용한다.
+     */
+    ERROR
+}
