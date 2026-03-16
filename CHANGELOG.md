@@ -2,7 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
-This file is maintained in this project only and is not affected by upstream sync.
+## [1.2.2] - 2026-03-16
+
+### New Features
+- **Selective field visibility (hideable)**: Restrict visibility of specific fields based on conditions. Use `${hideable(value=emp.salary, bundle=C1:C3, mode=dim)}` or `=TBEG_HIDEABLE(...)` formula marker
+  - **HideMode**: Choose between `DELETE` (physical removal + shift, default) or `DIM` (deactivation style + value removal)
+  - **UnmarkedHidePolicy**: Configure behavior when hiding a field without a hideable marker. Supports `WARN_AND_HIDE` (default) or `ERROR`
+  - **API**: `ExcelDataProvider.getHiddenFields()` to specify fields to hide, `SimpleDataProvider.Builder.hideFields()` for convenient setup
+  - **Spring Boot**: `tbeg.unmarked-hide-policy` property for policy configuration
+
+### Internal Improvements
+- New `engine/preprocessing/` package: `HidePreprocessor`, `HideValidator`, `ElementShifter`, `CellUtils`, `HideableRegion`
+- `UnifiedMarkerParser` extended with hideable marker parsing
+- `TbegConfig` extended with `unmarkedHidePolicy` option
+- Exception/log messages in English for international users
+
+### Documentation
+- Glossary added (ko/en)
+- All manuals updated to cover hideable feature
 
 ## [1.2.1] - 2026-03-10
 
@@ -12,13 +29,12 @@ This file is maintained in this project only and is not affected by upstream syn
 - **Document metadata**: Set document properties such as title, author, keywords, etc.
 
 ### Internal Improvements
-- `escapeXml()` function internalized (moved from common-core to TBEG internal)
+- `escapeXml()` function added to internal utilities
 - Number format preservation for formula cells during streaming rendering
 
 ### Documentation
 - Template syntax reference restructured with formula binding section
 - Developer guide rewritten
-- English translation incremental update (13 files)
 
 ## [1.2.0] - 2026-03-06
 
@@ -66,7 +82,6 @@ This file is maintained in this project only and is not affected by upstream syn
 - README improvements: added POI comparison code, enhanced key features, suitability table, and template syntax table
 - Manual enhancements: added comprehensive example (Rich Sample) and screenshot-based introduction section
 - Library comparison document: added feature/performance comparison with JXLS, EasyExcel, and others
-- Manual index pages reduced to documentation hub (navigation + learning paths only), removing content duplicated with README
 
 ## [1.1.2] - 2026-02-23
 
@@ -102,26 +117,19 @@ This file is maintained in this project only and is not affected by upstream syn
 
 **First public release on Maven Central**
 
-### Features (from upstream)
+### Features
 - Template-based Excel report generation with `${repeat(...)}` syntax
 - Streaming mode (SXSSF) for large dataset processing
 - Chart, formula, and conditional formatting auto-adjustment
 - Empty collection handling with `emptyRange`
 - Spring Boot auto-configuration support
-
-### Refactoring (from upstream)
 - `ExcelGeneratorConfig` renamed to `TbegConfig`, `ExcelPipeline` renamed to `TbegPipeline`
-- `ConditionalFormattingUtils` extracted to eliminate dxfId reflection duplication
-- `CellSnapshot.toContent()` extension function added
-- `AbstractRenderingStrategy` numberStyleCache common method (SXSSF/XSSF dedup)
-- Unused code cleanup (`has`, `finalEndRow`, `isSingleCell`, `templateRowCount`, etc.)
 
 ### Project Setup
-- Extracted TBEG module from kotlin-common-library as a standalone project
 - Package: `io.github.jogakdal.tbeg`
 - Build: Gradle 8.13.0, Kotlin 2.1.20, Java 21
 - CI/CD: GitHub Actions (build + test + Maven Central publish on v* tag)
-- Documentation: Multilingual support (Korean source, English translation)
+- Documentation: Korean and English
 
 ### Deployment
 - **Maven Central**: `io.github.jogakdal:tbeg:1.1.0`
