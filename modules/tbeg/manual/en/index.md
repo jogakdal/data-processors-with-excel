@@ -18,11 +18,11 @@ A template-based Excel file generation library
 ### I want to integrate with Spring Boot
 1. Check the integration guide in the [Spring Boot Examples](./examples/spring-boot-examples.md)
 2. Review `application.yml` settings in [Configuration Options](./reference/configuration.md)
-3. See [Advanced Examples - JPA Integration](./examples/advanced-examples.md#13-jpaspring-data-integration) for database connectivity
+3. See [Advanced Examples - JPA Integration (Kotlin)](./examples/advanced-examples-kotlin.md#13-jpaspring-data-integration) ([Java](./examples/advanced-examples-java.md#13-jpaspring-data-integration)) for database connectivity
 
 ### I need to process large datasets
 1. See [User Guide - Large-Scale Data Processing](./user-guide.md#5-large-scale-data-processing)
-2. Explore lazy loading patterns in [Advanced Examples - DataProvider](./examples/advanced-examples.md#1-dataprovider-usage)
+2. Explore lazy loading patterns in [Advanced Examples - DataProvider (Kotlin)](./examples/advanced-examples-kotlin.md#1-dataprovider-usage) ([Java](./examples/advanced-examples-java.md#1-dataprovider-usage))
 3. Follow the step-by-step guide in [Best Practices - Performance Optimization](./best-practices.md#2-performance-optimization)
 
 ### I'm working with complex templates
@@ -61,6 +61,7 @@ A template-based Excel file generation library
 ### Appendix
 - [Glossary](./glossary.md) - Key terms used in TBEG documentation
 - [Library Comparison](./appendix/library-comparison.md) - Feature comparison across Excel report libraries
+- [Performance Benchmark Details](./appendix/benchmark-results.md) - Detailed JMH benchmark results and analysis
 
 ---
 

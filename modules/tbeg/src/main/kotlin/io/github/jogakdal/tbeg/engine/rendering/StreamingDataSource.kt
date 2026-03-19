@@ -157,7 +157,7 @@ internal class StreamingDataSource(
             val hasMore = iterator.hasNext()
 
             LOG.warn(
-                "Collection '{}' count mismatch: provided count={}, actual items={} or more. " +
+                "Collection '{}' count mismatch: provided count={}, actual items={}+. " +
                     "Only the provided count will be processed; remaining items are ignored. " +
                     "(repeat region: sheet={}, row={}, col={})",
                 repeatKey.collectionName,

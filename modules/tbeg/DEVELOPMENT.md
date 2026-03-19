@@ -54,7 +54,7 @@ This document defines the architecture, implementation principles, and developme
 │                                    └──────────────────┘     │
 │                                               │             │
 │  ┌──────────────┐   ┌──────────────┐   ┌──────▼───────┐     │
-│  │   Metadata   │ ← │ ChartRestore │ ← │ NumberFormat │     │
+│  │ ChartRestore │ ← │PivotRecreate │ ← │ZipStreamPost │     │
 │  └──────────────┘   └──────────────┘   └──────────────┘     │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -68,11 +68,9 @@ This document defines the architecture, implementation principles, and developme
 | 1     | ChartExtract       | `ChartExtractProcessor`       | Extract chart info and temporarily remove   | Always                  |
 | 2     | PivotExtract       | `PivotExtractProcessor`       | Extract pivot table info                    | Always                  |
 | 3     | TemplateRender     | `TemplateRenderProcessor`     | Template rendering                          | Always                  |
-| 4     | NumberFormat       | `NumberFormatProcessor`       | Auto-apply number formats                   | Always                  |
-| 5     | XmlVariableReplace | `XmlVariableReplaceProcessor` | Variable substitution within XML            | Always                  |
-| 6     | PivotRecreate      | `PivotRecreateProcessor`      | Recreate pivot tables                       | When pivots exist       |
-| 7     | ChartRestore       | `ChartRestoreProcessor`       | Restore charts and adjust data ranges       | When charts exist       |
-| 8     | Metadata           | `MetadataProcessor`           | Apply document metadata                     | Always                  |
+| 4     | ZipStreamPost      | `ZipStreamPostProcessor`      | Number formats + metadata + variable substitution + absPath removal (single-pass ZIP) | Always |
+| 5     | PivotRecreate      | `PivotRecreateProcessor`      | Recreate pivot tables                       | When pivots exist       |
+| 6     | ChartRestore       | `ChartRestoreProcessor`       | Restore charts and adjust data ranges       | When charts exist       |
 
 ### Rendering Strategy
 
@@ -111,15 +109,21 @@ src/main/kotlin/io/github/jogakdal/tbeg/
 │   │   ├── TbegPipeline.kt                 # Pipeline definition
 │   │   ├── ExcelProcessor.kt               # Processor interface
 │   │   ├── ProcessingContext.kt            # Processing context
-│   │   └── processors/                     # Individual processors (8)
+│   │   └── processors/                     # Individual processors
 │   │       ├── ChartExtractProcessor.kt
 │   │       ├── ChartRestoreProcessor.kt
-│   │       ├── MetadataProcessor.kt
-│   │       ├── NumberFormatProcessor.kt
+│   │       ├── MetadataProcessor.kt        # Metadata application (usable independently)
+│   │       ├── NumberFormatProcessor.kt    # Number format application (usable independently)
 │   │       ├── PivotExtractProcessor.kt
 │   │       ├── PivotRecreateProcessor.kt
 │   │       ├── TemplateRenderProcessor.kt
-│   │       └── XmlVariableReplaceProcessor.kt
+│   │       ├── ZipStreamPostProcessor.kt   # Single-pass ZIP integrated post-processing
+│   │       └── zippost/                    # ZIP post-processing handlers
+│   │           ├── StylesXmlHandler.kt     #   styles.xml number format transformation
+│   │           ├── SheetXmlHandler.kt      #   sheet*.xml cell style replacement (StAX)
+│   │           ├── WorkbookXmlHandler.kt   #   workbook.xml absPath removal
+│   │           ├── MetadataXmlHandler.kt   #   docProps/*.xml metadata
+│   │           └── VariableXmlHandler.kt   #   Other XML variable substitution
 │   │
 │   ├── preprocessing/                      # Preprocessing (runs before the rendering pipeline)
 │   │   ├── HidePreprocessor.kt            #   Hideable preprocessor (marker scan, hide decision, delete/DIM)
@@ -875,15 +879,44 @@ With bundle:
 - **No boundary overlap**: An error occurs if an element partially overlaps the bundle range
 - **No bundle nesting**: An error occurs if a bundle contains another bundle
 
-### 4. Number Format Principles
+### 4. Thread Safety Principles
 
-#### 4.1 Automatic Number Format Conditions
+`ExcelGenerator` can be used as a Spring singleton bean, so it must be safe when called concurrently from multiple threads.
+
+#### 4.1 Per-Call Isolation Structure
+
+`TemplateRenderProcessor.process()` creates a new `TemplateRenderingEngine` for each call, so rendering-related mutable state (fieldCache, getterCache, styleMap, repeatExpansionInfos, etc.) is fully isolated per call. `ProcessingContext` is also created per call.
+
+#### 4.2 Thread Safety of Shared Instances
+
+Thread safety status of shared objects held by `ExcelGenerator`:
+
+| Object | Thread-Safe | Rationale |
+|--------|:-----------:|-----------|
+| `PivotTableProcessor` | Yes | `styleCache` and `styleInfoCache` use `Collections.synchronizedMap` + `ConcurrentHashMap` |
+| `XmlVariableProcessor` | Yes | Uses only companion object constants |
+| `ChartProcessor` | Yes | Uses only companion object lazy constants |
+| `TbegPipeline` | Yes | Processor list is immutable |
+| `ZipStreamPostProcessor` | Yes | No instance state |
+| Other processors | Yes | No instance state (delegate to PivotTableProcessor/ChartProcessor) |
+
+#### 4.3 Guidelines for New Code
+
+- Use thread-safe data structures (`ConcurrentHashMap`, `Collections.synchronizedMap`, etc.) for instance-level mutable state
+- Isolate per-call state using local variables or method parameters
+- When adding a new processor, always consider: "Can this state be accessed concurrently by multiple threads?"
+
+---
+
+### 5. Number Format Principles
+
+#### 5.1 Automatic Number Format Conditions
 When a value auto-generated by the library is numeric and the cell's display format is unset or "General", a number format is automatically applied.
 
 - Integer: `pivotIntegerFormatIndex` (default 3, `#,##0`)
 - Decimal: `pivotDecimalFormatIndex` (default 4, `#,##0.00`)
 
-#### 4.2 Number Formatting for Formula Cells
+#### 5.2 Number Formatting for Formula Cells
 When a variable marker (`${var}`) is bound to a value starting with `=`, the cell is converted to a formula. The same number formatting rules apply to these formula cells.
 
 - Since the formula result type cannot be known in advance, the integer format (`#,##0`) is applied by default
@@ -893,11 +926,11 @@ When a variable marker (`${var}`) is bound to a value starting with `=`, the cel
 
 > **Implementation**: Handled by the `CellType.FORMULA` branch in `NumberFormatProcessor`
 
-#### 4.3 Automatic Alignment Conditions
+#### 5.3 Automatic Alignment Conditions
 When a value auto-generated by the library is numeric and the cell's alignment is "General", right alignment is automatically applied. Alignment is not applied to formula cells.
 
-#### 4.4 Existing Format Preservation
-Even when conditions 4.1 through 4.3 apply, all other formatting (font, color, borders, etc.) retains the template formatting.
+#### 5.4 Existing Format Preservation
+Even when conditions 5.1 through 5.3 apply, all other formatting (font, color, borders, etc.) retains the template formatting.
 
 ---
 
@@ -1002,7 +1035,7 @@ Prevents duplicate creation of identical styles.
 
 | Class                   | Cache                        | Purpose              |
 |-------------------------|------------------------------|----------------------|
-| `PivotTableProcessor`   | `styleCache` (WeakHashMap)   | Pivot cell styles    |
+| `PivotTableProcessor`   | `styleCache` (synchronizedMap + WeakHashMap) | Pivot cell styles    |
 | `NumberFormatProcessor`  | `styleCache`                | Number format styles |
 
 ### Field Caching
@@ -1080,6 +1113,7 @@ val NEW_MARKER = MarkerDefinition("newmarker", listOf(
 src/test/
 ├── kotlin/io/github/jogakdal/tbeg/
 │   ├── TbegTest.kt                     # Integration tests
+│   ├── ThreadSafetyTest.kt             # Thread safety tests
 │   ├── EmptyCollectionTest.kt          # Empty collection handling tests
 │   ├── engine/
 │   │   ├── TemplateRenderingEngineTest.kt  # Rendering engine tests
@@ -1118,8 +1152,9 @@ src/test/
 # Spring Boot sample
 ./gradlew :tbeg:runSpringBootSample  # Output: build/samples-spring/
 
-# Performance benchmark
-./gradlew :tbeg:runBenchmark
+# Performance benchmark (JMH)
+./gradlew :tbeg:runBenchmark      # Custom runner (formatted table)
+./gradlew :tbeg:jmh               # JMH plugin (JSON results)
 ```
 
 ### Testing Principles
@@ -1132,21 +1167,53 @@ src/test/
 
 ## Performance Benchmark
 
-### TBEG Performance
+Uses JMH (Java Microbenchmark Harness) to precisely measure elapsed time, heap allocation, and GC statistics.
 
-**Test environment**: Java 21, macOS, 3-column repeat + SUM formula
+### Benchmark Configuration
 
-| Data Size     | Time      |
-|---------------|-----------|
-| 1,000 rows    | 147ms     |
-| 10,000 rows   | 663ms     |
-| 30,000 rows   | 1,057ms   |
-| 50,000 rows   | 1,202ms   |
-| 100,000 rows  | 3,154ms   |
+| Benchmark | Class | Fixed | Variable |
+|-----------|-------|-------|----------|
+| Data provision method comparison | `DataModeBenchmark` | generate() output | Map vs DataProvider x 1K~100K |
+| Output method comparison | `OutputModeBenchmark` | DataProvider | generate/toStream/toFile x 1K~100K |
+| Large-scale | `LargeScaleBenchmark` | DataProvider + generateToFile | 100K/200K/300K/500K/1M |
 
-### Comparison with Other Libraries (30,000 rows)
+### Running
 
-| Library    | Time        | Notes                                                           |
-|------------|-------------|-----------------------------------------------------------------|
-| **TBEG**   | **1.1 sec** |                                                                 |
-| JXLS       | 5.2 sec     | [Benchmark source](https://github.com/jxlsteam/jxls/discussions/203) |
+```bash
+# JMH plugin benchmark (full, generates JSON result file)
+./gradlew :tbeg:jmh
+
+# Custom runner (formatted table output)
+./gradlew :tbeg:runBenchmark
+
+# CI regression test (quick small-scale verification)
+./gradlew :tbeg:test --tests "*PerformanceBenchmarkTest*"
+```
+
+### Source Structure
+
+```
+src/jmh/kotlin/io/github/jogakdal/tbeg/benchmark/
+├── BenchmarkSupport.kt          # Common: template generation, data generation, result output
+├── DataModeBenchmark.kt         # Benchmark 1: Map vs DataProvider
+├── OutputModeBenchmark.kt       # Benchmark 2: generate vs toStream vs toFile
+├── LargeScaleBenchmark.kt       # Benchmark 3: Large-scale (100K~1M)
+├── CpuTimeProfiler.kt           # Custom profiler (CPU utilization measurement)
+└── TbegBenchmarkRunner.kt       # Custom runner (full execution + formatted table output)
+```
+
+### Results Summary
+
+**Test environment**: macOS (aarch64), OpenJDK 21.0.1, 12 cores, 3-column repeat + SUM formula
+
+| Data Size      | Time      | CPU/Core | Heap Alloc  |
+|----------------|-----------|----------|-------------|
+| 1,000 rows     | 20ms      | 23.5%    | 11.8MB      |
+| 10,000 rows    | 109ms     | 14.7%    | 58.5MB      |
+| 30,000 rows    | 315ms     | 12.5%    | 166.0MB     |
+| 100,000 rows   | 993ms     | 10.8%    | 540.8MB     |
+| 500,000 rows   | 4,718ms   | 8.9%     | 2,614.5MB   |
+| 1,000,000 rows | 8,952ms   | 8.8%     | 5,230.7MB   |
+
+> Based on DataProvider + generateToFile. CPU/Core is the process utilization relative to the system's total CPU capacity (divided by the number of cores).
+> For full results and analysis across all three benchmark dimensions (data method comparison, output method comparison, large-scale), see [Performance Benchmark Details](./manual/en/appendix/benchmark-results.md).

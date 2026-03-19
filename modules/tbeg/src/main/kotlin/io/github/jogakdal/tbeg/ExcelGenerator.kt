@@ -58,6 +58,7 @@ import java.util.concurrent.Executors
  *
  * @param config 생성기 설정
  */
+@Suppress("unused") // public API - 외부 사용자가 호출
 class ExcelGenerator @JvmOverloads constructor(
     private val config: TbegConfig = TbegConfig()
 ) : Closeable {
@@ -73,11 +74,9 @@ class ExcelGenerator @JvmOverloads constructor(
         ChartExtractProcessor(chartProcessor),
         PivotExtractProcessor(pivotTableProcessor),
         TemplateRenderProcessor(),
-        NumberFormatProcessor(),
-        XmlVariableReplaceProcessor(xmlVariableProcessor),
+        ZipStreamPostProcessor(xmlVariableProcessor),
         PivotRecreateProcessor(pivotTableProcessor),
-        ChartRestoreProcessor(chartProcessor),
-        MetadataProcessor()
+        ChartRestoreProcessor(chartProcessor)
     )
 
     // ========== 동기 API ==========
@@ -122,6 +121,46 @@ class ExcelGenerator @JvmOverloads constructor(
     @JvmOverloads
     fun generate(template: File, dataProvider: ExcelDataProvider, password: String? = null): ByteArray =
         template.inputStream().use { generate(it, dataProvider, password) }
+
+    /**
+     * 템플릿과 데이터 맵으로 Excel을 생성하여 OutputStream에 쓴다.
+     *
+     * 결과물은 파이프라인 특성상 메모리에 적재된 후 출력됩니다.
+     * HTTP 응답 스트림 등에 직접 쓸 때 유용합니다.
+     *
+     * @param template 템플릿 입력 스트림
+     * @param data 바인딩할 데이터 맵
+     * @param output 결과를 쓸 출력 스트림
+     * @param password 파일 열기 암호 (null 또는 빈 문자열이면 암호 없음)
+     */
+    @JvmOverloads
+    fun generateToStream(
+        template: InputStream, data: Map<String, Any>, output: OutputStream, password: String? = null
+    ) = generateToStream(template, SimpleDataProvider.of(data), output, password)
+
+    /**
+     * 템플릿과 DataProvider로 Excel을 생성하여 OutputStream에 쓴다.
+     *
+     * 결과물은 파이프라인 특성상 메모리에 적재된 후 출력됩니다.
+     * HTTP 응답 스트림 등에 직접 쓸 때 유용합니다.
+     *
+     * @param template 템플릿 입력 스트림
+     * @param dataProvider 데이터 제공자
+     * @param output 결과를 쓸 출력 스트림
+     * @param password 파일 열기 암호 (null 또는 빈 문자열이면 암호 없음)
+     */
+    @JvmOverloads
+    fun generateToStream(
+        template: InputStream, dataProvider: ExcelDataProvider, output: OutputStream, password: String? = null
+    ) {
+        val effectivePassword = password.takeUnless { it.isNullOrBlank() }
+        effectivePassword?.let { pw ->
+            ByteArrayOutputStream().use { buffer ->
+                processTemplate(template, dataProvider, buffer)
+                buffer.toByteArray().encryptExcelTo(pw, output)
+            }
+        } ?: processTemplate(template, dataProvider, output)
+    }
 
     /**
      * Excel을 생성하여 파일로 저장한다.
@@ -491,11 +530,10 @@ class ExcelGenerator @JvmOverloads constructor(
      * - ChartExtractProcessor: 스트리밍 모드에서 차트 추출 (SXSSF에서 차트 손실 방지)
      * - PivotExtractProcessor: 피벗 테이블 정보 추출 및 템플릿에서 제거
      * - TemplateRenderProcessor: 반복 데이터 처리 (스트리밍 가능)
-     * - NumberFormatProcessor: 숫자 서식 자동 적용
+     * - XssfPostProcessor: 숫자 서식 + 메타데이터 통합 적용 (단일 XSSF 로드)
      * - XmlVariableReplaceProcessor: XML 변수 치환 (수식 내 변수 등)
      * - PivotRecreateProcessor: 확장된 데이터 소스로 피벗 테이블 재생성
      * - ChartRestoreProcessor: 차트 복원 (스트리밍 모드)
-     * - MetadataProcessor: 문서 메타데이터 적용
      */
     private fun processTemplate(
         template: InputStream,

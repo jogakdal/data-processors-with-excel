@@ -46,8 +46,7 @@ import java.util.concurrent.TimeUnit;
  * <h2>Spring Boot 설정</h2>
  * <pre>{@code
  * # application.yml
- * hunet:
- *   excel:
+ * tbeg:
  *     streaming-mode: auto
  *     streaming-row-threshold: 1000
  *     formula-processing: true
@@ -300,7 +299,7 @@ public class TbegSpringBootJavaSample {
      *             template.getInputStream(),
      *             SimpleDataProvider.of(request.toDataMap()),
      *             Path.of("/output"),
-     *             "async_report",
+     *             "monthly_sales",
      *             null,
      *             new ExcelGenerationListener() {
      *                 public void onCompleted(String jobId, GenerationResult result) {

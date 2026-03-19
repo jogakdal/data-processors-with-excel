@@ -249,7 +249,7 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
         )
         result = tbegSizePattern.replace(result, size.toString())
 
-        // 결과가 순수 숫자인 경우 숫자로 저장 (NumberFormatProcessor 적용을 위해)
+        // 결과가 순수 숫자인 경우 숫자로 저장 (숫자 서식 자동 적용을 위해)
         val numericValue = result.toLongOrNull() ?: result.toDoubleOrNull()
         if (numericValue != null) {
             setCellValue(cell, numericValue)
@@ -338,6 +338,7 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
      * - ByteArray: 그대로 사용
      * - String (http/https URL): 다운로드하여 ByteArray로 변환 (TTL 캐싱 적용)
      */
+    @Suppress("HttpUrlsUsage")
     private fun resolveImageBytes(
         data: Map<String, Any>,
         imageName: String,

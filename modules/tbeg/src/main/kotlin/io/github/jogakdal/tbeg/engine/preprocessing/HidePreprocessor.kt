@@ -289,7 +289,7 @@ class HidePreprocessor(
                 UnmarkedHidePolicy.WARN_AND_HIDE -> {
                     LOG.warn(
                         "Field '{}.{}' is specified in hideFields but has no hideable marker. " +
-                        "Only the cell itself will be hidden. Use a hideable marker to specify a bundle range.",
+                        "Hiding the cell in DIM mode. Use a hideable marker to specify bundle range and hide mode.",
                         itemField.content.itemVariable, itemField.content.fieldPath
                     )
                     val mergedRegions = scanResult.mergedRegions[itemField.sheetIndex] ?: emptyList()
@@ -299,14 +299,15 @@ class HidePreprocessor(
                         fieldPath = itemField.content.fieldPath,
                         itemVariable = itemField.content.itemVariable,
                         markerCell = cellRange,
-                        effectiveRange = cellRange
+                        effectiveRange = cellRange,
+                        mode = HideMode.DIM
                     )
                 }
                 UnmarkedHidePolicy.ERROR -> {
                     throw MarkerValidationException(
-                        "Field '${itemField.content.itemVariable}.${itemField.content.fieldPath}' " +
-                        "is specified in hideFields but has no hideable marker. " +
-                        "Please add a hideable marker or change unmarkedHidePolicy to WARN_AND_HIDE."
+                        "Field '${itemField.content.itemVariable}.${itemField.content.fieldPath}' is specified in hideFields" +
+                        " but has no hideable marker." +
+                        " Please add a hideable marker or change unmarkedHidePolicy to WARN_AND_HIDE."
                     )
                 }
             }
@@ -468,7 +469,7 @@ class HidePreprocessor(
                 "${it.content.itemVariable}.${it.content.fieldPath}"
             }
             LOG.warn(
-                "Template contains hideable markers ({}) but no hideFields are specified for the collection. " +
+                "Template contains hideable marker(s) ({}) but no hideFields specified for the collection. " +
                 "Processing as regular fields.",
                 fields
             )

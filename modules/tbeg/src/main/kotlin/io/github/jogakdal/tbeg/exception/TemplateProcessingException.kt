@@ -17,10 +17,10 @@ class TemplateProcessingException(
      * 오류 유형
      */
     enum class ErrorType {
-        /** repeat 마커 문법 오류 (괄호 불일치 등) */
-        INVALID_REPEAT_SYNTAX,
+        /** 마커 문법 오류 (괄호 불일치 등) */
+        INVALID_MARKER_SYNTAX,
 
-        /** repeat 마커 필수 파라미터 누락 */
+        /** 필수 파라미터 누락 */
         MISSING_REQUIRED_PARAMETER,
 
         /** 잘못된 셀 범위 형식 */
@@ -30,27 +30,31 @@ class TemplateProcessingException(
         SHEET_NOT_FOUND,
 
         /** 잘못된 파라미터 값 */
-        INVALID_PARAMETER_VALUE
+        INVALID_PARAMETER_VALUE,
+
+        /** 범위 충돌 (중첩, 경계 걸침 등) */
+        RANGE_CONFLICT
     }
 
     companion object {
         private fun buildMessage(errorType: ErrorType, details: String): String {
             val typeMessage = when (errorType) {
-                ErrorType.INVALID_REPEAT_SYNTAX -> "Invalid repeat marker syntax"
+                ErrorType.INVALID_MARKER_SYNTAX -> "Invalid marker syntax"
                 ErrorType.MISSING_REQUIRED_PARAMETER -> "Missing required parameter"
                 ErrorType.INVALID_RANGE_FORMAT -> "Invalid cell range format"
                 ErrorType.SHEET_NOT_FOUND -> "Sheet not found"
                 ErrorType.INVALID_PARAMETER_VALUE -> "Invalid parameter value"
+                ErrorType.RANGE_CONFLICT -> "Range conflict"
             }
             return "Template processing error [$typeMessage]: $details"
         }
 
         /**
-         * repeat 마커 문법 오류
+         * 마커 문법 오류
          */
         @Suppress("unused")
-        fun invalidRepeatSyntax(marker: String, reason: String) = TemplateProcessingException(
-            errorType = ErrorType.INVALID_REPEAT_SYNTAX,
+        fun invalidMarkerSyntax(marker: String, reason: String) = TemplateProcessingException(
+            errorType = ErrorType.INVALID_MARKER_SYNTAX,
             details = "Marker '$marker' - $reason"
         )
 
@@ -79,6 +83,15 @@ class TemplateProcessingException(
         fun sheetNotFound(sheetName: String, availableSheets: List<String>) = TemplateProcessingException(
             errorType = ErrorType.SHEET_NOT_FOUND,
             details = "Sheet '$sheetName' not found. Available sheets: ${availableSheets.joinToString(", ")}"
+        )
+
+        /**
+         * 범위 충돌
+         */
+        @Suppress("unused")
+        fun rangeConflict(details: String) = TemplateProcessingException(
+            errorType = ErrorType.RANGE_CONFLICT,
+            details = details
         )
 
         /**

@@ -25,7 +25,7 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.2.2")
+    implementation("io.github.jogakdal:tbeg:1.2.3")
 }
 ```
 
@@ -533,7 +533,7 @@ class LargeReportService(
 > [!WARNING]
 > When using JPA Streams, you must use the `@Transactional` annotation. The Stream is closed when the transaction ends, so the transaction must remain active until the Excel generation is complete.
 
-For detailed information on Repository interface definitions, paged Iterator implementations, and MyBatis integration, see [Advanced Examples - JPA/Spring Data Integration](./advanced-examples.md#13-jpaspring-data-integration).
+For detailed information on Repository interface definitions, paged Iterator implementations, and MyBatis integration, see [Advanced Examples - JPA/Spring Data Integration (Kotlin)](./advanced-examples-kotlin.md#13-jpaspring-data-integration) ([Java](./advanced-examples-java.md#13-jpaspring-data-integration)).
 
 ---
 

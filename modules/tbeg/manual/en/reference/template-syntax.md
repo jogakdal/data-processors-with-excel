@@ -848,7 +848,56 @@ With `bundle(A4:E6)`, all columns A-E move as a single unit, so every column sta
 
 All columns A-E start at the same row, keeping the table intact.
 
-### 8.3 Restrictions
+### 8.3 Bundle as an Independent Region
+
+A bundled region is treated like an independent sheet. Bundles can contain repeat, formulas, merged cells, and all other elements, with internal expansion and adjustment processed at the bundle level.
+
+#### Repeat Inside a Bundle
+
+When a repeat exists inside a bundle, the entire bundle height grows with the repeat expansion, and elements below the bundle shift accordingly.
+
+**Template**
+
+|     | A                             | B               | C    | D    | E                 |
+|-----|-------------------------------|-----------------|------|------|-------------------|
+| 1   | Summary                       |                 |      |      |                   |
+| 2   | ${bundle(A3:E7)}              |                 |      |      |                   |
+| 3   | Revenue by Department         |                 |      |      |                   |
+| 4   | Department                    | Revenue         | Cost | Profit |                 |
+| 5   | ${dept.name}                  | ${dept.revenue} | ${dept.cost} | ${dept.profit} | ${repeat(depts, A5:D5, dept)} |
+| 6   |                               | =SUM(B5:B5)     | =SUM(C5:C5) | =SUM(D5:D5) |                   |
+| 7   | Total Profit: =D6             |                 |      |      |                   |
+| 8   | Notes                         |                 |      |      |                   |
+
+- Rows 3-7: Bundled region (title, header, data, totals, summary)
+- Row 5: Repeat inside the bundle
+- Row 6: Totals formulas that auto-adjust with repeat expansion
+- Row 8: Independent element below the bundle
+
+**Result** (3 items in depts)
+
+|     | A                        | B      | C      | D      | E |
+|-----|--------------------------|--------|--------|--------|---|
+| 1   | Summary                  |        |        |        |   |
+| 2   |                          |        |        |        |   |
+| 3   | Revenue by Department    |        |        |        |   |
+| 4   | Department               | Revenue | Cost  | Profit |   |
+| 5   | Sales                    | 52000  | 30000  | 22000  |   |
+| 6   | Engineering              | 38000  | 25000  | 13000  |   |
+| 7   | Support                  | 28000  | 20000  | 8000   |   |
+| 8   |                          | =SUM(B5:B7) | =SUM(C5:C7) | =SUM(D5:D7) |   |
+| 9   | Total Profit: =D8        |        |        |        |   |
+| 10  | Notes                    |        |        |        |   |
+
+- The repeat inside the bundle (row 5) expanded to 3 items, shifting the totals row (row 8) and summary row (row 9) down.
+- The totals formula `=SUM(B5:B5)` was auto-adjusted to `=SUM(B5:B7)`.
+- "Notes" (row 10) below the bundle also shifted according to the total bundle expansion.
+
+#### Multiple Repeats Inside a Bundle
+
+When a bundle contains multiple repeats, all their expansions are reflected. For example, if a single bundle contains both a department revenue repeat and a product revenue repeat, the total expansion of both repeats is summed to shift elements below the bundle.
+
+### 8.4 Restrictions
 
 - **No boundary overlap**: The common rule for all range elements applies (see [No Boundary Overlap](#no-boundary-overlap))
 - **No nesting**: Bundles cannot be placed inside other bundles.
@@ -1048,6 +1097,14 @@ ${hideable(field=emp.salary)}             // Using alias
 - **No partial merge overlap**: If the bundle range partially includes a merged cell, an error occurs.
 - **No overlap between hideable areas**: Hideable areas (bundle ranges) cannot overlap each other. However, overlapping is allowed when both are in DIM mode.
 - **Bundle range must match merge**: If the marker cell is a merged cell, the column/row range of the bundle must match the merge range.
+
+### 10.7 Hiding Fields Without a Hideable Marker
+
+Even if a field specified in `hideFields` exists in the template only as a regular field (`${item.field}`) without a hideable marker, hiding is still possible. In this case, the field cell is processed in DIM mode -- the value is cleared and a disabled style is applied. However, since there is no bundle range, related cells such as headers and totals are not affected.
+
+Using the hideable marker's `bundle` parameter allows you to hide related cells together or remove the column entirely with DELETE mode, so using a hideable marker is recommended when possible.
+
+This behavior can be controlled with the `unmarkedHidePolicy` setting ([see Configuration Options](./configuration.md#unmarkedhidepolicy)).
 
 ---
 

@@ -34,7 +34,8 @@ class ExcelGenerator(config: TbegConfig = TbegConfig()) : Closeable
 
 | 메서드 | 반환 타입 | 용도 |
 |:------:|:--------:|------|
-| `generate()` | `ByteArray` | 결과를 메모리에 받아 직접 처리 (HTTP 응답, 후처리 등) |
+| `generate()` | `ByteArray` | 결과를 메모리에 받아 직접 처리 (후처리 등) |
+| `generateToStream()` | `Unit` | 결과를 OutputStream에 직접 쓰기 (HTTP 응답 등) |
 | `generateToFile()` | `Path` | 결과를 파일로 직접 저장 (대용량 처리 시 권장) |
 | `generateAsync()` | `ByteArray` (suspend) | Kotlin Coroutine 환경에서 비동기 처리 |
 | `generateToFileAsync()` | `Path` (suspend) | Kotlin Coroutine 환경에서 파일로 비동기 저장 |
@@ -70,6 +71,24 @@ fun generate(template: File, dataProvider: ExcelDataProvider, password: String? 
 ExcelGenerator().use { generator ->
     val bytes = generator.generate(templateStream, mapOf("title" to "보고서"))
 }
+```
+
+#### generateToStream
+
+```kotlin
+fun generateToStream(template: InputStream, data: Map<String, Any>, output: OutputStream, password: String? = null)
+fun generateToStream(template: InputStream, dataProvider: ExcelDataProvider, output: OutputStream, password: String? = null)
+```
+
+Excel을 생성하여 OutputStream에 직접 씁니다. HTTP 응답 스트림 등에 직접 쓸 때 유용합니다.
+
+> [!NOTE]
+> 결과물은 파이프라인 특성상 메모리에 적재된 후 출력됩니다. 메모리 사용량은 `generate()`와 동일하지만, 바이트 배열 복사 없이 직접 출력하는 편의성을 제공합니다.
+
+```kotlin
+// Spring Controller에서 사용
+response.contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+generator.generateToStream(templateStream, data, response.outputStream)
 ```
 
 #### generateToFile
@@ -147,11 +166,12 @@ val result = job.await()
 
 | ErrorType | 설명 | 발생 예시 |
 |:---------:|------|----------|
-| `INVALID_REPEAT_SYNTAX` | repeat 마커 문법 오류 | `${repeat(employees)}` -- 범위 미지정 |
+| `INVALID_MARKER_SYNTAX` | 마커 문법 오류 | `${repeat(employees)}` -- 범위 미지정 |
 | `MISSING_REQUIRED_PARAMETER` | 필수 파라미터 누락 | `${image()}` -- 이미지 이름 누락 |
 | `INVALID_RANGE_FORMAT` | 잘못된 셀 범위 형식 | `${repeat(items, A:C, item)}` -- 행 번호 누락 |
 | `SHEET_NOT_FOUND` | 존재하지 않는 시트 참조 | `${repeat(items, '없는시트'!A1:C1, item)}` |
-| `INVALID_PARAMETER_VALUE` | 잘못된 파라미터 값 | `${repeat(items, A1:C1, item, DIAGONAL)}` -- 잘못된 방향 |
+| `INVALID_PARAMETER_VALUE` | 잘못된 파라미터 값 | `${repeat(items, A1:C1, item, DIAGONAL)}` -- 허용되지 않는 방향 값 |
+| `RANGE_CONFLICT` | 범위 충돌 | repeat 중첩, bundle 중첩, repeat-bundle 경계 걸침 |
 
 상세한 오류 대응 방법은 [문제 해결 가이드](../troubleshooting.md#2-실행-시-오류)를 참조하세요.
 
@@ -171,9 +191,9 @@ ExcelGenerator().use { generator ->
 
 | API | 동시 호출 | 비고 |
 |:---:|:--------:|------|
-| 동기 `generate()` / `generateToFile()` | 미지원 | 내부 파이프라인 상태를 공유하므로 동시 호출하면 안 됩니다 |
-| 비동기 `generateAsync()` / `generateFuture()` | 지원 | 각 작업이 코루틴 스코프 내에서 격리되어 실행됩니다 |
-| 백그라운드 `submit()` / `submitToFile()` | 지원 | 각 작업이 별도 코루틴으로 격리됩니다 |
+| 동기 `generate()` / `generateToFile()` | 미지원 | 내부 파이프라인 상태를 공유하므로 동시 호출하면 안 됩니다. |
+| 비동기 `generateAsync()` / `generateFuture()` | 지원 | 각 작업이 코루틴 스코프 내에서 격리되어 실행됩니다. |
+| 백그라운드 `submit()` / `submitToFile()` | 지원 | 각 작업이 별도 코루틴으로 격리됩니다. |
 
 Spring Boot 환경에서는 `ExcelGenerator`가 싱글톤 Bean으로 등록됩니다. 동기 API를 여러 요청에서 동시에 호출해야 한다면, 요청마다 별도의 `ExcelGenerator` 인스턴스를 생성하거나 비동기 API를 사용하세요.
 

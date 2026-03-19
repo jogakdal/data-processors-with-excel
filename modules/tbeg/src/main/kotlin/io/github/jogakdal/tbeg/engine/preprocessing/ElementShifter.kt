@@ -195,7 +195,7 @@ object ElementShifter {
                     CellType.FORMULA -> try {
                         if (allColumnRefsInRange(cell.cellFormula, deletedRange)) {
                             val cellRef = "${columnIndexToLetters(cell.columnIndex)}${cell.rowIndex + 1}"
-                            LOG.warn("All references in formula '{}' (cell {}) are within deleted columns; clearing the cell.",
+                            LOG.warn("All references in formula '{}' (cell {}) are within deleted columns; clearing cell.",
                                 cell.cellFormula, cellRef)
                             cell.setBlank()
                             return@forEach
@@ -226,7 +226,7 @@ object ElementShifter {
                     CellType.FORMULA -> try {
                         if (allRowRefsInRange(cell.cellFormula, deletedRange)) {
                             val cellRef = "${columnIndexToLetters(cell.columnIndex)}${cell.rowIndex + 1}"
-                            LOG.warn("All references in formula '{}' (cell {}) are within deleted rows; clearing the cell.",
+                            LOG.warn("All references in formula '{}' (cell {}) are within deleted rows; clearing cell.",
                                 cell.cellFormula, cellRef)
                             cell.setBlank()
                             return@forEach
@@ -409,9 +409,9 @@ object ElementShifter {
                 val endCol = if (match.groupValues[3].isNotEmpty()) columnLettersToIndex(match.groupValues[3]) else startCol
                 if (startCol in deletedCols && endCol in deletedCols) {
                     throw MarkerValidationException(
-                        "Range of marker '${markerMatch.value}' is entirely within deleted columns " +
-                        "(${columnIndexToLetters(deletedCols.first)}:${columnIndexToLetters(deletedCols.last)}). " +
-                        "Please check the hideable configuration in the template."
+                        "Range of marker '${markerMatch.value}' is entirely within deleted columns" +
+                        " (${columnIndexToLetters(deletedCols.first)}:${columnIndexToLetters(deletedCols.last)})." +
+                        " Please check the hideable configuration in the template."
                     )
                 }
             }
@@ -426,9 +426,9 @@ object ElementShifter {
                 val endRow = if (match.groupValues[4].isNotEmpty()) match.groupValues[4].toIntOrNull() ?: return@forEach else startRow
                 if (startRow in deletedRows && endRow in deletedRows) {
                     throw MarkerValidationException(
-                        "Range of marker '${markerMatch.value}' is entirely within deleted rows " +
-                        "(${deletedRows.first}:${deletedRows.last}). " +
-                        "Please check the hideable configuration in the template."
+                        "Range of marker '${markerMatch.value}' is entirely within deleted rows" +
+                        " (${deletedRows.first}:${deletedRows.last})." +
+                        " Please check the hideable configuration in the template."
                     )
                 }
             }

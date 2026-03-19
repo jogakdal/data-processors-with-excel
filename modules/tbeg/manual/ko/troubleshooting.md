@@ -27,11 +27,11 @@
 
 **원인 및 해결**:
 
-| 원인 | 해결 방법 |
-|------|----------|
-| 데이터에 해당 키가 없음 | `data` 맵 또는 DataProvider에 변수를 추가하세요 |
-| 변수명 오타 | 템플릿의 마커명과 데이터의 키를 정확히 일치시키세요 |
-| repeat 변수가 범위 밖에서 사용됨 | `${emp.name}` 등은 repeat 범위 안에서만 유효합니다 |
+|           원인           | 해결 방법                                 |
+|:----------------------:|:--------------------------------------|
+|     데이터에 해당 키가 없음      | `data` 맵 또는 DataProvider에 변수를 추가하세요.   |
+|         변수명 오타         | 템플릿의 마커명과 데이터의 키를 정확히 일치시키세요.          |
+| repeat 변수가 범위 밖에서 사용됨  | `${emp.name}` 등은 repeat 범위 안에서만 유효합니다. |
 
 > [!TIP]
 > `TbegConfig(missingDataBehavior = MissingDataBehavior.THROW)`로 설정하면 누락된 데이터가 있을 때 예외가 발생하여 원인 파악이 쉬워집니다.
@@ -44,17 +44,21 @@
 
 **원인**: hideable 마커가 repeat의 반복 항목 필드가 아닌 셀에 배치되어 있습니다.
 
-**해결**: hideable 마커를 repeat의 데이터 행(반복 범위 내)으로 이동하세요. hideable은 repeat의 반복 항목 필드에서만 사용할 수 있습니다.
+**해결**: hideable 마커를 repeat의 반복 범위 내 데이터 셀로 이동하세요. hideable은 repeat의 반복 항목 필드에서만 사용할 수 있습니다.
 
 ---
 
-### bundle 열 범위가 hideable 셀과 일치하지 않습니다
+### hideable의 bundle 범위가 hideable 셀과 일치하지 않습니다
 
-**증상**: "bundle 열 범위가 hideable 셀의 열 범위와 일치하지 않습니다" 오류가 발생합니다.
+**증상**: 다음 중 하나의 오류가 발생합니다.
+- "hideable '...'의 bundle **열** 범위(...)가 hideable 셀의 열 범위(...)와 일치하지 않습니다" (DOWN repeat)
+- "hideable '...'의 bundle **행** 범위(...)가 hideable 셀의 행 범위(...)와 일치하지 않습니다" (RIGHT repeat)
 
-**원인**: bundle 범위의 열이 hideable 마커 셀(또는 병합 셀)의 열과 다릅니다.
+**원인**: hideable 마커의 `bundle` 파라미터에 지정한 범위가 hideable 마커가 위치한 셀(또는 병합 셀)과 확장 축 방향으로 일치하지 않습니다. DOWN repeat에서는 열이, RIGHT repeat에서는 행이 일치해야 합니다.
 
-**해결**: bundle 범위의 열을 hideable 마커 셀과 동일하게 조정하세요. 예를 들어, hideable 마커가 C2에 있다면 bundle 범위도 C열을 포함해야 합니다 (예: `C1:C3`).
+**해결**: `bundle` 파라미터의 범위를 hideable 마커 셀에 맞춰 조정하세요.
+- DOWN repeat: hideable 마커가 C2에 있다면 `bundle=C1:C3`처럼 C열을 사용
+- RIGHT repeat: hideable 마커가 C2에 있다면 `bundle=B2:D2`처럼 2행을 사용
 
 ---
 
@@ -64,16 +68,22 @@
 
 템플릿 파싱 중 문법 오류가 발견되면 발생합니다. `errorType`으로 오류 유형을 구분할 수 있습니다.
 
-| ErrorType | 원인 | 해결 |
-|-----------|------|------|
-| `INVALID_REPEAT_SYNTAX` | repeat 마커 문법 오류 | `${repeat(컬렉션, 범위, 변수)}` 형식을 확인하세요 |
-| `MISSING_REQUIRED_PARAMETER` | 필수 파라미터 누락 | repeat의 `collection`, `range`는 필수입니다 |
-| `INVALID_RANGE_FORMAT` | 잘못된 셀 범위 형식 | `A2:C2` 같은 올바른 범위를 사용하세요 |
-| `SHEET_NOT_FOUND` | 존재하지 않는 시트 참조 | 시트명이 정확한지 확인하세요 (`'Sheet1'!A2:C2`) |
-| `INVALID_PARAMETER_VALUE` | 잘못된 파라미터 값 | direction은 `DOWN`/`RIGHT`만 허용됩니다. bundle 중첩이나 경계 걸침도 이 오류로 보고됩니다 |
+|          ErrorType           |        원인         | 해결                                                      |
+|:----------------------------:|:-----------------:|:--------------------------------------------------------|
+|   `INVALID_MARKER_SYNTAX`    |     마커 문법 오류      | 마커의 괄호, 파라미터 형식을 확인하세요.                                  |
+| `MISSING_REQUIRED_PARAMETER` |    필수 파라미터 누락     | 각 마커의 필수 파라미터를 확인하세요. (예: repeat의 `collection`, `range`) |
+|    `INVALID_RANGE_FORMAT`    |    잘못된 셀 범위 형식    | `A2:C2` 같은 올바른 범위를 사용하세요.                                |
+|      `SHEET_NOT_FOUND`       |   존재하지 않는 시트 참조   | 시트명이 정확한지 확인하세요. (`'Sheet1'!A2:C2`)                      |
+|  `INVALID_PARAMETER_VALUE`   |  허용되지 않는 파라미터 값   | 오류 메시지에 표시된 유효 값을 확인하고 파라미터를 수정하세요.                      |
+|       `RANGE_CONFLICT`       | 범위 충돌 (중첩, 경계 걸침) | 겹치는 범위를 분리하거나, 한쪽이 다른 쪽을 완전히 포함하도록 조정하세요.                |
 
-> [!NOTE]
-> 명시적 파라미터와 위치 기반 파라미터를 혼합하면 `INVALID_REPEAT_SYNTAX` 오류가 발생합니다. 한 마커 내에서는 한 가지 방식만 사용하세요.
+---
+
+### `IllegalArgumentException`
+
+모든 함수형 마커(repeat, hideable, image 등)에서 명시적 파라미터와 위치 기반 파라미터를 혼합하면 발생합니다.
+
+**해결**: 한 마커 내에서는 명시적 파라미터(`name=value`) 또는 위치 기반 파라미터 중 한 가지 방식만 사용하세요.
 
 ---
 
@@ -110,6 +120,8 @@ repeat으로 행이 확장될 때 수식 참조를 자동 조정하는 과정에
 2. JVM 힙 메모리 증가: `-Xmx2g` 등
 3. 데이터를 여러 파일로 분할 생성
 
+> 피벗 테이블이 포함된 템플릿에서는 피벗 재생성 과정에서 결과 파일 전체를 메모리에 로드하므로 약 30만 행이 현실적 상한입니다. 대용량 데이터에는 피벗 없는 템플릿을 사용하세요.
+
 ---
 
 ## 3. 결과 파일 관련
@@ -118,9 +130,8 @@ repeat으로 행이 확장될 때 수식 참조를 자동 조정하는 과정에
 
 **증상**: repeat으로 데이터 행이 확장되었는데 차트가 원래 범위만 참조합니다.
 
-**해결**: TBEG은 차트 데이터 소스 범위를 자동으로 조정합니다. 이 문제가 발생한다면:
-- 차트의 데이터 소스가 repeat 영역을 정확히 참조하는지 확인하세요
-- 차트와 repeat 영역이 같은 시트에 있는지 확인하세요
+**해결**: TBEG은 차트 데이터 소스 범위를 자동으로 조정합니다. 차트와 repeat 영역이 다른 시트에 있어도 정상 동작합니다. 이 문제가 발생한다면:
+- 차트의 데이터 소스가 repeat 영역을 정확히 참조하는지 확인하세요.
 
 ---
 
@@ -131,7 +142,6 @@ repeat으로 행이 확장될 때 수식 참조를 자동 조정하는 과정에
 **원인**: merge는 **연속된** 같은 값만 병합합니다. 같은 값이 떨어져 있으면 별도의 병합 그룹이 됩니다.
 
 **해결**: 데이터를 병합 기준 필드로 미리 정렬하세요.
-
 ```kotlin
 // 정렬 전: [영업1팀, 영업2팀, 영업1팀] -> 영업1팀이 2개 그룹으로 분리됨
 // 정렬 후: [영업1팀, 영업1팀, 영업2팀] -> 영업1팀이 하나로 병합됨
@@ -142,15 +152,15 @@ val employees = employeeRepository.findAll().sortedBy { it.department }
 
 ### bundle 범위 오류가 발생합니다
 
-**증상**: `INVALID_PARAMETER_VALUE` 오류와 함께 bundle 관련 메시지가 표시됩니다.
+**증상**: `RANGE_CONFLICT` 오류와 함께 bundle 관련 메시지가 표시됩니다.
 
 **원인 및 해결**:
 
-| 원인 | 해결 방법 |
-|------|----------|
-| repeat이 bundle 경계에 걸침 | bundle 범위가 repeat 영역 전체를 포함하도록 조정하세요 |
-| bundle이 중첩됨 | bundle은 서로 중첩될 수 없습니다. 범위를 분리하세요 |
-| bundle 범위 형식 오류 | `A1:B10` 같은 올바른 범위를 사용하세요 |
+|             원인              | 해결 방법                                           |
+|:---------------------------:|-------------------------------------------------|
+| repeat 영역이 bundle 안팎에 걸쳐 있음 | repeat 영역이 bundle에 완전히 포함되거나 완전히 바깥에 있도록 조정하세요. |
+|         bundle이 중첩됨         | bundle은 서로 중첩될 수 없습니다. 범위를 분리하세요.               |
+|       bundle 범위 형식 오류       | `A1:B10` 같은 올바른 범위를 사용하세요.                      |
 
 ---
 
@@ -159,8 +169,8 @@ val employees = employeeRepository.findAll().sortedBy { it.department }
 **증상**: 숫자 데이터에 천 단위 구분자가 적용되지 않거나 텍스트로 인식됩니다.
 
 **해결**:
-- 데이터 타입 확인: `Int`, `Long`, `Double` 등 숫자 타입으로 전달하세요 (String이 아닌)
-- 템플릿 셀에 숫자 서식이 적용되어 있는지 확인하세요
+- 데이터 타입 확인: `Int`, `Long`, `Double` 등 숫자 타입으로 전달하세요. (String이 아닌)
+- 템플릿 셀에 숫자 서식이 적용되어 있는지 확인하세요.
 
 ---
 
@@ -178,12 +188,12 @@ val employees = employeeRepository.findAll().sortedBy { it.department }
 
 **원인 및 해결**:
 
-| 원인 | 로그 메시지 | 해결 방법 |
-|------|-----------|----------|
-| URL 접근 불가 | `이미지 다운로드 실패: HTTP 404` | URL이 유효한지 브라우저에서 직접 확인하세요 |
-| 네트워크 타임아웃 | `이미지 다운로드 실패: ...Timeout` | 서버 응답 속도를 확인하세요 (연결 5초, 읽기 10초 제한) |
-| 파일 크기 초과 | `이미지 다운로드 중단: 크기 제한 초과` | 이미지 크기를 10MB 미만으로 줄이세요 |
-| 리다이렉트 과다 | `최대 리다이렉트 횟수 초과` | URL의 리다이렉트 체인을 확인하세요 (최대 3회) |
+|     원인     |           로그 메시지           | 해결 방법                               |
+|:----------:|:--------------------------:|:------------------------------------|
+| URL 접근 불가  |  `이미지 다운로드 실패: HTTP 404`   | URL이 유효한지 브라우저에서 직접 확인하세요.          |
+| 네트워크 타임아웃  | `이미지 다운로드 실패: ...Timeout`  | 서버 응답 속도를 확인하세요. (연결 5초, 읽기 10초 제한) |
+|  파일 크기 초과  |  `이미지 다운로드 중단: 크기 제한 초과`   | 이미지 크기를 10MB 미만으로 줄이세요.             |
+|  리다이렉트 과다  |      `최대 리다이렉트 횟수 초과`      | URL의 리다이렉트 체인을 확인하세요. (최대 3회)       |
 
 > [!TIP]
 > 같은 이미지를 여러 보고서에서 반복 사용한다면 `imageUrlCacheTtlSeconds`를 설정하여 불필요한 다운로드를 줄일 수 있습니다.
@@ -196,11 +206,32 @@ val employees = employeeRepository.findAll().sortedBy { it.department }
 
 ### hideFields를 지정했지만 필드가 숨겨지지 않습니다
 
-**증상**: `hideFields()`로 숨길 필드를 지정했지만 결과 파일에서 필드가 숨겨지지 않습니다.
+**증상**: `hideFields()`로 숨길 필드를 지정했지만 결과 파일에서 해당 필드가 그대로 출력됩니다.
 
-**원인**: 템플릿에 해당 필드의 hideable 마커가 없습니다.
+**원인 및 해결**:
 
-**해결**: 템플릿에 `${hideable(value=item.필드명)}` 마커를 추가하세요. `unmarkedHidePolicy`가 `WARN_AND_HIDE`로 설정된 경우 마커 없이도 숨겨지지만, 경고 로그가 출력됩니다.
+- **필드명 불일치**: `hideFields`에 지정한 필드명이 템플릿의 마커(`${emp.salary}`)에서 사용하는 필드명과 정확히 일치하는지 확인하세요.
+- **컬렉션명 불일치**: `hideFields("employees", "salary")`에서 첫 번째 인자는 repeat의 컬렉션명과 일치해야 합니다.
+- **repeat 밖 필드**: hideFields는 repeat의 반복 항목 필드에만 적용됩니다. repeat과 무관한 단순 변수에는 적용되지 않습니다.
+
+> [!NOTE]
+> 템플릿에 hideable 마커 없이 `hideFields`를 지정하면 기본 정책(`WARN_AND_HIDE`)에 따라 해당 셀이 DIM 모드로 숨겨지고 경고 로그가 출력됩니다. DELETE 모드로 열을 물리적으로 제거하려면 템플릿에 `${hideable(value=item.필드명)}` 마커를 추가하세요. `unmarkedHidePolicy`를 `ERROR`로 설정하면 마커 없는 필드에 대해 예외가 발생합니다.
+
+---
+
+### 데이터 영역만 숨겨지고 타이틀/푸터는 그대로 남습니다
+
+**증상**: `hideFields()`로 필드를 숨겼는데 데이터 행의 값만 숨겨지고, 필드 타이틀이나 합계 행 등은 그대로 출력됩니다.
+
+**원인**: hideable 마커에 `bundle` 파라미터가 지정되지 않았거나, hideable 마커 없이 `hideFields`만 지정한 경우입니다. bundle이 없으면 마커가 위치한 데이터 셀만 숨김 대상이 됩니다.
+
+**해결**: hideable 마커의 `bundle` 파라미터로 타이틀, 합계 등 함께 숨길 범위를 지정하세요.
+
+```
+${hideable(value=emp.salary, bundle=C1:C4)}
+```
+
+위 예시에서 `C1:C4`는 필드 타이틀(C1), 데이터 행(C2~C3), 합계(C4)를 모두 포함합니다. 숨길 때 이 범위가 함께 처리됩니다.
 
 ---
 
@@ -250,12 +281,16 @@ items("employees", count) {
 
 ### 데이터 크기별 권장 설정
 
-| 데이터 크기 | 권장 방식 |
-|-----------|----------|
-| ~1,000행 | Map 방식으로 충분 |
-| 1,000~10,000행 | simpleDataProvider + count |
-| 10,000~100,000행 | simpleDataProvider + count + DB Stream |
-| 100,000행 이상 | 커스텀 DataProvider + DB Stream + `generateToFile()` |
+|      데이터 크기 |   예상 생성 시간 | 권장 방식                                             |
+|------------:|-----------:|:--------------------------------------------------|
+|     ~1,000행 |      ~20ms | Map 방식으로 충분합니다.                                   |
+|    ~10,000행 |     ~110ms | simpleDataProvider + count                        |
+|    ~50,000행 |     ~500ms | simpleDataProvider + count + DB Stream            |
+|   ~100,000행 |        ~1초 | simpleDataProvider + count + DB Stream            |
+|   ~500,000행 |        ~5초 | 커스텀 DataProvider + DB Stream + `generateToFile()` |
+| ~1,000,000행 |        ~9초 | 커스텀 DataProvider + DB Stream + `generateToFile()` |
+
+> 예상 생성 시간은 3개 컬럼 repeat + SUM 수식 기준(DataProvider + generateToFile)입니다. 컬럼 수, 수식 복잡도, 서버 사양에 따라 달라질 수 있습니다.
 
 ---
 
@@ -266,9 +301,9 @@ items("employees", count) {
 **증상**: `NoSuchBeanDefinitionException: No qualifying bean of type 'ExcelGenerator'`
 
 **해결**:
-1. 의존성 확인: `io.github.jogakdal:tbeg` 의존성이 추가되어 있는지 확인하세요
-2. `@SpringBootApplication` 클래스가 있는 패키지 구조를 확인하세요
-3. 커스텀 Bean을 직접 등록한 경우 `@ConditionalOnMissingBean`으로 인해 자동 설정이 비활성화될 수 있습니다
+1. 의존성 확인: `io.github.jogakdal:tbeg` 의존성이 추가되어 있는지 확인하세요.
+2. `@SpringBootApplication` 클래스가 있는 패키지 구조를 확인하세요.
+3. 커스텀 Bean을 직접 등록한 경우 `@ConditionalOnMissingBean`으로 인해 자동 설정이 비활성화될 수 있습니다.
 
 ---
 

@@ -826,7 +826,7 @@ object FormulaAdjuster {
                 when {
                     startInside && endInside -> match.value
                     startInside != endInside -> throw TemplateProcessingException(
-                        errorType = TemplateProcessingException.ErrorType.INVALID_PARAMETER_VALUE,
+                        errorType = TemplateProcessingException.ErrorType.RANGE_CONFLICT,
                         details = "Range reference '${match.value}' spans across the repeat region boundary (rows ${repeatArea.start.row + 1}~${repeatArea.end.row + 1})."
                     )
                     else -> {

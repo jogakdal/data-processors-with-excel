@@ -52,8 +52,8 @@ internal class VariableProcessor(registries: List<VariableResolverRegistry>) {
     /** 토큰 구분자 정의 */
     data class Delimiters(val open: String = "%{", val close: String = "}%") {
         init {
-            require(open.isNotEmpty()) { "Open delimiter must not be empty" }
-            require(close.isNotEmpty()) { "Close delimiter must not be empty" }
+            require(open.isNotEmpty()) { "open delimiter must not be empty" }
+            require(close.isNotEmpty()) { "close delimiter must not be empty" }
         }
     }
 

@@ -57,8 +57,8 @@ object HideValidator {
     private fun validateBundleContainsMarker(region: HideableRegion) {
         if (!rangeContains(region.effectiveRange, region.markerCell)) {
             throw MarkerValidationException(
-                "Hideable marker (${cellRef(region.markerCell)}) must be within " +
-                "the bundle range (${rangeRef(region.effectiveRange)})."
+                "Hideable marker (${cellRef(region.markerCell)}) must be contained within " +
+                "bundle range (${rangeRef(region.effectiveRange)})."
             )
         }
     }
@@ -93,9 +93,9 @@ object HideValidator {
             if (region.effectiveRange.firstColumn != baseColFirst ||
                 region.effectiveRange.lastColumn != baseColLast) {
                 throw MarkerValidationException(
-                    "Bundle column range of hideable '${region.fieldPath}' " +
-                    "(${ElementShifter.columnIndexToLetters(region.effectiveRange.firstColumn)}:${ElementShifter.columnIndexToLetters(region.effectiveRange.lastColumn)}) " +
-                    "does not match the hideable cell column range (${ElementShifter.columnIndexToLetters(baseColFirst)}:${ElementShifter.columnIndexToLetters(baseColLast)})."
+                    "Bundle column range of hideable '${region.fieldPath}'" +
+                    " (${ElementShifter.columnIndexToLetters(region.effectiveRange.firstColumn)}:${ElementShifter.columnIndexToLetters(region.effectiveRange.lastColumn)})" +
+                    " does not match the hideable cell column range (${ElementShifter.columnIndexToLetters(baseColFirst)}:${ElementShifter.columnIndexToLetters(baseColLast)})."
                 )
             }
         } else {
@@ -103,9 +103,9 @@ object HideValidator {
             if (region.effectiveRange.firstRow != baseRowFirst ||
                 region.effectiveRange.lastRow != baseRowLast) {
                 throw MarkerValidationException(
-                    "Bundle row range of hideable '${region.fieldPath}' " +
-                    "(${region.effectiveRange.firstRow + 1}:${region.effectiveRange.lastRow + 1}) " +
-                    "does not match the hideable cell row range (${baseRowFirst + 1}:${baseRowLast + 1})."
+                    "Bundle row range of hideable '${region.fieldPath}'" +
+                    " (${region.effectiveRange.firstRow + 1}:${region.effectiveRange.lastRow + 1})" +
+                    " does not match the hideable cell row range (${baseRowFirst + 1}:${baseRowLast + 1})."
                 )
             }
         }
@@ -120,9 +120,9 @@ object HideValidator {
                 !rangeContains(region.effectiveRange, merged) &&
                 !rangeContains(merged, region.effectiveRange)) {
                 throw MarkerValidationException(
-                    "Bundle range (${rangeRef(region.effectiveRange)}) of hideable '${region.fieldPath}' " +
-                    "partially overlaps with merged cell (${rangeRef(merged)}). " +
-                    "Please expand the bundle to fully contain the merged cell, or adjust the merge."
+                    "Bundle range (${rangeRef(region.effectiveRange)}) of hideable '${region.fieldPath}'" +
+                    " partially contains merged cell (${rangeRef(merged)})." +
+                    " Please expand the bundle to fully contain the merged cell, or adjust the merge."
                 )
             }
         }
@@ -137,8 +137,8 @@ object HideValidator {
                 !rangeContains(bundleRange, region.effectiveRange) &&
                 !rangeContains(region.effectiveRange, bundleRange)) {
                 throw MarkerValidationException(
-                    "Bundle range (${rangeRef(region.effectiveRange)}) of hideable '${region.fieldPath}' " +
-                    "partially overlaps with bundle marker range (${rangeRef(bundleRange)})."
+                    "Bundle range (${rangeRef(region.effectiveRange)}) of hideable '${region.fieldPath}'" +
+                    " partially overlaps with bundle marker range (${rangeRef(bundleRange)})."
                 )
             }
         }
@@ -159,8 +159,8 @@ object HideValidator {
 
                 if (rangesOverlap(a.effectiveRange, b.effectiveRange)) {
                     throw MarkerValidationException(
-                        "Bundle range (${rangeRef(a.effectiveRange)}) of hideable '${a.fieldPath}' " +
-                        "overlaps with bundle range (${rangeRef(b.effectiveRange)}) of hideable '${b.fieldPath}'."
+                        "Bundle range (${rangeRef(a.effectiveRange)}) of hideable '${a.fieldPath}'" +
+                        " overlaps with bundle range (${rangeRef(b.effectiveRange)}) of hideable '${b.fieldPath}'."
                     )
                 }
             }
@@ -183,8 +183,8 @@ object HideValidator {
 
                 if (rangeContains(a.effectiveRange, b.markerCell)) {
                     throw MarkerValidationException(
-                        "Bundle range (${rangeRef(a.effectiveRange)}) of hideable '${a.fieldPath}' " +
-                        "contains another hideable marker '${b.fieldPath}' (${cellRef(b.markerCell)})."
+                        "Bundle range (${rangeRef(a.effectiveRange)}) of hideable '${a.fieldPath}'" +
+                        " contains another hideable marker '${b.fieldPath}' (${cellRef(b.markerCell)})."
                     )
                 }
             }

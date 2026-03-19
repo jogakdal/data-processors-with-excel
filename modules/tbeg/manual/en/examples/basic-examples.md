@@ -595,8 +595,8 @@ public class HideableExample {
 | 3 | Kim  | Dev Team   | 2020-01-15 |
 | 4 | Lee  | Planning   | 2021-03-20 |
 
-- If `hideFields()` is not called, the full report including the salary column is generated
-- For advanced usage (DIM mode, hiding multiple fields), see [Advanced Examples - Selective Field Visibility](./advanced-examples.md#14-selective-field-visibility)
+- If `hideFields()` is not called, the full report including the salary column is generated.
+- For advanced usage (DIM mode, hiding multiple fields), see [Advanced Examples - Selective Field Visibility (Kotlin)](./advanced-examples-kotlin.md#14-selective-field-visibility) ([Java](./advanced-examples-java.md#14-selective-field-visibility)).
 
 ---
 

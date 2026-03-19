@@ -156,7 +156,7 @@ Policy for when a field specified in `hideFields` exists in the template only as
 
 | Value           | Behavior                                                    |
 |-----------------|-------------------------------------------------------------|
-| `WARN_AND_HIDE` | Logs a warning and hides just that cell (default)           |
+| `WARN_AND_HIDE` | Logs a warning and hides the cell in DIM mode (default)     |
 | `ERROR`         | Throws a `MarkerValidationException`                        |
 
 ```kotlin
@@ -350,7 +350,7 @@ enum class UnmarkedHidePolicy {
 
 | Value           | Behavior                                                                   |
 |-----------------|----------------------------------------------------------------------------|
-| `WARN_AND_HIDE` | Logs a warning and behaves like a hideable without a bundle                |
+| `WARN_AND_HIDE` | Logs a warning and hides the cell in DIM mode                             |
 | `ERROR`         | Throws `MarkerValidationException`; for strict validation of template-data consistency |
 
 ---

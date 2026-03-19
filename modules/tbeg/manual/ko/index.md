@@ -16,11 +16,11 @@
 ### Spring Boot에 도입하려고 합니다
 1. [Spring Boot 예제](./examples/spring-boot-examples.md)에서 통합 방법을 확인하세요
 2. [설정 옵션](./reference/configuration.md)에서 `application.yml` 설정을 확인하세요
-3. [고급 예제 - JPA 연동](./examples/advanced-examples.md#13-jpaspring-data-연동)을 참조하세요
+3. [고급 예제 - JPA 연동](./examples/advanced-examples-kotlin.md#13-jpaspring-data-연동) ([Java](./examples/advanced-examples-java.md#13-jpaspring-data-연동))을 참조하세요
 
 ### 대용량 데이터를 처리해야 합니다
 1. [사용자 가이드 - 대용량 데이터 처리](./user-guide.md#5-대용량-데이터-처리)를 참조하세요
-2. [고급 예제 - DataProvider](./examples/advanced-examples.md#1-dataprovider-활용)에서 지연 로딩 패턴을 확인하세요
+2. [고급 예제 - DataProvider](./examples/advanced-examples-kotlin.md#1-dataprovider-활용) ([Java](./examples/advanced-examples-java.md#1-dataprovider-활용))에서 지연 로딩 패턴을 확인하세요
 3. [모범 사례 - 성능 최적화](./best-practices.md#2-성능-최적화)에서 단계별 가이드를 따르세요
 
 ### 복잡한 템플릿을 다루고 있습니다
@@ -59,18 +59,19 @@
 ### 별첨
 - [용어집](./glossary.md) - TBEG 문서에서 사용하는 주요 용어 정리
 - [타 라이브러리 비교](./appendix/library-comparison.md) - Excel 보고서 라이브러리 간 기능 비교
+- [성능 벤치마크 상세](./appendix/benchmark-results.md) - JMH 벤치마크 상세 결과 및 분석
 
 ---
 
 ## 호환성 정보
 
-| 항목 | 값 |
-|------|-----|
-| Group ID | `io.github.jogakdal` |
-| Artifact ID | `tbeg` |
-| 패키지 | `io.github.jogakdal.tbeg` |
-| Java | 21 이상 |
-| Kotlin | 2.0 이상 |
-| Apache POI | 5.2.5 (전이 의존성) |
-| Spring Boot | 3.x (선택 사항) |
-| 작성자 | [황용호 (Yongho Hwang)](https://github.com/jogakdal) (jogakdal@gmail.com) |
+|      항목      |              값               |
+|:------------:|:----------------------------:|
+|   Group ID   |    `io.github.jogakdal`      |
+| Artifact ID  |           `tbeg`             |
+|     패키지      | `io.github.jogakdal.tbeg`    |
+|     Java     |           21 이상              |
+|    Kotlin    |          2.0 이상              |
+|  Apache POI  |      5.2.5 (전이 의존성)          |
+| Spring Boot  |       3.x (선택 사항)            |
+|    작성자     | [황용호 (Yongho Hwang)](https://github.com/jogakdal) (jogakdal@gmail.com) |

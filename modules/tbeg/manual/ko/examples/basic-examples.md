@@ -458,17 +458,17 @@ public class WithMetadata {
 
 ### 설정 가능한 메타데이터
 
-| 속성 | 설명 | Excel 위치 |
-|------|------|-----------|
-| title | 문서 제목 | 파일 > 정보 > 제목 |
-| author | 작성자 | 파일 > 정보 > 작성자 |
-| subject | 주제 | 파일 > 정보 > 주제 |
-| keywords | 키워드 | 파일 > 정보 > 태그 |
-| description | 설명 | 파일 > 정보 > 메모 |
-| category | 범주 | 파일 > 정보 > 범주 |
-| company | 회사 | 파일 > 정보 > 회사 |
-| manager | 관리자 | 파일 > 정보 > 관리자 |
-| created | 작성 일시 | 파일 > 정보 > 만든 날짜 |
+|      속성      |   설명   | Excel 위치        |
+|:------------:|:------:|:----------------|
+|    title     | 문서 제목  | 파일 > 정보 > 제목    |
+|    author    |  작성자   | 파일 > 정보 > 작성자   |
+|   subject    |   주제   | 파일 > 정보 > 주제    |
+|   keywords   |  키워드   | 파일 > 정보 > 태그    |
+| description  |   설명   | 파일 > 정보 > 메모    |
+|   category   |   범주   | 파일 > 정보 > 범주    |
+|   company    |   회사   | 파일 > 정보 > 회사    |
+|   manager    |  관리자   | 파일 > 정보 > 관리자   |
+|   created    | 작성 일시  | 파일 > 정보 > 만든 날짜 |
 
 ---
 
@@ -531,7 +531,7 @@ ExcelGenerator().use { generator ->
 | 2 | 이름                                 | 부서              | 급여                                         | 입사일              |
 | 3 | ${emp.name}                        | ${emp.dept}     | ${hideable(emp.salary, C2:C3)}             | ${emp.hireDate}  |
 
-- **C3**: `${hideable(emp.salary, C2:C3)}` -- `salary` 필드가 숨김 대상이면 필드 타이틀(C2)과 데이터(C3)를 함께 삭제합니다
+- **C3**: `${hideable(emp.salary, C2:C3)}` -- `salary` 필드가 숨김 대상이면 필드 타이틀(C2)과 데이터(C3)를 함께 삭제합니다.
 
 ### Kotlin 코드
 
@@ -595,8 +595,8 @@ public class HideableExample {
 | 3 | 김철수  | 개발팀  | 2020-01-15 |
 | 4 | 이영희  | 기획팀  | 2021-03-20 |
 
-- `hideFields()`를 호출하지 않으면 급여 컬럼이 포함된 전체 보고서가 생성됩니다
-- 고급 활용(DIM 모드, 다중 필드 숨기기)은 [고급 예제 - 선택적 필드 노출 활용](./advanced-examples.md#14-선택적-필드-노출-활용)을 참조하세요
+- `hideFields()`를 호출하지 않으면 급여 컬럼이 포함된 전체 보고서가 생성됩니다.
+- 고급 활용(DIM 모드, 다중 필드 숨기기)은 [고급 예제 - 선택적 필드 노출 활용](./advanced-examples-kotlin.md#14-선택적-필드-노출-활용) ([Java](./advanced-examples-java.md#14-선택적-필드-노출-활용))을 참조하세요.
 
 ---
 

@@ -13,8 +13,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  *
  * application.yml 예시:
  * ```yaml
- * hunet:
- *   tbeg:
+ * tbeg:
  *     file-naming-mode: timestamp     # none, timestamp
  *     timestamp-format: yyyyMMdd_HHmmss
  *     file-conflict-policy: sequence  # error, sequence
@@ -26,7 +25,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  *     image-url-cache-ttl-seconds: 0  # 이미지 URL 캐시 TTL (초, 0=캐싱 안 함)
  * ```
  */
-@ConfigurationProperties(prefix = "hunet.tbeg")
+@ConfigurationProperties(prefix = "tbeg")
 data class TbegProperties(
     /**
      * 스트리밍 모드 설정.

@@ -103,7 +103,7 @@ A Kotlin/JVM-based Excel report generation library. Markers are written directly
 |---|---|---|---|---|
 | **Merged Cells** | Partial | Supported (dynamic merge limitations) | Supported (performance degrades with large volumes) | Supported |
 | **Conditional Formatting** | Partial | Partial (multi-sheet limitations) | POI level (limited) | Supported |
-| **Empty Collection Replacement** | Not supported (empty area exposed) | Requires `jx:if` + `jx:each` combination | Not supported | Specified via `empty` parameter |
+| **Empty Collection Replacement** | Not supported (empty area exposed) | Requires `jx:if` + `jx:each` combination | Not supported | Supported - customizable |
 
 ---
 

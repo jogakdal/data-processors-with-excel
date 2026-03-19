@@ -11,12 +11,10 @@ package io.github.jogakdal.tbeg.engine.pipeline
  * val pipeline = TbegPipeline(
  *     ChartExtractProcessor(chartProcessor),
  *     PivotExtractProcessor(pivotTableProcessor),
- *     TemplateRenderProcessor(config),
- *     NumberFormatProcessor(config),
- *     XmlVariableReplaceProcessor(xmlVariableProcessor),
+ *     TemplateRenderProcessor(),
+ *     ZipStreamPostProcessor(xmlVariableProcessor),
  *     PivotRecreateProcessor(pivotTableProcessor),
- *     ChartRestoreProcessor(chartProcessor),
- *     MetadataProcessor()
+ *     ChartRestoreProcessor(chartProcessor)
  * )
  *
  * val context = ProcessingContext(templateBytes, dataProvider, config, metadata)
@@ -46,30 +44,4 @@ internal class TbegPipeline(private val processors: List<ExcelProcessor>) {
             if (processor.shouldProcess(ctx)) processor.process(ctx) else ctx
         }
 
-    /**
-     * 파이프라인에 프로세서를 추가한 새 파이프라인을 반환한다.
-     *
-     * @param processor 추가할 프로세서
-     * @return 새 파이프라인
-     */
-    fun addProcessor(processor: ExcelProcessor): TbegPipeline =
-        TbegPipeline(processors + processor)
-
-    /**
-     * 파이프라인에 여러 프로세서를 추가한 새 파이프라인을 반환한다.
-     *
-     * @param processors 추가할 프로세서들
-     * @return 새 파이프라인
-     */
-    fun addProcessors(vararg processors: ExcelProcessor): TbegPipeline =
-        TbegPipeline(this.processors + processors.toList())
-
-    /**
-     * 특정 이름의 프로세서를 제외한 새 파이프라인을 반환한다.
-     *
-     * @param name 제외할 프로세서 이름
-     * @return 새 파이프라인
-     */
-    fun excludeProcessor(name: String): TbegPipeline =
-        TbegPipeline(processors.filter { it.name != name })
 }

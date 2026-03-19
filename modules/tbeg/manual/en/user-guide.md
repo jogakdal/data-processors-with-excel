@@ -20,14 +20,9 @@
 ```kotlin
 // build.gradle.kts
 
-// 1. Repository configuration
-repositories {
-    mavenCentral()
-}
-
-// 2. Add dependency
+// Published on Maven Central, so no additional repository configuration is needed.
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.2.2")
+    implementation("io.github.jogakdal:tbeg:1.2.3")
 }
 ```
 
@@ -36,14 +31,9 @@ dependencies {
 ```groovy
 // build.gradle
 
-// 1. Repository configuration
-repositories {
-    mavenCentral()
-}
-
-// 2. Add dependency
+// Published on Maven Central, so no additional repository configuration is needed.
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.2.2'
+    implementation 'io.github.jogakdal:tbeg:1.2.3'
 }
 ```
 
@@ -52,12 +42,12 @@ dependencies {
 ```xml
 <!-- pom.xml -->
 
-<!-- Add dependency -->
+<!-- Published on Maven Central, so no additional repository configuration is needed. -->
 <dependencies>
     <dependency>
         <groupId>io.github.jogakdal</groupId>
         <artifactId>tbeg</artifactId>
-        <version>1.2.2</version>
+        <version>1.2.3</version>
     </dependency>
 </dependencies>
 ```
@@ -117,24 +107,33 @@ public class QuickStart {
 }
 ```
 
-### 1.3 Saving Files
+### 1.3 Output Methods
 
-`generate()` returns a byte array, while `generateToFile()` saves directly to a file.
+TBEG provides three output methods.
 
 ```kotlin
 ExcelGenerator().use { generator ->
-    // Get as byte array
+    // 1. Get as byte array
     val bytes = generator.generate(template, data)
 
-    // Save directly to file
+    // 2. Write directly to an OutputStream (e.g., HTTP response)
+    generator.generateToStream(template, data, outputStream)
+
+    // 3. Save directly to a file
     val path = generator.generateToFile(template, data, outputDir, "report")
 }
 ```
 
+| Method | Return Type | Best For |
+|:------:|:----------:|-----------|
+| `generate()` | `ByteArray` | When post-processing is needed or the result must be passed to multiple destinations |
+| `generateToStream()` | - | When writing directly to an HTTP response stream, etc. |
+| `generateToFile()` | `Path` | When saving to a file (recommended for large-scale processing) |
+
 When using `generateToFile()`, the filename is generated according to the following rules:
 
 | Setting | Default | Example Result |
-|---------|---------|----------------|
+|:------:|:------:|----------------|
 | Filename mode | `TIMESTAMP` | `report_20260115_143052.xlsx` |
 | On conflict | `SEQUENCE` | `report_20260115_143052_1.xlsx` |
 
@@ -150,22 +149,22 @@ TBEG provides dynamic data binding (variable substitution, data repetition, imag
 
 TBEG uses special markers in Excel templates to bind data.
 
-| Syntax                     | Description             | Example                              |
-|----------------------------|-------------------------|--------------------------------------|
-| `${variable}`              | Simple variable substitution | `${title}`, `=SUM(A1:A10)` also works |
-| `${item.field}`            | Object field substitution    | `${emp.name}`                      |
+| Syntax | Description | Example |
+|:------:|:---------:|:------:|
+| `${variable}` | Simple variable substitution | `${title}` |
+| `${object.field}` | Object field substitution | `${emp.name}` |
 | `${repeat(collection, range, variable)}` | Repeat processing | `${repeat(employees, A3:C3, emp)}` |
-| `${image(name)}`           | Image insertion              | `${image(logo)}`                   |
-| `${size(collection)}`      | Collection size              | `${size(employees)}`               |
-| `${merge(item.field)}`     | Automatic cell merge         | `${merge(emp.dept)}`               |
-| `${bundle(range)}`         | Bundle                       | `${bundle(A5:H12)}`               |
-| `${hideable(...)}`         | Selective field visibility   | `${hideable(value=emp.salary, bundle=C1:C3)}` |
+| `${image(name)}` | Image insertion | `${image(logo)}` |
+| `${size(collection)}` | Collection size | `${size(employees)}` |
+| `${merge(object.field)}` | Automatic cell merge | `${merge(emp.dept)}` |
+| `${bundle(range)}` | Bundle | `${bundle(A5:H12)}` |
+| `${hideable(...)}` | Selective field exposure | `${hideable(value=emp.salary, bundle=C1:C3)}` |
 
 For detailed syntax, see the [Template Syntax Reference](./reference/template-syntax.md).
 
 ### 2.2 Repeating Data
 
-List data is repeatedly rendered within the designated range of the template. By default, it expands downward (DOWN), and rightward (RIGHT) expansion is also supported. For detailed syntax, see the [Template Syntax Reference](./reference/template-syntax.md#33-rightward-repeat-right); for code examples, see [Advanced Examples](./examples/advanced-examples.md#8-rightward-repeat).
+List data is repeatedly rendered within the designated range of the template. By default, it expands downward (DOWN), and rightward (RIGHT) expansion is also supported. For detailed syntax, see the [Template Syntax Reference](./reference/template-syntax.md#33-rightward-repeat-right); for code examples, see [Advanced Examples](./examples/advanced-examples-kotlin.md#8-rightward-repeat) ([Java](./examples/advanced-examples-java.md#8-rightward-repeat)).
 
 #### Template (employees.xlsx)
 
@@ -494,13 +493,13 @@ return ResponseEntity.accepted().body(mapOf("jobId" to job.jobId))
 
 ## 5. Large-Scale Data Processing
 
-TBEG processes large datasets in a memory-efficient manner. It provides optimal performance with its default behavior, without requiring any special configuration.
+TBEG processes large datasets with maximum performance and minimal resource usage. It generates 1 million rows in approximately 9 seconds while using less than 9% of system CPU, making it suitable for running alongside other services on a server. Both rendering and post-processing operate in streaming mode, using a constant memory buffer regardless of data size. Optimal performance is provided by default without any special configuration.
 
 The key to large-scale data processing is **lazy loading** and **providing count** through DataProvider. For setup instructions, see [3. Using DataProvider](#3-using-dataprovider).
 
 ### 5.1 JPA Stream Integration
 
-Large-scale processing using Spring Data JPA Streams:
+A large-scale processing pattern using Spring Data JPA Streams:
 
 ```kotlin
 interface EmployeeRepository : JpaRepository<Employee, Long> {

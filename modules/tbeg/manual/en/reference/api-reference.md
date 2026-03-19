@@ -36,7 +36,8 @@ All methods can receive data as either `Map<String, Any>` or `ExcelDataProvider`
 
 | Method | Return Type | Use Case |
 |--------|-------------|----------|
-| `generate()` | `ByteArray` | Receive results in memory for direct processing (HTTP response, post-processing, etc.) |
+| `generate()` | `ByteArray` | Receive results in memory for direct processing (post-processing, etc.) |
+| `generateToStream()` | `Unit` | Write results directly to an OutputStream (HTTP responses, etc.) |
 | `generateToFile()` | `Path` | Save results directly to file (recommended for large-scale processing) |
 | `generateAsync()` | `ByteArray` (suspend) | Async processing in Kotlin Coroutine environments |
 | `generateToFileAsync()` | `Path` (suspend) | Async file saving in Kotlin Coroutine environments |
@@ -114,6 +115,55 @@ Generates an Excel file from a template File and a DataProvider.
 | dataProvider | ExcelDataProvider | Data provider |
 | password | String? | File open password (optional) |
 | **Returns** | ByteArray | Generated Excel file as a byte array |
+
+#### generateToStream (DataProvider)
+
+```kotlin
+fun generateToStream(
+    template: InputStream,
+    dataProvider: ExcelDataProvider,
+    output: OutputStream,
+    password: String? = null
+)
+```
+
+Generates an Excel file and writes it directly to an OutputStream. Useful for writing directly to HTTP response streams.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| template | InputStream | Template input stream |
+| dataProvider | ExcelDataProvider | Data provider |
+| output | OutputStream | Output stream to write to |
+| password | String? | File open password (optional) |
+
+> [!NOTE]
+> Due to pipeline characteristics, the output is loaded into memory before being written. Memory usage is the same as `generate()`, but it provides the convenience of writing directly without byte array copying.
+
+#### generateToStream (Map)
+
+```kotlin
+fun generateToStream(
+    template: InputStream,
+    data: Map<String, Any>,
+    output: OutputStream,
+    password: String? = null
+)
+```
+
+Generates an Excel file from a data map and writes it directly to an OutputStream.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| template | InputStream | Template input stream |
+| data | Map<String, Any> | Data map for binding |
+| output | OutputStream | Output stream to write to |
+| password | String? | File open password (optional) |
+
+```kotlin
+// Usage in a Spring Controller
+response.contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+generator.generateToStream(templateStream, data, response.outputStream)
+```
 
 #### generateToFile (DataProvider)
 
@@ -311,13 +361,14 @@ fun submitToFile(
 
 `TemplateProcessingException` ErrorTypes:
 
-| ErrorType | Description |
-|-----------|-------------|
-| `INVALID_REPEAT_SYNTAX` | Repeat marker syntax error |
-| `MISSING_REQUIRED_PARAMETER` | Required parameter missing |
-| `INVALID_RANGE_FORMAT` | Invalid cell range format |
-| `SHEET_NOT_FOUND` | Reference to non-existent sheet |
-| `INVALID_PARAMETER_VALUE` | Invalid parameter value |
+| ErrorType | Description | Example |
+|-----------|-------------|---------|
+| `INVALID_MARKER_SYNTAX` | Marker syntax error | `${repeat(employees)}` -- range not specified |
+| `MISSING_REQUIRED_PARAMETER` | Required parameter missing | `${image()}` -- image name missing |
+| `INVALID_RANGE_FORMAT` | Invalid cell range format | `${repeat(items, A:C, item)}` -- row number missing |
+| `SHEET_NOT_FOUND` | Reference to non-existent sheet | `${repeat(items, 'NoSheet'!A1:C1, item)}` |
+| `INVALID_PARAMETER_VALUE` | Invalid parameter value | `${repeat(items, A1:C1, item, DIAGONAL)}` -- invalid direction value |
+| `RANGE_CONFLICT` | Range conflict | Repeat nesting, bundle nesting, repeat-bundle boundary overlap |
 
 For detailed error handling, see the [Troubleshooting Guide](../troubleshooting.md#2-runtime-errors).
 

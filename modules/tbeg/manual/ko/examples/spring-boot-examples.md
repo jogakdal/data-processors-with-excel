@@ -23,7 +23,7 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.2.2")
+    implementation("io.github.jogakdal:tbeg:1.2.3")
 }
 ```
 
@@ -198,18 +198,14 @@ public class ReportService {
 
 ## 3. Controller에서 다운로드
 
-### Kotlin
+### Kotlin (generateToStream 방식 - 권장)
 
 ```kotlin
 package com.example.report
 
 import io.github.jogakdal.tbeg.ExcelGenerator
-import org.springframework.core.io.ByteArrayResource
-import org.springframework.core.io.Resource
+import jakarta.servlet.http.HttpServletResponse
 import org.springframework.core.io.ResourceLoader
-import org.springframework.http.HttpHeaders
-import org.springframework.http.MediaType
-import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -223,10 +219,10 @@ class ReportController(
     private val employeeRepository: EmployeeRepository
 ) {
     /**
-     * 직원 보고서 다운로드
+     * 직원 보고서 다운로드 (스트리밍 응답)
      */
     @GetMapping("/employees/download")
-    fun downloadEmployeeReport(): ResponseEntity<Resource> {
+    fun downloadEmployeeReport(response: HttpServletResponse) {
         val template = resourceLoader.getResource("classpath:templates/employees.xlsx")
 
         val data = mapOf(
@@ -235,21 +231,13 @@ class ReportController(
             "employees" to employeeRepository.findAll()
         )
 
-        val bytes = excelGenerator.generate(template.inputStream, data)
-
         val filename = "직원현황_${LocalDate.now()}.xlsx"
         val encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8)
 
-        return ResponseEntity.ok()
-            .header(
-                HttpHeaders.CONTENT_DISPOSITION,
-                "attachment; filename*=UTF-8''$encodedFilename"
-            )
-            .contentType(MediaType.parseMediaType(
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            ))
-            .contentLength(bytes.size.toLong())
-            .body(ByteArrayResource(bytes))
+        response.contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''$encodedFilename")
+
+        excelGenerator.generateToStream(template.inputStream, data, response.outputStream)
     }
 
     /**
@@ -283,16 +271,14 @@ class ReportController(
 }
 ```
 
-### Java
+### Java (generateToStream 방식 - 권장)
 
 ```java
 package com.example.report;
 
 import io.github.jogakdal.tbeg.ExcelGenerator;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.core.io.Resource;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.core.io.ResourceLoader;
-import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -319,7 +305,7 @@ public class ReportController {
     }
 
     @GetMapping("/employees/download")
-    public ResponseEntity<Resource> downloadEmployeeReport() throws IOException {
+    public void downloadEmployeeReport(HttpServletResponse response) throws IOException {
         var template = resourceLoader.getResource("classpath:templates/employees.xlsx");
 
         Map<String, Object> data = new HashMap<>();
@@ -327,21 +313,13 @@ public class ReportController {
         data.put("date", LocalDate.now().toString());
         data.put("employees", employeeRepository.findAll());
 
-        byte[] bytes = excelGenerator.generate(template.getInputStream(), data);
-
         String filename = "직원현황_" + LocalDate.now() + ".xlsx";
         String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8);
 
-        return ResponseEntity.ok()
-            .header(
-                HttpHeaders.CONTENT_DISPOSITION,
-                "attachment; filename*=UTF-8''" + encodedFilename
-            )
-            .contentType(MediaType.parseMediaType(
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            ))
-            .contentLength(bytes.length)
-            .body(new ByteArrayResource(bytes));
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + encodedFilename);
+
+        excelGenerator.generateToStream(template.getInputStream(), data, response.getOutputStream());
     }
 }
 ```
@@ -531,7 +509,7 @@ class LargeReportService(
 > [!WARNING]
 > JPA Stream을 사용할 때는 반드시 `@Transactional` 어노테이션을 사용해야 합니다. Stream은 트랜잭션이 끝나면 닫히므로, Excel 생성이 완료될 때까지 트랜잭션이 유지되어야 합니다.
 
-Repository 인터페이스 정의, 페이징 기반 Iterator 구현, MyBatis 연동 등 상세한 내용은 [고급 예제 - JPA/Spring Data 연동](./advanced-examples.md#13-jpaspring-data-연동)을 참조하세요.
+Repository 인터페이스 정의, 페이징 기반 Iterator 구현, MyBatis 연동 등 상세한 내용은 [고급 예제 - JPA/Spring Data 연동](./advanced-examples-kotlin.md#13-jpaspring-data-연동) ([Java](./advanced-examples-java.md#13-jpaspring-data-연동))을 참조하세요.
 
 ---
 

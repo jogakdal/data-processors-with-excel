@@ -36,8 +36,7 @@ import java.util.concurrent.TimeUnit
  * ## Spring Boot 설정
  * `application.yml`에서 ExcelGenerator 설정을 커스터마이징할 수 있습니다:
  * ```yaml
- * hunet:
- *   excel:
+ * tbeg:
  *     streaming-mode: auto
  *     streaming-row-threshold: 1000
  *     formula-processing: true
@@ -266,7 +265,7 @@ class TbegSpringBootSample {
      *             template = template.inputStream,
      *             dataProvider = SimpleDataProvider.of(request.toDataMap()),
      *             outputDir = Path.of("/output"),
-     *             baseFileName = "async_report",
+     *             baseFileName = "monthly_sales",
      *             listener = object : ExcelGenerationListener {
      *                 override fun onCompleted(jobId: String, result: GenerationResult) {
      *                     eventPublisher.publishEvent(ReportReadyEvent(jobId, result.filePath))

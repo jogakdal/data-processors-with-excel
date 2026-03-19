@@ -182,6 +182,48 @@ class HideableIntegrationTest {
     }
 
     @Test
+    fun `unmarkedHidePolicy WARN_AND_HIDE 시 hideable 없는 필드는 DIM 모드로 처리된다`() {
+        val workbook = XSSFWorkbook()
+        val sheet = workbook.createSheet("Sheet1")
+        val row0 = sheet.createRow(0)
+        row0.createCell(0).setCellValue("\${emp.name}")
+        row0.createCell(1).setCellValue("\${emp.salary}")  // hideable 마커 없는 일반 필드
+        val row1 = sheet.createRow(1)
+        row1.createCell(0).setCellValue("\${repeat(employees, A1:B1, emp)}")
+
+        val templateBytes = ByteArrayOutputStream().use { out ->
+            workbook.write(out)
+            workbook.close()
+            out.toByteArray()
+        }
+
+        val provider = simpleDataProvider {
+            items("employees", listOf(
+                mapOf("name" to "황용호", "salary" to 8000),
+                mapOf("name" to "한용호", "salary" to 6500)
+            ))
+            hideFields("employees", "salary")
+        }
+
+        val result = ExcelGenerator().use { it.generate(ByteArrayInputStream(templateBytes), provider) }
+
+        XSSFWorkbook(ByteArrayInputStream(result)).use { resultWorkbook ->
+            val resultSheet = resultWorkbook.getSheetAt(0)
+
+            // 열이 삭제되지 않고 그대로 유지 (DIM 모드)
+            val dataRow1 = resultSheet.getRow(0)
+            assertEquals("황용호", dataRow1.getCell(0)?.stringCellValue)
+
+            // salary 셀은 값이 제거되고 DIM 스타일이 적용된다
+            val salaryCell = dataRow1.getCell(1)
+            assertTrue(
+                salaryCell == null || salaryCell.cellType == CellType.BLANK,
+                "DIM 모드에서 salary 셀의 값이 제거되어야 한다"
+            )
+        }
+    }
+
+    @Test
     fun `unmarkedHidePolicy ERROR 시 hideable 없는 필드가 hideFields에 있으면 예외 발생`() {
         val workbook = XSSFWorkbook()
         val sheet = workbook.createSheet("Sheet1")

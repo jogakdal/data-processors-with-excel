@@ -636,7 +636,7 @@ class PositionCalculator(
                 for (j in i + 1 until regions.size) {
                     if (regions[i].area.overlaps(regions[j].area)) {
                         throw TemplateProcessingException(
-                            errorType = TemplateProcessingException.ErrorType.INVALID_PARAMETER_VALUE,
+                            errorType = TemplateProcessingException.ErrorType.RANGE_CONFLICT,
                             details = "Repeat regions overlap: " +
                                 "${regions[i].collection}(${regions[i].direction}, rows ${regions[i].area.start.row + 1}-" +
                                 "${regions[i].area.end.row + 1}, cols ${regions[i].area.start.col + 1}-${regions[i].area.end.col + 1}), " +

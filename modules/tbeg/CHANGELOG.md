@@ -2,6 +2,28 @@
 
 # TBEG Changelog
 
+## 1.2.3
+
+### New Features
+
+- **`generateToStream()` API added**: A convenience method that writes the generation result directly to an `OutputStream`. This allows output to HTTP response streams and similar targets without intermediate byte array copying.
+
+### Performance Improvements
+
+- **Single-pass ZIP post-processing integration**: Consolidated the previous 3-stage post-processing (number formatting, metadata, variable substitution) into a single ZIP iteration. Eliminated full `XSSFWorkbook`/`OPCPackage` loading, resolving processing limits for large files (300,000+ rows).
+- **JMH benchmark adoption**: Replaced the previous `measureTimeMillis`-based benchmark with JMH (Java Microbenchmark Harness) for precise measurement of elapsed time, heap allocation, and GC statistics. Comparisons are available across three dimensions: data provision method (Map vs DataProvider), output method (generate/toStream/toFile), and large-scale (up to 300,000 rows).
+
+<details>
+<summary>Internal Improvements</summary>
+
+- **New `ZipStreamPostProcessor`**: An integrated processor that handles number formatting, metadata, variable substitution, and absPath removal via ZIP streaming. Uses a 2-phase approach: analyzes styles.xml first, then iterates through the entire ZIP.
+- **`zippost/` handler package**: Five handlers -- `StylesXmlHandler` (DOM), `SheetXmlHandler` (StAX), `WorkbookXmlHandler` (DOM), `MetadataXmlHandler` (DOM), `VariableXmlHandler` (string replacement) -- each handle their respective ZIP entries.
+- **`XssfPostProcessor`, `XmlVariableReplaceProcessor` removed**: Replaced by `ZipStreamPostProcessor`.
+- **JMH benchmark configuration**: Added `DataModeBenchmark`, `OutputModeBenchmark`, `LargeScaleBenchmark`, and `TbegBenchmarkRunner` classes under the `src/jmh/` source set.
+- Removed the existing `PerformanceBenchmark.kt` in favor of JMH. The CI regression test (`PerformanceBenchmarkTest`) is retained.
+
+</details>
+
 ## 1.2.2
 
 ### New Features

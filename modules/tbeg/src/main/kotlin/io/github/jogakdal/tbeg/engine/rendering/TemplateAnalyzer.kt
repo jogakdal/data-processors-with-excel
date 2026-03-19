@@ -273,7 +273,7 @@ class TemplateAnalyzer {
             for (j in i + 1 until bundles.size) {
                 if (bundles[i].area.overlaps(bundles[j].area)) {
                     throw TemplateProcessingException(
-                        errorType = TemplateProcessingException.ErrorType.INVALID_PARAMETER_VALUE,
+                        errorType = TemplateProcessingException.ErrorType.RANGE_CONFLICT,
                         details = "Bundle regions overlap: " +
                             "${bundles[i].area.start.toCellRefString()}:${bundles[i].area.end.toCellRefString()} and " +
                             "${bundles[j].area.start.toCellRefString()}:${bundles[j].area.end.toCellRefString()}"
@@ -287,7 +287,7 @@ class TemplateAnalyzer {
             for (repeat in repeats) {
                 if (bundle.area.overlaps(repeat.area) && !bundle.area.contains(repeat.area)) {
                     throw TemplateProcessingException(
-                        errorType = TemplateProcessingException.ErrorType.INVALID_PARAMETER_VALUE,
+                        errorType = TemplateProcessingException.ErrorType.RANGE_CONFLICT,
                         details = "Repeat region '${repeat.collection}' partially overlaps a bundle boundary. " +
                             "A repeat must be either fully contained within a bundle or completely outside it."
                     )
@@ -341,9 +341,8 @@ class TemplateAnalyzer {
                     val first = duplicates.first()
                     LOG.warn(
                         "Found ${duplicates.size} repeat markers with the same collection ('${first.region.collection}') " +
-                            "and the same range ('${first.targetSheetName}'!" +
-                            "${first.region.area.start.toCellRefString()}:${first.region.area.end.toCellRefString()}). " +
-                            "Only the last marker will be used."
+                            "and range ('${first.targetSheetName}'!" +
+                            "${first.region.area.start.toCellRefString()}:${first.region.area.end.toCellRefString()}). Using the last marker only."
                     )
                 }
                 duplicates.last()
@@ -578,7 +577,7 @@ class TemplateAnalyzer {
             .filterValues { it.size > 1 }
             .forEach { (_, duplicates) ->
                 LOG.warn(
-                    "Found ${duplicates.size} instances of ${duplicates.first().description}. Only the last marker will be used."
+                    "Found ${duplicates.size} instances of ${duplicates.first().description}. Using the last marker only."
                 )
                 duplicates.dropLast(1).forEach {
                     toRemove.add(Triple(it.sheetIndex, it.templateRowIndex, it.columnIndex))
@@ -608,7 +607,7 @@ class TemplateAnalyzer {
                 val (sheetRef, posWithoutSheet) = extractSheetReference(pos)
                 val targetSheet = sheetRef ?: sheetName
                 val key = "image:${content.imageName}:$targetSheet!$posWithoutSheet:${content.sizeSpec}"
-                val desc = "image marker with the same name ('${content.imageName}'), position ('$targetSheet'!$posWithoutSheet), and size"
+                val desc = "image marker with name '${content.imageName}', position '$targetSheet'!$posWithoutSheet, and same size"
                 key to desc
             }
             // 향후 다른 범위 기반 마커 추가 가능

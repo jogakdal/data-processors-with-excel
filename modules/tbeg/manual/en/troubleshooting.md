@@ -50,13 +50,17 @@
 
 ---
 
-### Bundle column range does not match hideable cell
+### Bundle range does not match hideable cell
 
-**Symptom**: Error "bundle column range does not match the hideable cell's column range."
+**Symptom**: One of the following errors occurs:
+- "bundle **column** range (...) does not match the hideable cell's column range (...)" (DOWN repeat)
+- "bundle **row** range (...) does not match the hideable cell's row range (...)" (RIGHT repeat)
 
-**Cause**: The bundle range's column differs from the hideable marker cell's (or merged cell's) column.
+**Cause**: The range specified in the hideable marker's `bundle` parameter does not align with the hideable marker's cell (or merged cell) along the expansion axis. For DOWN repeat, columns must match; for RIGHT repeat, rows must match.
 
-**Resolution**: Adjust the bundle range column to match the hideable marker cell. For example, if the hideable marker is in C2, the bundle range should include column C (e.g., `C1:C3`).
+**Resolution**: Adjust the `bundle` parameter range to match the hideable marker cell.
+- DOWN repeat: If the hideable marker is in C2, use column C (e.g., `bundle=C1:C3`)
+- RIGHT repeat: If the hideable marker is in C2, use row 2 (e.g., `bundle=B2:D2`)
 
 ---
 
@@ -67,15 +71,21 @@
 This exception is thrown when a syntax error is found during template parsing. Use the `errorType` to identify the type of error.
 
 | ErrorType | Cause | Resolution |
-|-----------|-------|------------|
-| `INVALID_REPEAT_SYNTAX` | Repeat marker syntax error | Verify the format: `${repeat(collection, range, variable)}` |
-| `MISSING_REQUIRED_PARAMETER` | Required parameter missing | `collection` and `range` are required for repeat |
+|:---------:|:-----:|:-----------|
+| `INVALID_MARKER_SYNTAX` | Marker syntax error | Verify the parentheses and parameter format of the marker |
+| `MISSING_REQUIRED_PARAMETER` | Required parameter missing | Check the required parameters for each marker (e.g., `collection` and `range` for repeat) |
 | `INVALID_RANGE_FORMAT` | Invalid cell range format | Use a valid range such as `A2:C2` |
 | `SHEET_NOT_FOUND` | Reference to a non-existent sheet | Verify the sheet name is correct (`'Sheet1'!A2:C2`) |
-| `INVALID_PARAMETER_VALUE` | Invalid parameter value | `direction` only accepts `DOWN` or `RIGHT`. Bundle nesting and boundary overlap are also reported with this error |
+| `INVALID_PARAMETER_VALUE` | Invalid parameter value | Check the valid values shown in the error message and correct the parameter |
+| `RANGE_CONFLICT` | Range conflict (overlap or boundary crossing) | Separate overlapping ranges, or adjust so that one fully contains the other |
 
-> [!NOTE]
-> Mixing named parameters and positional parameters results in an `INVALID_REPEAT_SYNTAX` error. Use only one style within a single marker.
+---
+
+### `IllegalArgumentException`
+
+This exception is thrown when named parameters and positional parameters are mixed in any functional marker (repeat, hideable, image, etc.).
+
+**Resolution**: Use only one parameter style within a single marker -- either named parameters (`name=value`) or positional parameters.
 
 ---
 
@@ -112,6 +122,8 @@ This error occurs when the JVM runs out of memory while processing large dataset
 2. Increase JVM heap memory: e.g., `-Xmx2g`
 3. Split the data across multiple output files
 
+> For templates with pivot tables, the pivot regeneration process loads the entire output file into memory, so approximately 300,000 rows is the practical upper limit. Use templates without pivot tables for large datasets.
+
 ---
 
 ## 3. Output File Issues
@@ -120,9 +132,8 @@ This error occurs when the JVM runs out of memory while processing large dataset
 
 **Symptom**: Data rows were expanded by repeat, but the chart still references the original range.
 
-**Resolution**: TBEG automatically adjusts chart data source ranges. If this issue occurs:
+**Resolution**: TBEG automatically adjusts chart data source ranges. This works correctly even when the chart and repeat area are on different sheets. If this issue occurs:
 - Verify that the chart's data source references the repeat area correctly
-- Verify that the chart and the repeat area are on the same sheet
 
 ---
 
@@ -144,13 +155,13 @@ val employees = employeeRepository.findAll().sortedBy { it.department }
 
 ### Bundle range error occurs
 
-**Symptom**: An `INVALID_PARAMETER_VALUE` error with a bundle-related message is displayed.
+**Symptom**: A `RANGE_CONFLICT` error with a bundle-related message is displayed.
 
 **Cause and Resolution**:
 
 | Cause | Resolution |
-|-------|------------|
-| Repeat overlaps bundle boundary | Adjust the bundle range to fully contain the repeat region |
+|:-----:|------------|
+| Repeat area straddles the bundle boundary | Adjust so the repeat area is either fully inside or fully outside the bundle |
 | Bundles are nested | Bundles cannot be nested. Separate the ranges |
 | Invalid bundle range format | Use a valid range such as `A1:B10` |
 
@@ -198,11 +209,32 @@ val employees = employeeRepository.findAll().sortedBy { it.department }
 
 ### hideFields was specified but the field is not hidden
 
-**Symptom**: A field was specified in `hideFields()`, but it is not hidden in the output file.
+**Symptom**: A field was specified in `hideFields()`, but it still appears in the output file.
 
-**Cause**: The template does not have a hideable marker for the specified field.
+**Cause and Resolution**:
 
-**Resolution**: Add a `${hideable(value=item.fieldName)}` marker to the template. If `unmarkedHidePolicy` is set to `WARN_AND_HIDE`, the field will be hidden even without a marker, but a warning log will be emitted.
+- **Field name mismatch**: Verify that the field name specified in `hideFields` exactly matches the field name used in the template marker (e.g., `${emp.salary}`).
+- **Collection name mismatch**: In `hideFields("employees", "salary")`, the first argument must match the repeat marker's collection name.
+- **Field outside repeat**: `hideFields` only applies to repeat item fields. It does not apply to simple variables unrelated to a repeat.
+
+> [!NOTE]
+> If `hideFields` is specified without a hideable marker in the template, the default policy (`WARN_AND_HIDE`) hides the cell in DIM mode and emits a warning log. To physically remove the column in DELETE mode, add a `${hideable(value=item.fieldName)}` marker to the template. Setting `unmarkedHidePolicy` to `ERROR` causes an exception for fields without markers.
+
+---
+
+### Only the data area is hidden, but titles/footers remain
+
+**Symptom**: A field was hidden via `hideFields()`, but only the data row values are hidden -- field titles and total rows remain visible.
+
+**Cause**: The hideable marker does not have a `bundle` parameter, or `hideFields` was specified without a hideable marker in the template. Without a bundle, only the data cell where the marker is located is hidden.
+
+**Resolution**: Use the `bundle` parameter in the hideable marker to specify the range that should be hidden together, including titles and totals.
+
+```
+${hideable(value=emp.salary, bundle=C1:C4)}
+```
+
+In this example, `C1:C4` covers the field title (C1), data rows (C2-C3), and total (C4). All cells within this range are hidden together.
 
 ---
 
@@ -252,12 +284,16 @@ items("employees", count) {
 
 ### Recommended settings by data size
 
-| Data Size | Recommended Approach |
-|-----------|---------------------|
-| Up to 1,000 rows | Map-based approach is sufficient |
-| 1,000 - 10,000 rows | simpleDataProvider + count |
-| 10,000 - 100,000 rows | simpleDataProvider + count + DB Stream |
-| Over 100,000 rows | Custom DataProvider + DB Stream + `generateToFile()` |
+| Data Size | Est. Generation Time | Recommended Approach |
+|----------:|-----------:|:--|
+| ~1,000 rows | ~20ms | Map-based approach is sufficient |
+| ~10,000 rows | ~110ms | simpleDataProvider + count |
+| ~50,000 rows | ~500ms | simpleDataProvider + count + DB Stream |
+| ~100,000 rows | ~1s | simpleDataProvider + count + DB Stream |
+| ~500,000 rows | ~5s | Custom DataProvider + DB Stream + `generateToFile()` |
+| ~1,000,000 rows | ~9s | Custom DataProvider + DB Stream + `generateToFile()` |
+
+> Estimated generation times are based on a 3-column repeat + SUM formula (DataProvider + generateToFile). Actual times may vary depending on the number of columns, formula complexity, and server specifications.
 
 ---
 

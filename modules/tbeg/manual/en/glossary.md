@@ -45,7 +45,7 @@ A feature that places `${variableName}` markers in Excel formula cells to dynami
 
 ## Formula Adjustment
 
-A feature that automatically updates formula cell reference ranges when repeat regions expand. For example, `=SUM(B2:B2)` is automatically adjusted to `=SUM(B2:B101)` when expanded to 100 rows.
+A feature that automatically updates formula cell reference ranges when repeat regions expand. For example, `=AVERAGE(B2:B2)` is automatically adjusted to `=AVERAGE(B2:B101)` when expanded to 100 rows. This applies to all range-referencing formulas such as `SUM`, `AVERAGE`, `COUNT`, `MAX`, and more.
 
 ## Lazy Loading
 

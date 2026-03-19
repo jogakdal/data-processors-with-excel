@@ -89,7 +89,7 @@ See: [Template Syntax - Multiple Repeat Regions](./reference/template-syntax.md#
 Formulas referencing repeat areas on other sheets are automatically expanded.
 
 ```
-=SUM(Sheet2!B3:B3) -> =SUM(Sheet2!B3:B5)  // When repeat on Sheet2 expanded by 3 rows
+=AVERAGE(Sheet2!B3:B3) -> =AVERAGE(Sheet2!B3:B5)  // When repeat on Sheet2 expanded by 3 rows
 ```
 
 See: [Template Syntax - Automatic Adjustment of Related Elements](./reference/template-syntax.md#28-automatic-adjustment-of-related-elements)

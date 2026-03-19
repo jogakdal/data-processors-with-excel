@@ -91,10 +91,10 @@ enum class HideMode {
  */
 enum class UnmarkedHidePolicy {
     /**
-     * 경고 로그를 출력하고 해당 셀만 숨긴다 (기본값).
+     * 경고 로그를 출력하고 해당 셀을 DIM 모드로 숨긴다 (기본값).
      *
      * 템플릿에 hideable 마커가 없는 필드가 hideFields에 지정된 경우,
-     * 경고를 출력하고 bundle 없는 hideable처럼 동작한다.
+     * 경고를 출력하고 해당 셀에 비활성화 스타일을 적용한다.
      */
     WARN_AND_HIDE,
 

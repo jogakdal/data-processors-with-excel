@@ -52,7 +52,7 @@
 │                                    └──────────────────┘     │
 │                                               │             │
 │  ┌──────────────┐   ┌──────────────┐   ┌──────▼───────┐     │
-│  │  Metadata    │ ← │ ChartRestore │ ← │ NumberFormat │     │
+│  │ ChartRestore │ ← │PivotRecreate │ ← │ZipStreamPost │     │
 │  └──────────────┘   └──────────────┘   └──────────────┘     │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -66,11 +66,9 @@
 | 1  | ChartExtract       | `ChartExtractProcessor`       | 차트 정보 추출 및 임시 제거        | 항상             |
 | 2  | PivotExtract       | `PivotExtractProcessor`       | 피벗 테이블 정보 추출            | 항상             |
 | 3  | TemplateRender     | `TemplateRenderProcessor`     | 템플릿 렌더링                 | 항상             |
-| 4  | NumberFormat       | `NumberFormatProcessor`       | 숫자 서식 자동 적용             | 항상             |
-| 5  | XmlVariableReplace | `XmlVariableReplaceProcessor` | XML 내 변수 치환             | 항상             |
-| 6  | PivotRecreate      | `PivotRecreateProcessor`      | 피벗 테이블 재생성              | 피벗 존재 시        |
-| 7  | ChartRestore       | `ChartRestoreProcessor`       | 차트 복원 및 데이터 범위 조정       | 차트 존재 시        |
-| 8  | Metadata           | `MetadataProcessor`           | 문서 메타데이터 적용             | 항상             |
+| 4  | ZipStreamPost      | `ZipStreamPostProcessor`      | 숫자 서식 + 메타데이터 + 변수 치환 + absPath 제거 (ZIP 단일 패스) | 항상             |
+| 5  | PivotRecreate      | `PivotRecreateProcessor`      | 피벗 테이블 재생성              | 피벗 존재 시        |
+| 6  | ChartRestore       | `ChartRestoreProcessor`       | 차트 복원 및 데이터 범위 조정       | 차트 존재 시        |
 
 ### 렌더링 전략
 
@@ -109,15 +107,21 @@ src/main/kotlin/io/github/jogakdal/tbeg/
 │   │   ├── TbegPipeline.kt                 # 파이프라인 정의
 │   │   ├── ExcelProcessor.kt               # 프로세서 인터페이스
 │   │   ├── ProcessingContext.kt            # 처리 컨텍스트
-│   │   └── processors/                     # 개별 프로세서 (8개)
+│   │   └── processors/                     # 개별 프로세서
 │   │       ├── ChartExtractProcessor.kt
 │   │       ├── ChartRestoreProcessor.kt
-│   │       ├── MetadataProcessor.kt
-│   │       ├── NumberFormatProcessor.kt
+│   │       ├── MetadataProcessor.kt        # 메타데이터 적용 (독립 사용 가능)
+│   │       ├── NumberFormatProcessor.kt    # 숫자 서식 적용 (독립 사용 가능)
 │   │       ├── PivotExtractProcessor.kt
 │   │       ├── PivotRecreateProcessor.kt
 │   │       ├── TemplateRenderProcessor.kt
-│   │       └── XmlVariableReplaceProcessor.kt
+│   │       ├── ZipStreamPostProcessor.kt   # ZIP 단일 패스 통합 후처리
+│   │       └── zippost/                    # ZIP 후처리 핸들러
+│   │           ├── StylesXmlHandler.kt     #   styles.xml 숫자 서식 변형
+│   │           ├── SheetXmlHandler.kt      #   sheet*.xml 셀 스타일 교체 (StAX)
+│   │           ├── WorkbookXmlHandler.kt   #   workbook.xml absPath 제거
+│   │           ├── MetadataXmlHandler.kt   #   docProps/*.xml 메타데이터
+│   │           └── VariableXmlHandler.kt   #   기타 XML 변수 치환
 │   │
 │   ├── preprocessing/                      # 전처리 (렌더링 파이프라인 전 실행)
 │   │   ├── HidePreprocessor.kt            #   hideable 전처리기 (마커 스캔, hide 결정, 삭제/DIM)
@@ -873,15 +877,44 @@ bundle 있으면:
 - **경계 걸침 금지**: 요소가 bundle 범위를 부분적으로 걸치면 오류
 - **bundle 중첩 금지**: bundle 안에 다른 bundle이 있으면 오류
 
-### 4. 숫자 서식 원칙
+### 4. 스레드 안전성 원칙
 
-#### 4.1 자동 숫자 서식 지정 조건
+`ExcelGenerator`는 Spring 싱글톤 빈으로 사용될 수 있으므로, 여러 스레드에서 동시에 호출되어도 안전해야 한다.
+
+#### 4.1 호출별 격리 구조
+
+`TemplateRenderProcessor.process()`가 매 호출마다 `TemplateRenderingEngine`을 새로 생성하므로, 렌더링 관련 mutable 상태(fieldCache, getterCache, styleMap, repeatExpansionInfos 등)는 호출별로 완전 격리된다. `ProcessingContext`도 매 호출마다 생성된다.
+
+#### 4.2 공유 인스턴스의 스레드 안전성
+
+`ExcelGenerator`가 보유하는 공유 객체의 스레드 안전성 현황:
+
+| 객체 | 스레드 안전 | 근거 |
+|------|-----------|------|
+| `PivotTableProcessor` | O | `styleCache`, `styleInfoCache`가 `Collections.synchronizedMap` + `ConcurrentHashMap` 사용 |
+| `XmlVariableProcessor` | O | companion object 상수만 사용 |
+| `ChartProcessor` | O | companion object lazy 상수만 사용 |
+| `TbegPipeline` | O | 프로세서 목록 불변 |
+| `ZipStreamPostProcessor` | O | 인스턴스 상태 없음 |
+| 기타 프로세서 | O | 인스턴스 상태 없음 (PivotTableProcessor/ChartProcessor에 위임) |
+
+#### 4.3 새 코드 작성 시 주의사항
+
+- 인스턴스 레벨 mutable 상태는 `ConcurrentHashMap`, `Collections.synchronizedMap` 등 스레드 안전한 자료구조를 사용한다
+- 호출별 상태는 지역 변수나 메서드 파라미터로 격리한다
+- 새 프로세서 추가 시 "이 상태가 여러 스레드에서 동시 접근될 수 있는가?"를 항상 검토한다
+
+---
+
+### 5. 숫자 서식 원칙
+
+#### 5.1 자동 숫자 서식 지정 조건
 라이브러리에 의해 자동 생성된 값이 숫자 타입이고, 해당 셀의 "표시 형식"이 없거나 "일반"인 경우 자동으로 숫자 서식을 적용합니다.
 
 - 정수: `pivotIntegerFormatIndex` (기본값 3, `#,##0`)
 - 소수: `pivotDecimalFormatIndex` (기본값 4, `#,##0.00`)
 
-#### 4.2 수식 셀의 숫자 서식
+#### 5.2 수식 셀의 숫자 서식
 변수형 마커(`${var}`)에 `=`로 시작하는 값을 바인딩하여 수식으로 치환된 셀도 동일하게 숫자 서식이 적용됩니다.
 
 - 수식 결과 타입을 사전에 알 수 없으므로 정수 포맷(`#,##0`)을 기본 적용합니다
@@ -891,11 +924,11 @@ bundle 있으면:
 
 > **구현**: `NumberFormatProcessor`에서 `CellType.FORMULA` 분기로 처리
 
-#### 4.3 자동 정렬 지정 조건
+#### 5.3 자동 정렬 지정 조건
 라이브러리에 의해 자동 생성된 값이 숫자 타입이고, 해당 셀의 정렬이 "일반"인 경우 자동으로 오른쪽 정렬을 적용합니다. 수식 셀에는 정렬을 적용하지 않습니다.
 
-#### 4.4 기존 서식 보존
-위 4.1~4.3 조건에 해당하더라도 해당 셀의 나머지 모든 서식(글꼴, 색상, 테두리 등)은 템플릿 서식을 유지합니다.
+#### 5.4 기존 서식 보존
+위 5.1~5.3 조건에 해당하더라도 해당 셀의 나머지 모든 서식(글꼴, 색상, 테두리 등)은 템플릿 서식을 유지합니다.
 
 ---
 
@@ -1000,7 +1033,7 @@ tbeg:
 
 | 클래스                     | 캐시                         | 용도        |
 |-------------------------|----------------------------|-----------|
-| `PivotTableProcessor`   | `styleCache` (WeakHashMap) | 피벗 셀 스타일  |
+| `PivotTableProcessor`   | `styleCache` (synchronizedMap + WeakHashMap) | 피벗 셀 스타일  |
 | `NumberFormatProcessor` | `styleCache`               | 숫자 서식 스타일 |
 
 ### 필드 캐싱
@@ -1078,6 +1111,7 @@ val NEW_MARKER = MarkerDefinition("newmarker", listOf(
 src/test/
 ├── kotlin/io/github/jogakdal/tbeg/
 │   ├── TbegTest.kt                     # 통합 테스트
+│   ├── ThreadSafetyTest.kt             # 스레드 안전성 테스트
 │   ├── EmptyCollectionTest.kt          # 빈 컬렉션 처리 테스트
 │   ├── engine/
 │   │   ├── TemplateRenderingEngineTest.kt  # 렌더링 엔진 테스트
@@ -1116,8 +1150,9 @@ src/test/
 # Spring Boot 샘플
 ./gradlew :tbeg:runSpringBootSample  # 결과: build/samples-spring/
 
-# 성능 벤치마크
-./gradlew :tbeg:runBenchmark
+# 성능 벤치마크 (JMH)
+./gradlew :tbeg:runBenchmark      # 커스텀 러너 (정리된 테이블)
+./gradlew :tbeg:jmh               # JMH 플러그인 (JSON 결과)
 ```
 
 ### 테스트 작성 원칙
@@ -1130,21 +1165,53 @@ src/test/
 
 ## 성능 벤치마크
 
-### TBEG 성능
+JMH(Java Microbenchmark Harness)를 사용하여 소요 시간, 힙 할당량, GC 통계를 정밀 측정한다.
 
-**테스트 환경**: Java 21, macOS, 3개 컬럼 repeat + SUM 수식
+### 벤치마크 구성
 
-| 데이터 크기   | 소요 시간    |
-|----------|---------|
-| 1,000행   | 147ms   |
-| 10,000행  | 663ms   |
-| 30,000행  | 1,057ms |
-| 50,000행  | 1,202ms |
-| 100,000행 | 3,154ms |
+| 벤치마크 | 클래스 | 고정 | 변수 |
+|---------|------|------|------|
+| 데이터 제공 방식 비교 | `DataModeBenchmark` | generate() 출력 | Map vs DataProvider x 1K~100K |
+| 출력 방식 비교 | `OutputModeBenchmark` | DataProvider | generate/toStream/toFile x 1K~100K |
+| 대용량 스케일 | `LargeScaleBenchmark` | DataProvider + generateToFile | 100K/200K/300K/500K/1M |
 
-### 타 라이브러리 비교 (30,000행)
+### 실행 방법
 
-| 라이브러리    | 소요 시간    | 비고                                                          |
-|----------|----------|-------------------------------------------------------------|
-| **TBEG** | **1.1초** |                                                             |
-| JXLS     | 5.2초     | [벤치마크 출처](https://github.com/jxlsteam/jxls/discussions/203) |
+```bash
+# JMH 플러그인 벤치마크 (전체, JSON 결과 파일 생성)
+./gradlew :tbeg:jmh
+
+# 커스텀 러너 (정리된 테이블 출력)
+./gradlew :tbeg:runBenchmark
+
+# CI 회귀 테스트 (빠른 소규모 검증)
+./gradlew :tbeg:test --tests "*PerformanceBenchmarkTest*"
+```
+
+### 소스 구조
+
+```
+src/jmh/kotlin/io/github/jogakdal/tbeg/benchmark/
+├── BenchmarkSupport.kt          # 공통: 템플릿 생성, 데이터 생성, 결과 출력
+├── DataModeBenchmark.kt         # 벤치마크 1: Map vs DataProvider
+├── OutputModeBenchmark.kt       # 벤치마크 2: generate vs toStream vs toFile
+├── LargeScaleBenchmark.kt       # 벤치마크 3: 대용량 (100K~1M)
+├── CpuTimeProfiler.kt           # 커스텀 프로파일러 (CPU 사용률 측정)
+└── TbegBenchmarkRunner.kt       # 커스텀 러너 (전체 실행 + 정리된 테이블 출력)
+```
+
+### 측정 결과 (요약)
+
+**테스트 환경**: macOS (aarch64), OpenJDK 21.0.1, 12코어, 3개 컬럼 repeat + SUM 수식
+
+| 데이터 크기 | 소요 시간 | CPU/코어 | 힙 할당량 |
+|----------|---------|--------|---------|
+| 1,000행 | 20ms | 23.5% | 11.8MB |
+| 10,000행 | 109ms | 14.7% | 58.5MB |
+| 30,000행 | 315ms | 12.5% | 166.0MB |
+| 100,000행 | 993ms | 10.8% | 540.8MB |
+| 500,000행 | 4,718ms | 8.9% | 2,614.5MB |
+| 1,000,000행 | 8,952ms | 8.8% | 5,230.7MB |
+
+> DataProvider + generateToFile 기준. CPU/코어는 시스템 전체 CPU 용량 대비 프로세스 사용률(코어 수로 나눈 값)입니다.
+> 벤치마크 3종(데이터 방식 비교, 출력 방식 비교, 대용량 스케일)의 전체 결과와 분석은 [성능 벤치마크 상세](./manual/ko/appendix/benchmark-results.md)를 참조하세요.

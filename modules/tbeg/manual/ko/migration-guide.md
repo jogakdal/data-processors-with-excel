@@ -10,7 +10,7 @@
 - 신규 API: `ExcelDataProvider.getHiddenFields()` (기본 구현 제공, 기존 코드 영향 없음)
 - 신규 API: `SimpleDataProvider.Builder.hideFields()`
 - 신규 설정: `TbegConfig.unmarkedHidePolicy`
-- **Breaking Change 없음**: 기존 코드는 수정 없이 동작합니다
+- **Breaking Change 없음**: 기존 코드는 수정 없이 동작합니다.
 
 ### 업그레이드 방법
 
@@ -87,7 +87,7 @@ ${repeat(employees, A2:C2, emp, DOWN, A10:C10)}
 다른 시트의 repeat 영역을 참조하는 수식이 자동으로 확장됩니다.
 
 ```
-=SUM(Sheet2!B3:B3) -> =SUM(Sheet2!B3:B5)  // Sheet2의 repeat이 3행 확장된 경우
+=AVERAGE(Sheet2!B3:B3) -> =AVERAGE(Sheet2!B3:B5)  // Sheet2의 repeat이 3행 확장된 경우
 ```
 
 자세한 내용: [템플릿 문법 - 관련 요소 자동 조정](./reference/template-syntax.md#36-관련-요소-자동-조정)
@@ -105,7 +105,7 @@ ${repeat(employees, A2:C2, emp, DOWN, A10:C10)}
 
 ### 새 기능
 
-- **중복 마커 감지**: 같은 컬렉션 + 같은 대상 범위의 repeat 마커, 또는 같은 이름 + 같은 위치 + 같은 크기의 image 마커가 중복되면 경고 로그를 출력합니다
+- **중복 마커 감지**: 같은 컬렉션 + 같은 대상 범위의 repeat 마커, 또는 같은 이름 + 같은 위치 + 같은 크기의 image 마커가 중복되면 경고 로그를 출력합니다.
 
 ### 업그레이드 방법
 

@@ -17,8 +17,10 @@
 
 ```kotlin
 // build.gradle.kts
+
+// Maven Central에 배포되어 있으므로 별도의 저장소 설정이 필요하지 않습니다.
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.2.2")
+    implementation("io.github.jogakdal:tbeg:1.2.3")
 }
 ```
 
@@ -26,8 +28,10 @@ dependencies {
 
 ```groovy
 // build.gradle
+
+// Maven Central에 배포되어 있으므로 별도의 저장소 설정이 필요하지 않습니다.
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.2.2'
+    implementation 'io.github.jogakdal:tbeg:1.2.3'
 }
 ```
 
@@ -35,11 +39,13 @@ dependencies {
 
 ```xml
 <!-- pom.xml -->
+
+<!-- Maven Central에 배포되어 있으므로 별도의 저장소 설정이 필요하지 않습니다. -->
 <dependencies>
     <dependency>
         <groupId>io.github.jogakdal</groupId>
         <artifactId>tbeg</artifactId>
-        <version>1.2.2</version>
+        <version>1.2.3</version>
     </dependency>
 </dependencies>
 ```
@@ -99,26 +105,35 @@ public class QuickStart {
 }
 ```
 
-### 1.3 파일 저장
+### 1.3 출력 방식
 
-`generate()`는 바이트 배열을 반환하고, `generateToFile()`은 파일로 직접 저장합니다.
+TBEG은 세 가지 출력 방식을 제공합니다.
 
 ```kotlin
 ExcelGenerator().use { generator ->
-    // 바이트 배열로 받기
+    // 1. 바이트 배열로 받기
     val bytes = generator.generate(template, data)
 
-    // 파일로 직접 저장
+    // 2. OutputStream에 직접 쓰기 (HTTP 응답 등)
+    generator.generateToStream(template, data, outputStream)
+
+    // 3. 파일로 직접 저장
     val path = generator.generateToFile(template, data, outputDir, "report")
 }
 ```
 
+| 메서드 | 반환 | 적합한 상황 |
+|:------:|:----:|-----------|
+| `generate()` | `ByteArray` | 후처리가 필요하거나 결과를 여러 곳에 전달할 때 |
+| `generateToStream()` | - | HTTP 응답 스트림 등에 직접 쓸 때 |
+| `generateToFile()` | `Path` | 파일로 저장할 때 (대용량 처리 시 권장) |
+
 `generateToFile()` 사용 시 파일명은 다음 규칙으로 생성됩니다.
 
-| 설정 | 기본값 | 결과 예시 |
-|------|--------|----------|
-| 파일명 모드 | `TIMESTAMP` | `report_20260115_143052.xlsx` |
-| 충돌 시 | `SEQUENCE` | `report_20260115_143052_1.xlsx` |
+|   설정   |     기본값     | 결과 예시                           |
+|:------:|:-----------:|---------------------------------|
+| 파일명 모드 | `TIMESTAMP` | `report_20260115_143052.xlsx`   |
+|  충돌 시  | `SEQUENCE`  | `report_20260115_143052_1.xlsx` |
 
 파일명 모드, 타임스탬프 형식, 충돌 정책 등 상세 설정은 [설정 옵션 레퍼런스](./reference/configuration.md#filenamingmode)를 참조하세요.
 
@@ -132,22 +147,22 @@ TBEG은 Excel이 할 수 없는 동적 데이터 바인딩(변수 치환, 데이
 
 TBEG은 Excel 템플릿에 특수 마커를 사용하여 데이터를 바인딩합니다.
 
-| 문법                       | 설명        | 예시                                 |
-|--------------------------|-----------|------------------------------------|
-| `${변수명}`                 | 단순 변수 치환  | `${title}`, `=SUM(A1:A10)`도 가능     |
-| `${item.필드}`             | 객체의 필드 치환 | `${emp.name}`                      |
-| `${repeat(컬렉션, 범위, 변수)}` | 반복 처리     | `${repeat(employees, A3:C3, emp)}` |
-| `${image(이름)}`           | 이미지 삽입    | `${image(logo)}`                   |
-| `${size(컬렉션)}`           | 컬렉션 크기    | `${size(employees)}명`              |
-| `${merge(item.필드)}`      | 자동 셀 병합   | `${merge(emp.dept)}`               |
-| `${bundle(범위)}`          | 요소 묶음     | `${bundle(A5:H12)}`               |
-| `${hideable(...)}`        | 선택적 필드 노출    | `${hideable(value=emp.salary, bundle=C1:C3)}` |
+|            문법            |    설명     |                      예시                       |
+|:------------------------:|:---------:|:---------------------------------------------:|
+|         `${변수명}`         | 단순 변수 치환  |                  `${title}`                   |
+|        `${객체.필드}`        | 객체의 필드 치환 |                 `${emp.name}`                 |
+| `${repeat(컬렉션, 범위, 변수)}` |   반복 처리   |      `${repeat(employees, A3:C3, emp)}`       |
+|      `${image(이름)}`      |  이미지 삽입   |               `${image(logo)}`                |
+|      `${size(컬렉션)}`      |  컬렉션 크기   |             `${size(employees)}명`             |
+|    `${merge(객체.필드)}`     |  자동 셀 병합  |             `${merge(emp.dept)}`              |
+|     `${bundle(범위)}`      |   요소 묶음   |              `${bundle(A5:H12)}`              |
+|    `${hideable(...)}`    | 선택적 필드 노출 | `${hideable(value=emp.salary, bundle=C1:C3)}` |
 
 자세한 문법은 [템플릿 문법 레퍼런스](./reference/template-syntax.md)를 참조하세요.
 
 ### 2.2 반복 처리
 
-리스트 데이터를 템플릿의 지정된 범위에 반복 출력합니다. 기본적으로 아래 방향(DOWN)으로 확장되며, 오른쪽 방향(RIGHT) 확장도 지원합니다. 자세한 문법은 [템플릿 문법 레퍼런스](./reference/template-syntax.md#33-오른쪽-방향-반복-right)를, 코드 예제는 [고급 예제](./examples/advanced-examples.md#8-오른쪽-방향-반복)를 참조하세요.
+리스트 데이터를 템플릿의 지정된 범위에 반복 출력합니다. 기본적으로 아래 방향(DOWN)으로 확장되며, 오른쪽 방향(RIGHT) 확장도 지원합니다. 자세한 문법은 [템플릿 문법 레퍼런스](./reference/template-syntax.md#33-오른쪽-방향-반복-right)를, 코드 예제는 [고급 예제](./examples/advanced-examples-kotlin.md#8-오른쪽-방향-반복) ([Java](./examples/advanced-examples-java.md#8-오른쪽-방향-반복))를 참조하세요.
 
 #### 템플릿 (employees.xlsx)
 
@@ -213,7 +228,7 @@ fun main() {
         value("company", "(주)휴넷")
         image("logo", logoBytes)
 
-        // URL로도 이미지를 지정할 수 있습니다 (렌더링 시 자동 다운로드)
+        // URL로도 이미지를 지정할 수 있습니다 (TBEG 엔진이 다운로드하여 삽입)
         imageUrl("banner", "https://example.com/banner.png")
     }
 
@@ -258,8 +273,8 @@ ExcelGenerator().use { generator ->
 
 | 모드 | 설명 |
 |:----:|------|
-| `DELETE` | 해당 열을 물리적으로 삭제하고 나머지 요소를 당깁니다 (기본값) |
-| `DIM` | 데이터 영역에 비활성화 스타일(회색 배경 + 연한 글자색)을 적용하고 값을 제거합니다. 필드 타이틀 등 repeat 밖 bundle 영역은 글자색만 변경됩니다 |
+| `DELETE` | 해당 열을 물리적으로 삭제하고 나머지 요소를 당깁니다 (기본값). |
+| `DIM` | 데이터 영역에 비활성화 스타일(회색 배경 + 연한 글자색)을 적용하고 값을 제거합니다. 필드 타이틀 등 repeat 밖 bundle 영역은 글자색만 변경됩니다. |
 
 > [!TIP]
 > 자세한 문법과 수식에서의 사용법은 [템플릿 문법 레퍼런스](./reference/template-syntax.md#10-선택적-필드-노출-hideable)를 참조하세요.
@@ -325,7 +340,7 @@ val provider = simpleDataProvider {
 ```
 
 > [!TIP]
-> 대용량 컬렉션에는 count를 함께 제공하면 최적의 성능을 얻을 수 있습니다. count가 없으면 데이터를 먼저 순회하여 개수를 파악한 후 처리하지만, count를 제공하면 이 단계를 건너뛸 수 있습니다.
+> 대용량 컬렉션에는 위의 `items("allEmployees", employeeRepository.count().toInt()) { ... }` 예시처럼 count를 함께 제공하면 최적의 성능을 얻을 수 있습니다. count가 없으면 데이터를 먼저 순회하여 개수를 파악한 후 처리하지만, count를 제공하면 이 단계를 건너뛸 수 있습니다.
 
 ### 3.3 SimpleDataProvider.Builder (Java)
 
@@ -399,9 +414,9 @@ fun main() = runBlocking {
         // 비동기 생성
         val path = generator.generateToFileAsync(
             template = template,
-            data = mapOf("title" to "비동기 보고서"),
+            data = mapOf("title" to "월간 매출 보고서"),
             outputDir = Path.of("./output"),
-            baseFileName = "async_report"
+            baseFileName = "monthly_sales"
         )
 
         println("파일 생성됨: $path")
@@ -423,9 +438,9 @@ public class AsyncExample {
 
             CompletableFuture<Path> future = generator.generateToFileFuture(
                 template,
-                Map.of("title", "비동기 보고서"),
+                Map.of("title", "월간 매출 보고서"),
                 Path.of("./output"),
-                "async_report"
+                "monthly_sales"
             );
 
             future.thenAccept(path -> System.out.println("파일 생성됨: " + path));
@@ -451,7 +466,7 @@ val job = generator.submitToFile(
     template = template,
     dataProvider = provider,
     outputDir = Path.of("./output"),
-    baseFileName = "background_report",
+    baseFileName = "monthly_sales",
     listener = object : ExcelGenerationListener {
         override fun onStarted(jobId: String) {
             println("[시작] Job ID: $jobId")
@@ -476,7 +491,7 @@ return ResponseEntity.accepted().body(mapOf("jobId" to job.jobId))
 
 ## 5. 대용량 데이터 처리
 
-TBEG은 대용량 데이터를 메모리 효율적으로 처리합니다. 별도의 설정 없이 기본 동작으로 최적의 성능을 제공합니다.
+TBEG은 대용량 데이터를 최대한의 성능과 최소한의 리소스로 안정적으로 처리합니다. 100만 행을 약 9초에 생성하면서도 시스템 CPU의 9% 미만만 사용하므로, 서버에서 다른 서비스와 함께 운영해도 부담이 없습니다. 렌더링과 후처리 모두 스트리밍 방식으로 동작하여 데이터 크기에 관계없이 일정한 메모리 버퍼만 사용합니다. 별도의 설정 없이 기본 동작으로 최적의 성능을 제공합니다.
 
 대용량 데이터 처리의 핵심은 DataProvider를 통한 **지연 로딩**과 **count 제공**입니다. 설정 방법은 [3. DataProvider 사용하기](#3-dataprovider-사용하기)를 참조하세요.
 

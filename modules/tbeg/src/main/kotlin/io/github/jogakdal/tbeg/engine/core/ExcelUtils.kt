@@ -8,12 +8,13 @@ import org.apache.poi.ss.usermodel.Sheet
 import org.apache.poi.ss.usermodel.Workbook
 import org.apache.poi.ss.util.CellAddress
 import org.apache.poi.ss.util.CellRangeAddress
-import org.apache.poi.openxml4j.opc.OPCPackage
-import org.apache.poi.openxml4j.opc.PackagingURIHelper
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
+import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -167,20 +168,28 @@ private val ALTERNATE_CONTENT_REGEX = Regex(
 /**
  * xlsx 바이트 배열에서 workbook.xml의 absPath (원본 파일 경로) 요소를 제거한다.
  * Excel이 파일을 열 때 경로 불일치로 인해 "수정됨" 상태가 되는 것을 방지한다.
+ *
+ * ZIP 엔트리를 스트리밍으로 순회하며 xl/workbook.xml만 수정하고
+ * 나머지 엔트리는 그대로 복사한다. OPCPackage를 사용하지 않으므로
+ * 대용량 파일에서도 메모리 제한 없이 동작한다.
  */
-internal fun ByteArray.removeAbsPath(): ByteArray {
-    return OPCPackage.open(ByteArrayInputStream(this)).use { pkg ->
-        val workbookPartName = PackagingURIHelper.createPartName("/xl/workbook.xml")
-        pkg.getPart(workbookPartName)?.let { part ->
-            val originalXml = part.inputStream.bufferedReader().readText()
-            val modifiedXml = originalXml.replace(ALTERNATE_CONTENT_REGEX, "")
-            if (originalXml != modifiedXml) {
-                part.outputStream.use { it.write(modifiedXml.toByteArray(Charsets.UTF_8)) }
+internal fun ByteArray.removeAbsPath(): ByteArray =
+    ByteArrayOutputStream(size).also { out ->
+        ZipArchiveOutputStream(out).use { zos ->
+            ZipArchiveInputStream(ByteArrayInputStream(this)).use { zis ->
+                generateSequence { zis.nextEntry }.forEach { entry ->
+                    zos.putArchiveEntry(ZipArchiveEntry(entry.name).apply { time = entry.time })
+                    if (entry.name == "xl/workbook.xml") {
+                        val xml = zis.readAllBytes().toString(Charsets.UTF_8)
+                        zos.write(xml.replace(ALTERNATE_CONTENT_REGEX, "").toByteArray(Charsets.UTF_8))
+                    } else {
+                        zis.copyTo(zos)
+                    }
+                    zos.closeArchiveEntry()
+                }
             }
         }
-        ByteArrayOutputStream().also { pkg.save(it) }.toByteArray()
-    }
-}
+    }.toByteArray()
 
 /**
  * 지정된 위치를 포함하는 병합 영역을 찾습니다.

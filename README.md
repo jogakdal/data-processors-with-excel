@@ -21,6 +21,7 @@ A JVM library that generates reports by binding data to Excel templates. Works s
 - **Chart/pivot table auto-reflection**: Automatically adjust chart data ranges and pivot table source ranges when data expands (no manual refresh required when opening the file)
 - **File encryption**: Set open password for generated Excel files
 - **Document metadata**: Set document properties such as title, author, keywords, etc.
+- **Large-scale processing**: Reliably process over 1 million rows with low CPU utilization
 - **Asynchronous processing**: Process large data in the background
 - **Lazy loading**: Memory-efficient data processing via DataProvider
 
@@ -66,7 +67,7 @@ Formatting, charts, formulas, and conditional formatting are **all managed in th
 
 > [!TIP]
 > **Design philosophy**: We don't reinvent what Excel already does well.
-> Aggregation with `=SUM()`, conditional highlighting with conditional formatting, visualization with charts — use the familiar Excel features as they are.
+> Aggregation with `=SUM()`, conditional highlighting with conditional formatting, visualization with charts -- use the familiar Excel features as they are.
 > TBEG adds dynamic data binding on top of this, and adjusts these features to work as intended even when data expands.
 
 ## At a Glance
@@ -85,8 +86,7 @@ val data = simpleDataProvider {
     value("reportDate", LocalDate.now().toString())
     value("subtitle_emp", "Employee Performance Details")
     image("logo", logoBytes)
-    image("ci", ciBytes)
-    imageUrl("chart", "https://example.com/chart.png")  // URL is also supported
+    imageUrl("ci", "https://example.com/ci.png")  // URL is also supported
     items("depts") { deptList.iterator() }
     items("products") { productList.iterator() }
     items("employees") { employeeList.iterator() }
@@ -101,9 +101,9 @@ ExcelGenerator().use { generator ->
 
 ![Result](modules/tbeg/src/main/resources/sample/screenshot_result.png)
 
-Variable substitution, image insertion, repeat data expansion, automatic cell merge, bundle, selective field visibility, formula range adjustment, conditional formatting duplication, and chart data reflection — TBEG handles all of this automatically.
+Variable substitution, image insertion, repeat data expansion, automatic cell merge, bundle, selective field visibility, formula range adjustment, conditional formatting duplication, and chart data reflection -- TBEG handles all of this automatically.
 
-> For the full code and template download, see the [Comprehensive Example](modules/tbeg/manual/en/examples/advanced-examples.md#11-comprehensive-example--quarterly-sales-performance-report).
+> For the full code and template download, see the [Comprehensive Example](modules/tbeg/manual/en/examples/advanced-examples-kotlin.md#11-comprehensive-example) ([Java](modules/tbeg/manual/en/examples/advanced-examples-java.md#11-comprehensive-example)).
 
 ## When to Use TBEG
 
@@ -119,22 +119,22 @@ Variable substitution, image insertion, repeat data expansion, automatic cell me
 
 > [!TIP]
 > TBEG is especially useful when implementing **Excel download/export** functionality.
-> The `generate()` method returns a `ByteArray`, so you can directly pass it to web responses, file storage, stream transfers, and more.
-> Thanks to streaming mode, even large datasets can be processed without memory overhead.
+> It supports various output methods -- ByteArray return, Stream output, file save -- making it ready for web responses or file storage.
+> By streaming data through a DataProvider, even large datasets can be processed without memory overhead.
 
 ## Add Dependency
 
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.2.2")
+    implementation("io.github.jogakdal:tbeg:1.2.3")
 }
 ```
 
 ```groovy
 // Gradle (Groovy DSL)
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.2.2'
+    implementation 'io.github.jogakdal:tbeg:1.2.3'
 }
 ```
 
@@ -143,7 +143,7 @@ dependencies {
 <dependency>
     <groupId>io.github.jogakdal</groupId>
     <artifactId>tbeg</artifactId>
-    <version>1.2.2</version>
+    <version>1.2.3</version>
 </dependency>
 ```
 
@@ -305,33 +305,34 @@ tbeg:
 
 ## Large-scale Data Processing
 
-Internally leverages Apache POI's SXSSF to process large data in a memory-efficient manner.
+TBEG reliably processes large data with maximum performance and minimal resources. It generates 1 million rows in approximately 9 seconds while using less than 9% of the system CPU, so it can run alongside other services on a server without concern. Both rendering and post-processing operate in streaming mode, using only a constant memory buffer regardless of data size.
 
 ### Performance Benchmark
 
-**Test environment**: Java 21, macOS, 3 columns repeat + SUM formula
+**Test environment**: macOS (aarch64), OpenJDK 21.0.1, 12 cores, 3-column repeat + SUM formula (JMH, fork=1, warmup=1, iterations=3)
 
-| Data Size    | Non-streaming | Streaming | Speed Improvement |
-|--------------|---------------|-----------|-------------------|
-| 1,000 rows   | 179ms         | 146ms     | 1.2x              |
-| 10,000 rows  | 1,887ms       | 519ms     | **3.6x**          |
-| 30,000 rows  | -             | 1,104ms   | -                 |
-| 50,000 rows  | -             | 1,269ms   | -                 |
-| 100,000 rows | -             | 2,599ms   | -                 |
+| Data Size      | Time      | CPU/Total | CPU/Core | Heap Alloc  |
+|---------------:|----------:|----------:|---------:|------------:|
+| 1,000 rows     | 20ms      | 282%      | 23.5%    | 11.8MB      |
+| 10,000 rows    | 109ms     | 177%      | 14.7%    | 58.5MB      |
+| 30,000 rows    | 315ms     | 151%      | 12.5%    | 166.0MB     |
+| 50,000 rows    | 505ms     | 137%      | 11.4%    | 270.1MB     |
+| 100,000 rows   | 993ms     | 130%      | 10.8%    | 540.8MB     |
+| 500,000 rows   | 4,718ms   | 106%      | 8.9%     | 2,614.5MB   |
+| 1,000,000 rows | 8,952ms   | 105%      | 8.8%     | 5,230.7MB   |
 
-> - The non-streaming approach keeps all rows in memory before writing them at once, which incurs GC overhead and memory copy costs even with small datasets. The streaming approach maintains only a 100-row buffer and writes sequentially, making it faster regardless of data size.
-> - Non-streaming was not measured for 10,000+ rows due to potential out-of-memory issues.
+> Based on DataProvider + generateToFile. CPU/Total is the process total CPU time relative to wall-clock time; CPU/Core is the utilization relative to the system's total CPU capacity (divided by the number of cores).
+
+> For detailed analysis including data provision method (Map vs DataProvider) and output method (generate/toStream/toFile) comparisons, see [Performance Benchmark Details](modules/tbeg/manual/en/appendix/benchmark-results.md).
 
 ### Comparison with Other Libraries (30,000 rows)
 
 | Library    | Time      | Notes                                                       |
-|------------|-----------|-------------------------------------------------------------|
-| **TBEG**   | **1.1s**  |                                                             |
+|:----------:|----------:|:-----------------------------------------------------------:|
+| **TBEG**   | **0.3s**  |                                                             |
 | JXLS       | 5.2s      | [Benchmark source](https://github.com/jxlsteam/jxls/discussions/203) |
 
-> TBEG calls the POI API directly and writes in a single pass with streaming, whereas JXLS goes through an abstraction layer performing multiple passes of template parsing, transformation, and writing — which is believed to account for this difference.
-
-For details on configuration options, see the [Configuration Options Reference](modules/tbeg/manual/en/reference/configuration.md).
+> TBEG calls the POI API directly and writes in a single pass with streaming, whereas JXLS goes through an abstraction layer performing multiple passes of template parsing, transformation, and writing -- which is believed to account for this difference.
 
 ## Documentation
 
@@ -362,10 +363,6 @@ Samples use the `modules/tbeg/src/test/resources/templates/template.xlsx` templa
 # Java sample
 ./gradlew :tbeg:runJavaSample
 # Output: build/samples-java/
-
-# Hideable sample
-./gradlew :tbeg:runHideableSample
-# Output: build/samples-hideable/
 
 # Spring Boot sample
 ./gradlew :tbeg:runSpringBootSample
