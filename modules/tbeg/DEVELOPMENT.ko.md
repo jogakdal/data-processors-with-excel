@@ -346,19 +346,19 @@ ${size(컬렉션)}
 
 **텍스트 마커:**
 ```
-${merge(item.field)}
+${merge(object.field)}
 ```
 
 **수식 마커:**
 ```
-=TBEG_MERGE(item.field)
+=TBEG_MERGE(object.field)
 ```
 
 **파라미터:**
 
 | 파라미터 | 설명             | 예시         |
 |------|----------------|------------|
-| field | item.field 형태 | `emp.dept` |
+| field | object.field 형태 | `emp.dept` |
 
 repeat 확장 시 연속된 같은 값의 셀을 자동으로 병합한다.
 DOWN repeat에서는 세로 병합, RIGHT repeat에서는 가로 병합이 적용된다.
@@ -390,7 +390,7 @@ ${hideable(emp.salary)}
 
 | 파라미터   | 설명                          | 필수 | 기본값    | 별칭           |
 |--------|-----------------------------|----|---------|--------------|
-| value  | item.field 형태의 필드 참조        | O  |         | field, val   |
+| value  | object.field 형태의 필드 참조        | O  |         | field, val   |
 | bundle | 함께 숨길 셀 범위                  |    |         | range        |
 | mode   | 숨김 모드 (DELETE / DIM)        |    | delete  |              |
 
@@ -406,7 +406,7 @@ ${hideable(emp.salary)}
 1. `HidePreprocessor`가 렌더링 파이프라인 전에 실행 (1st pass 전처리)
 2. 2-pass 스캔: 1st phase에서 repeat 변수명 파악, 2nd phase에서 ItemField/HideableField 식별
 3. `getHideFields()`에 지정된 필드에 대해 DELETE 또는 DIM 처리
-4. 숨기지 않는 hideable 마커는 `${item.field}` 형태로 변환되어 일반 ItemField로 처리
+4. 숨기지 않는 hideable 마커는 `${object.field}` 형태로 변환되어 일반 ItemField로 처리
 
 **DIM 모드 처리:**
 - repeat 데이터 영역만 DIM 처리 (bundle 범위와 repeat 범위의 교집합)

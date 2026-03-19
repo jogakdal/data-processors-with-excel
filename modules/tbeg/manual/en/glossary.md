@@ -37,7 +37,7 @@ A feature that restricts the visibility of specific fields depending on context.
 
 ## Cell Merge
 
-A feature that automatically merges consecutive cells with the same value after repeat expansion, using the `${merge(item.field)}` marker. Data must be pre-sorted by the merge key field for correct merging.
+A feature that automatically merges consecutive cells with the same value after repeat expansion, using the `${merge(object.field)}` marker. Data must be pre-sorted by the merge key field for correct merging.
 
 ## Formula Binding
 

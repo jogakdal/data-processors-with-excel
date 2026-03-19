@@ -137,7 +137,7 @@ repeat으로 행이 확장될 때 수식 참조를 자동 조정하는 과정에
 
 ### merge 병합 결과가 기대와 다릅니다
 
-**증상**: `${merge(item.field)}`로 병합했는데 같은 값이 여러 그룹으로 나뉘어 병합됩니다.
+**증상**: `${merge(object.field)}`로 병합했는데 같은 값이 여러 그룹으로 나뉘어 병합됩니다.
 
 **원인**: merge는 **연속된** 같은 값만 병합합니다. 같은 값이 떨어져 있으면 별도의 병합 그룹이 됩니다.
 
@@ -215,7 +215,7 @@ val employees = employeeRepository.findAll().sortedBy { it.department }
 - **repeat 밖 필드**: hideFields는 repeat의 반복 항목 필드에만 적용됩니다. repeat과 무관한 단순 변수에는 적용되지 않습니다.
 
 > [!NOTE]
-> 템플릿에 hideable 마커 없이 `hideFields`를 지정하면 기본 정책(`WARN_AND_HIDE`)에 따라 해당 셀이 DIM 모드로 숨겨지고 경고 로그가 출력됩니다. DELETE 모드로 열을 물리적으로 제거하려면 템플릿에 `${hideable(value=item.필드명)}` 마커를 추가하세요. `unmarkedHidePolicy`를 `ERROR`로 설정하면 마커 없는 필드에 대해 예외가 발생합니다.
+> 템플릿에 hideable 마커 없이 `hideFields`를 지정하면 기본 정책(`WARN_AND_HIDE`)에 따라 해당 셀이 DIM 모드로 숨겨지고 경고 로그가 출력됩니다. DELETE 모드로 열을 물리적으로 제거하려면 템플릿에 `${hideable(value=객체.필드명)}` 마커를 추가하세요. `unmarkedHidePolicy`를 `ERROR`로 설정하면 마커 없는 필드에 대해 예외가 발생합니다.
 
 ---
 

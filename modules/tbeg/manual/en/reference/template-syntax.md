@@ -79,7 +79,7 @@ Function markers can also be written in the **formula style** `=TBEG_FUNCTION(pa
 | `${repeat(col, range, var)}` | `=TBEG_REPEAT(col, range, var)` |
 | `${image(name)}` | `=TBEG_IMAGE(name)` |
 | `${size(col)}` | `=TBEG_SIZE(col)` |
-| `${merge(item.field)}` | `=TBEG_MERGE(item.field)` |
+| `${merge(object.field)}` | `=TBEG_MERGE(object.field)` |
 | `${bundle(range)}` | `=TBEG_BUNDLE(range)` |
 | `${hideable(value, bundle)}` | `=TBEG_HIDEABLE(value, bundle)` |
 
@@ -241,7 +241,7 @@ The following types are supported for dot (`.`) notation access.
 - **Map keys**: Access by Map key
 - **Getter methods**: Getters in the form `getFieldName()`
 
-These rules apply equally to simple variables (`${emp.name}`) and repeat item fields (`${item.field}`).
+These rules apply equally to simple variables (`${emp.name}`) and repeat item fields (`${object.field}`).
 
 ### 2.2 Composite Text
 
@@ -688,7 +688,7 @@ Displays the number of items in a collection.
 
 ## 6. Automatic Cell Merge
 
-**Syntax**: `${merge(item.field)}`
+**Syntax**: `${merge(object.field)}`
 
 Automatically merges consecutive cells with the same value during repeat expansion.
 Data must be pre-sorted by the merge key field.
@@ -931,7 +931,7 @@ Repeat fields can be selectively hidden as needed. Change the repeat field marke
 
 **Syntax**: `${hideable(value=field, bundle=range, mode=mode)}`
 
-If the field in the marker cell is not a hide target, it behaves identically to a regular field (`${item.field}`).
+If the field in the marker cell is not a hide target, it behaves identically to a regular field (`${object.field}`).
 
 #### Template
 
@@ -1061,7 +1061,7 @@ class MyDataProvider : ExcelDataProvider {
 
 | Parameter | Required | Aliases | Default | Description |
 |-----------|----------|---------|---------|-------------|
-| `value` | Yes | `field`, `val` | - | Field to hide (`item.field` form, nesting supported) |
+| `value` | Yes | `field`, `val` | - | Field to hide (`object.field` form, nesting supported) |
 | `bundle` | No | `range` | Marker cell | Cell range to hide together |
 | `mode` | No | - | `delete` | Hide mode (`delete` / `dim`) |
 
@@ -1100,7 +1100,7 @@ ${hideable(field=emp.salary)}             // Using alias
 
 ### 10.7 Hiding Fields Without a Hideable Marker
 
-Even if a field specified in `hideFields` exists in the template only as a regular field (`${item.field}`) without a hideable marker, hiding is still possible. In this case, the field cell is processed in DIM mode -- the value is cleared and a disabled style is applied. However, since there is no bundle range, related cells such as headers and totals are not affected.
+Even if a field specified in `hideFields` exists in the template only as a regular field (`${object.field}`) without a hideable marker, hiding is still possible. In this case, the field cell is processed in DIM mode -- the value is cleared and a disabled style is applied. However, since there is no bundle range, related cells such as headers and totals are not affected.
 
 Using the hideable marker's `bundle` parameter allows you to hide related cells together or remove the column entirely with DELETE mode, so using a hideable marker is recommended when possible.
 

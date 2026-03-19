@@ -13,6 +13,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  *
  * application.yml 예시:
  * ```yaml
+  
  * tbeg:
  *     file-naming-mode: timestamp     # none, timestamp
  *     timestamp-format: yyyyMMdd_HHmmss

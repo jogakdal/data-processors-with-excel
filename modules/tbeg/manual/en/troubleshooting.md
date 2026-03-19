@@ -139,7 +139,7 @@ This error occurs when the JVM runs out of memory while processing large dataset
 
 ### Merge results are not as expected
 
-**Symptom**: After merging with `${merge(item.field)}`, the same values are split into multiple merge groups.
+**Symptom**: After merging with `${merge(object.field)}`, the same values are split into multiple merge groups.
 
 **Cause**: The merge marker only merges **consecutive** cells with the same value. If the same value appears in non-adjacent positions, they become separate merge groups.
 
@@ -218,7 +218,7 @@ val employees = employeeRepository.findAll().sortedBy { it.department }
 - **Field outside repeat**: `hideFields` only applies to repeat item fields. It does not apply to simple variables unrelated to a repeat.
 
 > [!NOTE]
-> If `hideFields` is specified without a hideable marker in the template, the default policy (`WARN_AND_HIDE`) hides the cell in DIM mode and emits a warning log. To physically remove the column in DELETE mode, add a `${hideable(value=item.fieldName)}` marker to the template. Setting `unmarkedHidePolicy` to `ERROR` causes an exception for fields without markers.
+> If `hideFields` is specified without a hideable marker in the template, the default policy (`WARN_AND_HIDE`) hides the cell in DIM mode and emits a warning log. To physically remove the column in DELETE mode, add a `${hideable(value=object.fieldName)}` marker to the template. Setting `unmarkedHidePolicy` to `ERROR` causes an exception for fields without markers.
 
 ---
 

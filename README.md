@@ -237,13 +237,13 @@ SimpleDataProvider provider = SimpleDataProvider.builder()
 | Syntax | Description | Example |
 |--------|-------------|---------|
 | `${variableName}` | Variable substitution | `${title}` |
-| `${item.field}` | Repeat item field | `${emp.name}` |
+| `${object.field}` | Repeat item field | `${emp.name}` |
 | `${repeat(collection, range, variable)}` | Repeat processing | `${repeat(items, A2:C2, item)}` |
 | `${image(name)}` | Image insertion | `${image(logo)}` |
 | `${size(collection)}` | Collection size | `${size(items)}` |
-| `${merge(item.field)}` | Automatic cell merge | `${merge(emp.dept)}` |
+| `${merge(object.field)}` | Automatic cell merge | `${merge(emp.dept)}` |
 | `${bundle(range)}` | Bundle | `${bundle(A5:H12)}` |
-| `${hideable(value=item.field, ...)}` | Selective field visibility | `${hideable(value=emp.salary, bundle=C1:C3, mode=dim)}` |
+| `${hideable(value=object.field, ...)}` | Selective field visibility | `${hideable(value=emp.salary, bundle=C1:C3, mode=dim)}` |
 
 For detailed syntax, see the [Template Syntax Reference](modules/tbeg/manual/en/reference/template-syntax.md).
 

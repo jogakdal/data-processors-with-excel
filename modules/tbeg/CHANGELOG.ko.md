@@ -84,7 +84,7 @@
 - **이미지 URL 지원**: 이미지 데이터로 `ByteArray` 대신 HTTP(S) URL 문자열을 지정하면 렌더링 시점에 자동으로 다운로드합니다. `imageUrl("logo", "https://...")` 형태로 사용합니다.
   - `imageUrlCacheTtlSeconds` 설정으로 호출 간 캐시 TTL을 지정할 수 있습니다 (기본: 0, 캐싱 안 함)
   - 다운로드 실패 시 경고 로그를 출력하고 해당 이미지를 건너뜁니다.
-- **자동 셀 병합 (merge)**: repeat 확장 시 연속된 같은 값의 셀을 자동으로 병합합니다. `${merge(item.field)}` 또는 `=TBEG_MERGE(item.field)` 마커로 사용합니다.
+- **자동 셀 병합 (merge)**: repeat 확장 시 연속된 같은 값의 셀을 자동으로 병합합니다. `${merge(object.field)}` 또는 `=TBEG_MERGE(object.field)` 마커로 사용합니다.
 - **요소 묶음 (bundle)**: 지정된 범위의 요소를 하나의 단위로 묶어 repeat 확장 시 일체로 이동합니다. `${bundle(범위)}` 또는 `=TBEG_BUNDLE(범위)` 마커로 사용합니다.
 
 ### 버그 수정

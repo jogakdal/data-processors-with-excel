@@ -86,7 +86,7 @@
 - **Image URL support**: Specify an HTTP(S) URL string instead of `ByteArray` as image data, and it will be automatically downloaded at rendering time. Use with `imageUrl("logo", "https://...")` form
   - Configure inter-call cache TTL with the `imageUrlCacheTtlSeconds` setting (default: 0, no caching)
   - On download failure, a warning log is emitted and the image is skipped
-- **Automatic cell merge**: Automatically merges consecutive cells with the same value during repeat expansion. Use with `${merge(item.field)}` or `=TBEG_MERGE(item.field)` marker
+- **Automatic cell merge**: Automatically merges consecutive cells with the same value during repeat expansion. Use with `${merge(object.field)}` or `=TBEG_MERGE(object.field)` marker
 - **Bundle**: Groups elements within a specified range into a single unit that moves together during repeat expansion. Use with `${bundle(range)}` or `=TBEG_BUNDLE(range)` marker
 
 ### Bug Fixes

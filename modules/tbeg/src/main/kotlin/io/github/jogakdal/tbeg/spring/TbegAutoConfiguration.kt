@@ -29,6 +29,7 @@ import org.springframework.context.annotation.Bean
  * ## 설정 커스터마이징
  * application.yml에서 설정 가능:
  * ```yaml
+  
  * tbeg:
  *     streaming-mode: auto
  *     streaming-row-threshold: 1000

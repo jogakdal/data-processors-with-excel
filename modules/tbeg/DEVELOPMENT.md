@@ -348,19 +348,19 @@ Total employees: ${size(employees)}
 
 **Text markers:**
 ```
-${merge(item.field)}
+${merge(object.field)}
 ```
 
 **Formula markers:**
 ```
-=TBEG_MERGE(item.field)
+=TBEG_MERGE(object.field)
 ```
 
 **Parameters:**
 
 | Parameter | Description          | Example    |
 |-----------|----------------------|------------|
-| field     | In item.field format | `emp.dept` |
+| field     | In object.field format | `emp.dept` |
 
 During repeat expansion, consecutive cells with the same value are automatically merged.
 For DOWN repeats, vertical merging is applied; for RIGHT repeats, horizontal merging is applied.
@@ -392,7 +392,7 @@ ${hideable(emp.salary)}
 
 | Parameter | Description                           | Required | Default | Aliases      |
 |-----------|---------------------------------------|----------|---------|--------------|
-| value     | Field reference in item.field format  | Yes      |         | field, val   |
+| value     | Field reference in object.field format  | Yes      |         | field, val   |
 | bundle    | Cell range to hide together           |          |         | range        |
 | mode      | Hide mode (DELETE / DIM)              |          | delete  |              |
 
@@ -408,7 +408,7 @@ ${hideable(emp.salary)}
 1. `HidePreprocessor` runs before the rendering pipeline (1st pass preprocessing)
 2. 2-pass scan: 1st phase identifies repeat variable names, 2nd phase identifies ItemField/HideableField
 3. For fields specified in `getHideFields()`, DELETE or DIM processing is applied
-4. Hideable markers for non-hidden fields are converted to `${item.field}` format and processed as regular ItemFields
+4. Hideable markers for non-hidden fields are converted to `${object.field}` format and processed as regular ItemFields
 
 **DIM mode behavior:**
 - Only the repeat data region is DIM-processed (intersection of the bundle range and the repeat range)

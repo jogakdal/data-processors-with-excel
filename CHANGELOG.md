@@ -69,7 +69,7 @@ All notable changes to this project will be documented in this file.
 ### New Features
 - **Image URL support**: Specify an HTTP(S) URL instead of `ByteArray` for image data; the image is automatically downloaded at render time. Use `imageUrl("logo", "https://...")` syntax
   - `imageUrlCacheTtlSeconds` setting for inter-call cache TTL (default: 0, no caching)
-- **Automatic cell merge**: Automatically merge consecutive cells with the same value during repeat expansion. Use `${merge(item.field)}` or `=TBEG_MERGE(item.field)` markers
+- **Automatic cell merge**: Automatically merge consecutive cells with the same value during repeat expansion. Use `${merge(object.field)}` or `=TBEG_MERGE(object.field)` markers
 - **Bundle**: Group a range of elements into a single unit that moves together during repeat expansion. Use `${bundle(range)}` or `=TBEG_BUNDLE(range)` markers
 
 ### Bug Fixes

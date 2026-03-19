@@ -237,13 +237,13 @@ SimpleDataProvider provider = SimpleDataProvider.builder()
 |                 문법                 |     설명     |                            예시                            |
 |:----------------------------------:|:----------:|:--------------------------------------------------------:|
 |              `${변수명}`              |   변수 치환    |                        `${title}`                        |
-|            `${item.필드}`            |  반복 항목 필드  |                      `${emp.name}`                       |
+|            `${객체.필드}`            |  반복 항목 필드  |                      `${emp.name}`                       |
 |      `${repeat(컬렉션, 범위, 변수)}`      |   반복 처리    |             `${repeat(items, A2:C2, item)}`              |
 |           `${image(이름)}`           |   이미지 삽입   |                     `${image(logo)}`                     |
 |           `${size(컬렉션)}`           |   컬렉션 크기   |                     `${size(items)}`                     |
-|        `${merge(item.필드)}`         |  자동 셀 병합   |                   `${merge(emp.dept)}`                   |
+|        `${merge(객체.필드)}`         |  자동 셀 병합   |                   `${merge(emp.dept)}`                   |
 |          `${bundle(범위)}`           |   요소 묶음    |                   `${bundle(A5:H12)}`                    |
-| `${hideable(value=item.필드, ...)}`  | 선택적 필드 노출  | `${hideable(value=emp.salary, bundle=C1:C3, mode=dim)}`  |
+| `${hideable(value=객체.필드, ...)}`  | 선택적 필드 노출  | `${hideable(value=emp.salary, bundle=C1:C3, mode=dim)}`  |
 
 상세 문법은 [템플릿 문법 레퍼런스](modules/tbeg/manual/ko/reference/template-syntax.md)를 참조하세요.
 

@@ -227,7 +227,7 @@ class TbegConfig {
 
 ### Sort data when using merge markers
 
-The `${merge(item.field)}` marker automatically merges consecutive cells with the same value. Therefore, data must be pre-sorted by the merge key field to achieve the intended result.
+The `${merge(object.field)}` marker automatically merges consecutive cells with the same value. Therefore, data must be pre-sorted by the merge key field to achieve the intended result.
 
 ```
 Data: [Sales Team 1, Sales Team 2, Sales Team 1]  -> Sales Team 1 is split, so separate cells remain

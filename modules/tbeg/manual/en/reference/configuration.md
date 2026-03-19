@@ -152,7 +152,7 @@ TbegConfig(imageUrlCacheTtlSeconds = 60)  // Cache for 60 seconds
 
 #### unmarkedHidePolicy
 
-Policy for when a field specified in `hideFields` exists in the template only as a regular field (`${item.field}`) without a hideable marker.
+Policy for when a field specified in `hideFields` exists in the template only as a regular field (`${object.field}`) without a hideable marker.
 
 | Value           | Behavior                                                    |
 |-----------------|-------------------------------------------------------------|

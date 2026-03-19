@@ -150,7 +150,7 @@ TbegConfig(imageUrlCacheTtlSeconds = 60)  // 60초간 캐싱
 
 #### unmarkedHidePolicy
 
-`hideFields`에 지정된 필드가 템플릿에 hideable 마커 없이 일반 필드(`${item.field}`)로만 존재할 때의 처리 정책입니다.
+`hideFields`에 지정된 필드가 템플릿에 hideable 마커 없이 일반 필드(`${object.field}`)로만 존재할 때의 처리 정책입니다.
 
 | 값               | 동작                                              |
 |-----------------|---------------------------------------------------|
