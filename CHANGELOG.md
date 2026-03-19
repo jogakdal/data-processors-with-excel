@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.3] - 2026-03-19
+
+### New Features
+- **`generateToStream` API**: Direct output to OutputStream without intermediate byte array
+- **ZIP single-pass post-processing**: Metadata, number format, XML variable substitution consolidated into ZipStreamPostProcessor
+
+### Performance
+- **JMH benchmark infrastructure**: Data source comparison, output method comparison, large-scale benchmarks (up to 1M rows)
+- 30,000 rows in 0.3 seconds (improved from 1.1s)
+
+### Internal Improvements
+- Thread safety guarantees with per-call isolation (ThreadSafetyTest added)
+- Spring Boot configuration prefix unified to `tbeg`
+- Hideable feature improvements (ElementShifter, HideValidator enhancements)
+
+### Documentation
+- Advanced examples split into separate Kotlin and Java documents
+- Performance benchmark details appendix added
+- Bundle result screenshots added
+
 ## [1.2.2] - 2026-03-16
 
 ### New Features
