@@ -243,7 +243,7 @@ SimpleDataProvider provider = SimpleDataProvider.builder()
 |           `${size(컬렉션)}`           |   컬렉션 크기   |                     `${size(items)}`                     |
 |        `${merge(객체.필드)}`         |  자동 셀 병합   |                   `${merge(emp.dept)}`                   |
 |          `${bundle(범위)}`           |   요소 묶음    |                   `${bundle(A5:H12)}`                    |
-| `${hideable(value=객체.필드, ...)}`  | 선택적 필드 노출  | `${hideable(value=emp.salary, bundle=C1:C3, mode=dim)}`  |
+|  `${hideable(객체.필드, 범위, 모드)}`  | 선택적 필드 노출  |          `${hideable(emp.salary, C1:C3, dim)}`           |
 
 상세 문법은 [템플릿 문법 레퍼런스](modules/tbeg/manual/ko/reference/template-syntax.md)를 참조하세요.
 

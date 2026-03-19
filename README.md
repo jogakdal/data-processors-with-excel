@@ -243,7 +243,7 @@ SimpleDataProvider provider = SimpleDataProvider.builder()
 | `${size(collection)}` | Collection size | `${size(items)}` |
 | `${merge(object.field)}` | Automatic cell merge | `${merge(emp.dept)}` |
 | `${bundle(range)}` | Bundle | `${bundle(A5:H12)}` |
-| `${hideable(value=object.field, ...)}` | Selective field visibility | `${hideable(value=emp.salary, bundle=C1:C3, mode=dim)}` |
+| `${hideable(object.field, range, mode)}` | Selective field visibility | `${hideable(emp.salary, C1:C3, dim)}` |
 
 For detailed syntax, see the [Template Syntax Reference](modules/tbeg/manual/en/reference/template-syntax.md).
 
