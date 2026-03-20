@@ -1,5 +1,7 @@
 # TBEG 템플릿 문법 레퍼런스
 
+> 한국어 | **[English](../../en/reference/template-syntax.md)**
+
 ## 목차
 1. [마커 개요](#1-마커-개요)
 2. [변수 치환](#2-변수-치환)

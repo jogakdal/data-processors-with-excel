@@ -1,5 +1,7 @@
 # TBEG Spring Boot 예제
 
+> 한국어 | **[English](../../en/examples/spring-boot-examples.md)**
+
 ## 목차
 1. [설정](#1-설정)
 2. [기본 Service 패턴](#2-기본-service-패턴)

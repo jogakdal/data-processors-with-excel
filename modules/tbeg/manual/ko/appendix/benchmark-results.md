@@ -1,5 +1,7 @@
 # 성능 벤치마크 상세 결과
 
+> 한국어 | **[English](../../en/appendix/benchmark-results.md)**
+
 JMH(Java Microbenchmark Harness)로 측정한 TBEG의 성능 벤치마크 상세 결과입니다.
 
 ## 테스트 환경

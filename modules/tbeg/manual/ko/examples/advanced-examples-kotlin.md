@@ -1,5 +1,7 @@
 # TBEG 고급 예제 (Kotlin)
 
+> 한국어 | **[English](../../en/examples/advanced-examples-kotlin.md)**
+
 ## 목차
 1. [DataProvider 활용](#1-dataprovider-활용)
    - [1.1 simpleDataProvider DSL 사용법](#11-simpledataprovider-dsl-사용법)

@@ -1,5 +1,7 @@
 # TBEG (Template Based Excel Generator)
 
+> 한국어 | **[English](./README.md)**
+
 Excel 템플릿에 데이터를 바인딩하여 보고서를 생성하는 라이브러리입니다.
 
 ## 주요 기능

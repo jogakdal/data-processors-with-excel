@@ -1,5 +1,7 @@
 # TBEG 설정 옵션 레퍼런스
 
+> 한국어 | **[English](../../en/reference/configuration.md)**
+
 ## 목차
 1. [TbegConfig](#1-tbegconfig)
 2. [Spring Boot 프로퍼티](#2-spring-boot-프로퍼티)

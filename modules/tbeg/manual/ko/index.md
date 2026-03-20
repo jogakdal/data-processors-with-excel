@@ -1,5 +1,7 @@
 # TBEG (Template-Based Excel Generator)
 
+> 한국어 | **[English](../en/index.md)**
+
 템플릿 기반 Excel 파일 생성 라이브러리
 
 > 프로젝트 소개와 빠른 시작은 [README](../README.ko.md)를 참조하세요.

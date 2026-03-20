@@ -1,5 +1,7 @@
 # TBEG 개발자 가이드
 
+> 한국어 | **[English](../en/developer-guide.md)**
+
 이 문서는 TBEG 라이브러리의 내부 아키텍처와 확장 방법을 설명합니다.
 
 ## 목차

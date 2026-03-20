@@ -1,5 +1,7 @@
 # TBEG 개발 가이드
 
+> 한국어 | **[English](./DEVELOPMENT.md)**
+
 이 문서는 Template-Based Excel Generator(TBEG) 모듈의 아키텍처, 구현 원칙, 개발 가이드라인을 정의합니다.
 **코드 수정 시 이 문서도 함께 갱신해야 합니다.**
 

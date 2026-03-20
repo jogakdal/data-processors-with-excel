@@ -1,5 +1,7 @@
 # TBEG Changelog
 
+> 한국어 | **[English](./CHANGELOG.md)**
+
 ## 1.2.3
 
 ### 새 기능

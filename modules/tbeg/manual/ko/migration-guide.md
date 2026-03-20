@@ -1,5 +1,7 @@
 # TBEG 마이그레이션 가이드
 
+> 한국어 | **[English](../en/migration-guide.md)**
+
 ## 1.2.1 -> 1.2.2
 
 ### 새 기능: 선택적 필드 노출 (hideable)
