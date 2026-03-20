@@ -85,7 +85,7 @@ fun generateToStream(template: InputStream, dataProvider: ExcelDataProvider, out
 Excel을 생성하여 OutputStream에 직접 씁니다. HTTP 응답 스트림 등에 직접 쓸 때 유용합니다.
 
 > [!NOTE]
-> 결과물은 파이프라인 특성상 메모리에 적재된 후 출력됩니다. 메모리 사용량은 `generate()`와 동일하지만, 바이트 배열 복사 없이 직접 출력하는 편의성을 제공합니다.
+> 메모리 사용량은 `generate()`와 동일합니다. 바이트 배열 복사 없이 OutputStream에 직접 출력하는 편의성을 제공합니다.
 
 ```kotlin
 // Spring Controller에서 사용
@@ -177,9 +177,9 @@ val result = job.await()
 
 상세한 오류 대응 방법은 [문제 해결 가이드](../troubleshooting.md#2-실행-시-오류)를 참조하세요.
 
-### 리소스 관리 및 스레드 안전성
+### 리소스 관리
 
-`ExcelGenerator`는 `Closeable`을 구현하므로 사용 후 반드시 닫아야 합니다.
+`ExcelGenerator`는 `Closeable`을 구현하므로 사용 후 반드시 닫아야 합니다. `close()` 호출 시 비동기 작업에 사용되는 내부 리소스가 정리됩니다.
 
 ```kotlin
 ExcelGenerator().use { generator ->
@@ -187,17 +187,11 @@ ExcelGenerator().use { generator ->
 }
 ```
 
-내부적으로 `CachedThreadPool` 기반의 `CoroutineScope`를 보유하고 있으며, `close()` 호출 시 스코프와 디스패처가 정리됩니다.
-
 #### 스레드 안전성
 
-| API | 동시 호출 | 비고 |
-|:---:|:--------:|------|
-| 동기 `generate()` / `generateToFile()` | 미지원 | 내부 파이프라인 상태를 공유하므로 동시 호출하면 안 됩니다. |
-| 비동기 `generateAsync()` / `generateFuture()` | 지원 | 각 작업이 코루틴 스코프 내에서 격리되어 실행됩니다. |
-| 백그라운드 `submit()` / `submitToFile()` | 지원 | 각 작업이 별도 코루틴으로 격리됩니다. |
+`ExcelGenerator`는 스레드 안전합니다. 모든 API를 여러 스레드에서 동시에 호출할 수 있습니다.
 
-Spring Boot 환경에서는 `ExcelGenerator`가 싱글톤 Bean으로 등록됩니다. 동기 API를 여러 요청에서 동시에 호출해야 한다면, 요청마다 별도의 `ExcelGenerator` 인스턴스를 생성하거나 비동기 API를 사용하세요.
+Spring Boot 환경에서는 `ExcelGenerator`가 싱글톤 Bean으로 등록되며, 별도 설정 없이 여러 요청에서 동시 사용할 수 있습니다.
 
 ---
 

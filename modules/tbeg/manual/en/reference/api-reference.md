@@ -137,7 +137,7 @@ Generates an Excel file and writes it directly to an OutputStream. Useful for wr
 | password | String? | File open password (optional) |
 
 > [!NOTE]
-> Due to pipeline characteristics, the output is loaded into memory before being written. Memory usage is the same as `generate()`, but it provides the convenience of writing directly without byte array copying.
+> Memory usage is the same as `generate()`. It provides the convenience of writing directly to the OutputStream without byte array copying.
 
 #### generateToStream (Map)
 
@@ -372,9 +372,9 @@ fun submitToFile(
 
 For detailed error handling, see the [Troubleshooting Guide](../troubleshooting.md#2-runtime-errors).
 
-### Resource Management and Thread Safety
+### Resource Management
 
-`ExcelGenerator` implements `Closeable`, so it must be closed after use.
+`ExcelGenerator` implements `Closeable`, so it must be closed after use. When `close()` is called, internal resources used for async operations are cleaned up.
 
 ```kotlin
 ExcelGenerator().use { generator ->
@@ -382,17 +382,11 @@ ExcelGenerator().use { generator ->
 }
 ```
 
-Internally, it holds a `CoroutineScope` backed by a `CachedThreadPool`, which is cleaned up when `close()` is called.
-
 #### Thread Safety
 
-| API | Concurrent Calls | Notes |
-|-----|-------------------|-------|
-| Synchronous `generate()` / `generateToFile()` | Not supported | Shares internal pipeline state; must not be called concurrently |
-| Async `generateAsync()` / `generateFuture()` | Supported | Each task runs in isolation within the coroutine scope |
-| Background `submit()` / `submitToFile()` | Supported | Each task is isolated in a separate coroutine |
+`ExcelGenerator` is thread-safe. All APIs can be called concurrently from multiple threads.
 
-In a Spring Boot environment, `ExcelGenerator` is registered as a singleton bean. If you need to call the synchronous API concurrently from multiple requests, either create a separate `ExcelGenerator` instance per request or use the async API.
+In a Spring Boot environment, `ExcelGenerator` is registered as a singleton bean and can be used concurrently from multiple requests without additional configuration.
 
 ---
 
