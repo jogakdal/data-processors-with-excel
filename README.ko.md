@@ -74,7 +74,7 @@ ExcelGenerator().use { generator ->
 
 **템플릿**
 
-![템플릿](modules/tbeg/src/main/resources/sample/screenshot_template.png)
+![템플릿](modules/tbeg/manual/images/rich_sample_template.png)
 
 **코드**
 
@@ -99,7 +99,7 @@ ExcelGenerator().use { generator ->
 
 **결과**
 
-![결과](modules/tbeg/src/main/resources/sample/screenshot_result.png)
+![결과](modules/tbeg/manual/images/rich_sample_result_ko.png)
 
 변수 치환, 이미지 삽입, 반복 데이터 확장, 자동 셀 병합, 요소 묶음, 선택적 필드 노출, 수식 범위 조정, 조건부 서식 반영, 차트 데이터 반영까지 TBEG이 자동으로 처리합니다.
 

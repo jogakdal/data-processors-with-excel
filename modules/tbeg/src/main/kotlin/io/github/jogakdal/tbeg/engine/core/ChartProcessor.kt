@@ -422,7 +422,7 @@ internal class ChartProcessor {
                 val ridValue = match.groupValues[1]
                 ridValue.removePrefix("rId").toIntOrNull().also { rid ->
                     if (rid == null) {
-                        LOG.warn("Invalid rId format: $ridValue")
+                        LOG.warn("잘못된 rId 형식: $ridValue")
                     }
                 }
             }

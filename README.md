@@ -74,7 +74,7 @@ Formatting, charts, formulas, and conditional formatting are **all managed in th
 
 **Template**
 
-![Template](modules/tbeg/src/main/resources/sample/screenshot_template.png)
+![Template](modules/tbeg/manual/images/rich_sample_template.png)
 
 **Code**
 
@@ -99,7 +99,7 @@ ExcelGenerator().use { generator ->
 
 **Result**
 
-![Result](modules/tbeg/src/main/resources/sample/screenshot_result.png)
+![Result](modules/tbeg/manual/images/rich_sample_result_en.png)
 
 Variable substitution, image insertion, repeat data expansion, automatic cell merge, bundle, selective field visibility, formula range adjustment, conditional formatting duplication, and chart data reflection -- TBEG handles all of this automatically.
 

@@ -46,6 +46,7 @@ import java.util.concurrent.TimeUnit;
  * <h2>Spring Boot 설정</h2>
  * <pre>{@code
  * # application.yml
+  
  * tbeg:
  *     streaming-mode: auto
  *     streaming-row-threshold: 1000

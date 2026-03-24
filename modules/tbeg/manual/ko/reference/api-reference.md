@@ -1,7 +1,5 @@
 # TBEG API 레퍼런스
 
-> 한국어 | **[English](../../en/reference/api-reference.md)**
-
 ## 목차
 1. [ExcelGenerator](#1-excelgenerator)
 2. [ExcelDataProvider](#2-exceldataprovider)

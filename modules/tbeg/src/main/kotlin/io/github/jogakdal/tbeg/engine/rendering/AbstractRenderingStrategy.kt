@@ -352,11 +352,11 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
             is String -> if (value.startsWith("http://") || value.startsWith("https://")) {
                 downloadWithCache(value, localCache, cacheTtlSeconds)
             } else {
-                LOG.warn("Image '{}' value is neither a ByteArray nor a URL: {}", imageName, value)
+                LOG.warn("이미지 '{}' 값이 ByteArray도 URL도 아닙니다: {}", imageName, value)
                 null
             }
             else -> {
-                LOG.warn("Unsupported type for image '{}': {}", imageName, value::class.simpleName)
+                LOG.warn("이미지 '{}' 값의 타입이 지원되지 않습니다: {}", imageName, value::class.simpleName)
                 null
             }
         }
@@ -417,7 +417,7 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
                         val contentType = connection.contentType ?: ""
                         // CDN이 잘못된 Content-Type을 반환하는 경우가 있어 경고만 출력하고 다운로드는 진행한다
                         if (!contentType.startsWith("image/")) {
-                            LOG.warn("Image URL Content-Type is not image/*: url={}, contentType={}", url, contentType)
+                            LOG.warn("이미지 URL의 Content-Type이 image/*가 아닙니다: url={}, contentType={}", url, contentType)
                         }
                         return connection.inputStream.use { stream ->
                             val buffer = java.io.ByteArrayOutputStream()
@@ -427,7 +427,7 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
                             while (stream.read(chunk).also { read = it } != -1) {
                                 total += read
                                 if (total > MAX_IMAGE_SIZE) {
-                                    LOG.warn("Image download aborted: size limit exceeded (url={}, limit={}bytes)", url, MAX_IMAGE_SIZE)
+                                    LOG.warn("이미지 다운로드 중단: 크기 제한 초과 (url={}, limit={}bytes)", url, MAX_IMAGE_SIZE)
                                     return null
                                 }
                                 buffer.write(chunk, 0, read)
@@ -441,25 +441,25 @@ internal abstract class AbstractRenderingStrategy : RenderingStrategy {
                     307, 308 -> {
                         currentUrl = connection.getHeaderField("Location")
                             ?: run {
-                                LOG.warn("Image download failed: redirect response missing Location header (url={})", url)
+                                LOG.warn("이미지 다운로드 실패: 리다이렉트 응답에 Location 헤더가 없습니다 (url={})", url)
                                 return null
                             }
                         redirectCount++
                     }
                     else -> {
-                        LOG.warn("Image download failed: HTTP {} (url={})", code, url)
+                        LOG.warn("이미지 다운로드 실패: HTTP {} (url={})", code, url)
                         return null
                     }
                 }
             } catch (e: Exception) {
-                LOG.warn("Image download failed: {} (url={})", e.message, url)
+                LOG.warn("이미지 다운로드 실패: {} (url={})", e.message, url)
                 return null
             } finally {
                 connection.disconnect()
             }
         }
 
-        LOG.warn("Image download failed: maximum redirect count exceeded (url={})", url)
+        LOG.warn("이미지 다운로드 실패: 최대 리다이렉트 횟수 초과 (url={})", url)
         return null
     }
 

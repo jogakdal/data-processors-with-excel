@@ -1,7 +1,5 @@
 # TBEG Changelog
 
-> 한국어 | **[English](./CHANGELOG.md)**
-
 ## 1.2.3
 
 ### 새 기능
@@ -32,7 +30,7 @@
   - **HideMode**: `DELETE`(물리적 삭제 + 시프트, 기본값) 또는 `DIM`(비활성화 스타일 + 값 제거) 중 선택할 수 있습니다.
   - **UnmarkedHidePolicy**: hideable 마커가 없는 필드를 숨기려 할 때의 동작을 설정합니다. `WARN_AND_HIDE`(경고 후 숨김, 기본값) 또는 `ERROR`(예외 발생)를 지원합니다.
   - **API**: `ExcelDataProvider.getHiddenFields()`로 숨길 필드 목록을 지정하고, `SimpleDataProvider.Builder.hideFields()`로 간편하게 설정할 수 있습니다.
-  - **Spring Boot 설정**: `tbeg.unmarked-hide-policy` 프로퍼티로 정책을 설정할 수 있습니다.
+  - **Spring Boot 설정**: `hunet.tbeg.unmarked-hide-policy` 프로퍼티로 정책을 설정할 수 있습니다.
 
 <details>
 <summary>내부 개선</summary>
@@ -86,7 +84,7 @@
 - **이미지 URL 지원**: 이미지 데이터로 `ByteArray` 대신 HTTP(S) URL 문자열을 지정하면 렌더링 시점에 자동으로 다운로드합니다. `imageUrl("logo", "https://...")` 형태로 사용합니다.
   - `imageUrlCacheTtlSeconds` 설정으로 호출 간 캐시 TTL을 지정할 수 있습니다 (기본: 0, 캐싱 안 함)
   - 다운로드 실패 시 경고 로그를 출력하고 해당 이미지를 건너뜁니다.
-- **자동 셀 병합 (merge)**: repeat 확장 시 연속된 같은 값의 셀을 자동으로 병합합니다. `${merge(object.field)}` 또는 `=TBEG_MERGE(object.field)` 마커로 사용합니다.
+- **자동 셀 병합 (merge)**: repeat 확장 시 연속된 같은 값의 셀을 자동으로 병합합니다. `${merge(item.field)}` 또는 `=TBEG_MERGE(item.field)` 마커로 사용합니다.
 - **요소 묶음 (bundle)**: 지정된 범위의 요소를 하나의 단위로 묶어 repeat 확장 시 일체로 이동합니다. `${bundle(범위)}` 또는 `=TBEG_BUNDLE(범위)` 마커로 사용합니다.
 
 ### 버그 수정
@@ -183,7 +181,7 @@
 ## 1.1.0
 
 > [!NOTE]
-> 1.0.x에서 업그레이드하시는 분은 [마이그레이션 가이드](./manual/ko/migration-guide.md)를 참조하세요.
+> 1.0.x에서 업그레이드하시는 분은 [마이그레이션 가이드](./manual/migration-guide.md)를 참조하세요.
 
 ### 새 기능
 

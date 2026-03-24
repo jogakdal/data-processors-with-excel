@@ -1,7 +1,5 @@
 # TBEG 고급 예제 (Java)
 
-> 한국어 | **[English](../../en/examples/advanced-examples-java.md)**
-
 ## 목차
 1. [DataProvider 활용](#1-dataprovider-활용)
    - [1.1 SimpleDataProvider.Builder 사용법](#11-simpledataproviderbuilder-사용법)
@@ -543,27 +541,26 @@ public byte[] generateReport(Long departmentId) throws IOException {
 
 마이크로서비스 아키텍처에서 다른 서비스의 API를 호출하여 데이터를 **분할**하여 가져온 후 Excel로 변환하는 경우입니다.
 
-#### Page 기반 Iterator
+#### PageableList 기반 Iterator
 
-Spring Data의 `Page` 인터페이스를 활용하여 페이지 단위로 API를 호출하는 Iterator입니다.
+휴넷의 `standard-api-response` 라이브러리에서 제공하는 `PageableList` 타입을 활용합니다.
 
 ```java
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import com.hunet.common.stdapi.response.PageableList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.function.BiFunction;
 
-public class PagedApiIterator<T> implements Iterator<T> {
+public class PageableListIterator<T> implements Iterator<T> {
 
     private final int pageSize;
-    private final BiFunction<Integer, Integer, Page<T>> fetcher;
+    private final BiFunction<Integer, Integer, PageableList<T>> fetcher;
 
-    private int currentPage = 0;
+    private int currentPage = 1;
     private Iterator<T> currentIterator = Collections.emptyIterator();
     private boolean hasMorePages = true;
 
-    public PagedApiIterator(int pageSize, BiFunction<Integer, Integer, Page<T>> fetcher) {
+    public PageableListIterator(int pageSize, BiFunction<Integer, Integer, PageableList<T>> fetcher) {
         this.pageSize = pageSize;
         this.fetcher = fetcher;
     }
@@ -574,9 +571,9 @@ public class PagedApiIterator<T> implements Iterator<T> {
         if (!hasMorePages) return false;
 
         // 다음 페이지 로드 (API 호출)
-        Page<T> result = fetcher.apply(currentPage++, pageSize);
-        currentIterator = result.getContent().iterator();
-        hasMorePages = result.hasNext();
+        PageableList<T> result = fetcher.apply(currentPage++, pageSize);
+        currentIterator = result.getItems().getList().iterator();
+        hasMorePages = result.getPage().getCurrent() < result.getPage().getTotal();
 
         return currentIterator.hasNext();
     }
@@ -593,13 +590,10 @@ public class PagedApiIterator<T> implements Iterator<T> {
 ```java
 import io.github.jogakdal.tbeg.ExcelGenerator;
 import io.github.jogakdal.tbeg.SimpleDataProvider;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
+import com.hunet.common.stdapi.response.PageableList;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 
 record EmployeeDto(String name, int salary) {}
 
@@ -609,46 +603,48 @@ public class ApiIntegrationExample {
     // @FeignClient(name = "employee-service")
     // public interface EmployeeApiClient {
     //     @GetMapping("/api/employees")
-    //     Page<EmployeeDto> getEmployees(
+    //     StandardResponse<PageableList<EmployeeDto>> getEmployees(
     //         @RequestParam("page") int page,
     //         @RequestParam("size") int size
     //     );
     // }
 
     // 다른 마이크로서비스의 API를 호출하여 데이터를 가져옴
-    static Page<EmployeeDto> fetchEmployeesFromApi(int page, int size) {
+    static PageableList<EmployeeDto> fetchEmployeesFromApi(int page, int size) {
         // Feign Client 사용 시:
-        // return employeeApiClient.getEmployees(page, size);
+        // return employeeApiClient.getEmployees(page, size).getPayload();
 
         // RestTemplate 사용 시:
-        // ParameterizedTypeReference<RestPageImpl<EmployeeDto>> typeRef =
+        // ParameterizedTypeReference<StandardResponse<PageableList<EmployeeDto>>> typeRef =
         //     new ParameterizedTypeReference<>() {};
         // return restTemplate.exchange(
         //     "/api/employees?page=" + page + "&size=" + size,
         //     HttpMethod.GET, null, typeRef
-        // ).getBody();
+        // ).getBody().getPayload();
 
         // WebClient 사용 시:
         // return webClient.get()
         //     .uri("/api/employees?page=" + page + "&size=" + size)
         //     .retrieve()
-        //     .bodyToMono(new ParameterizedTypeReference<RestPageImpl<EmployeeDto>>() {})
-        //     .block();
+        //     .bodyToMono(new ParameterizedTypeReference<StandardResponse<PageableList<EmployeeDto>>>() {})
+        //     .block().getPayload();
 
         // 예시용 더미 응답
-        List<EmployeeDto> content = List.of(new EmployeeDto("황용호", 8000), new EmployeeDto("한용호", 6500));
-        return new PageImpl<>(content, PageRequest.of(page, size), 100);
+        return PageableList.build(
+            List.of(new EmployeeDto("황용호", 8000), new EmployeeDto("한용호", 6500)),
+            100L, (long) size, (long) page
+        );
     }
 
     public static void main(String[] args) throws Exception {
-        // 먼저 totalElements 조회 (첫 페이지 호출 또는 별도 count API)
-        Page<EmployeeDto> firstPage = fetchEmployeesFromApi(0, 1);
-        int totalCount = (int) firstPage.getTotalElements();
+        // 먼저 totalItems 조회 (첫 페이지 호출 또는 별도 count API)
+        PageableList<EmployeeDto> firstPage = fetchEmployeesFromApi(1, 1);
+        int totalCount = (int) firstPage.getItems().getTotal();
 
         SimpleDataProvider provider = SimpleDataProvider.builder()
             .value("title", "API 데이터 보고서")
             .items("employees", totalCount, () ->
-                new PagedApiIterator<>(50, (page, size) ->
+                new PageableListIterator<>(50, (page, size) ->
                     fetchEmployeesFromApi(page, size)
                 )
             )
@@ -668,7 +664,7 @@ public class ApiIntegrationExample {
 ```
 
 > [!NOTE]
-> `Page`와 `PageImpl`은 Spring Data(`org.springframework.data.domain`)에서 제공하는 타입입니다. 마이크로서비스 간 페이징 API 응답 형식을 사용하는 경우 이 패턴을 활용할 수 있습니다.
+> `PageableList`와 `StandardResponse`는 `standard-api-response` 라이브러리에서 제공하는 타입입니다. 마이크로서비스 간 표준 API 응답 형식을 사용하는 경우 이 패턴을 활용할 수 있습니다.
 
 ---
 
@@ -878,8 +874,8 @@ import java.util.Map;
 public class HyperlinkExample {
     public static void main(String[] args) throws Exception {
         Map<String, Object> data = Map.of(
-            "text", "홈페이지 바로가기",
-            "url", "https://example.com"
+            "text", "휴넷 홈페이지 바로가기",
+            "url", "https://www.hunet.co.kr"
         );
 
         try (ExcelGenerator generator = new ExcelGenerator()) {
@@ -1413,7 +1409,7 @@ public class I18nSpringExample {
 > [!TIP]
 > [템플릿 다운로드 (rich_sample_template.xlsx)](../../src/test/resources/templates/rich_sample_template.xlsx)
 
-![템플릿](../../src/main/resources/sample/screenshot_template.png)
+![템플릿](../../images/rich_sample_template.png)
 
 템플릿 구성:
 - **변수 마커**: `${reportTitle}`, `${period}`, `${author}`, `${reportDate}`, `${subtitle_emp}`
@@ -1449,8 +1445,8 @@ public class ComprehensiveExample {
             .value("author", "Yongho Hwang")
             .value("reportDate", LocalDate.now().toString())
             .value("subtitle_emp", "Employee Performance Details")
-            .image("logo", new File("company_logo.png"))
-            .image("ci", new File("company_ci.png"))
+            .image("logo", new File("hunet_logo.png"))
+            .image("ci", new File("hunet_ci.png"))
             .items("depts", List.of(
                 new DeptResult("Common Platform", 52000, 31000, 50000),
                 new DeptResult("IT Strategy",     38000, 22000, 40000),
@@ -1489,7 +1485,7 @@ public class ComprehensiveExample {
 
 ### 결과
 
-![결과](../../src/main/resources/sample/screenshot_result.png)
+![결과](../../images/rich_sample_result_ko.png)
 
 TBEG이 자동으로 처리한 항목:
 - **변수 치환** -- 제목, 기간, 작성자, 날짜, 직원 실적 소제목
@@ -1643,11 +1639,11 @@ public class BundleExample {
 
 **bundle이 없을 때**: employees가 4행 확장되면 A-B 열은 4행 밀려나고, departments가 1행 확장되면 D-E 열은 1행 밀려납니다. 하지만 C열, F열은 밀어내는 요소가 없으므로 원래 위치를 유지합니다. 결과적으로 제품 표의 각 열이 제각기 다른 행에 위치하게 되어 레이아웃이 깨집니다.
 
-![bundle이 없을 때 결과](../images/bundle_result_without_ko.png)
+![bundle이 없을 때 결과](../../images/bundle_result_without_ko.png)
 
 **bundle이 있을 때**: bundle로 지정된 영역이 하나의 셀처럼 취급되어, 가장 많이 밀리는 만큼(4행) 모든 요소가 함께 이동합니다. 제품 표가 온전한 형태를 유지합니다.
 
-![bundle이 있을 때 결과](../images/bundle_result_with_ko.png)
+![bundle이 있을 때 결과](../../images/bundle_result_with_ko.png)
 
 > [!NOTE]
 > bundle 범위는 다른 범위형 요소(병합된 셀, repeat 마커, 다른 bundle 마커 등)의 범위와 경계에 걸치면 안 됩니다. bundle 안에 해당 요소의 전체 범위가 포함되어야 합니다.

@@ -46,7 +46,7 @@ object HideValidator {
         }
         if (!markerInRepeat) {
             throw MarkerValidationException(
-                "Hideable marker (${cellRef(region.markerCell)}) is not within the repeat item field range."
+                "hideable 마커(${cellRef(region.markerCell)})가 repeat의 반복 항목 필드 범위에 속하지 않습니다."
             )
         }
     }
@@ -57,8 +57,8 @@ object HideValidator {
     private fun validateBundleContainsMarker(region: HideableRegion) {
         if (!rangeContains(region.effectiveRange, region.markerCell)) {
             throw MarkerValidationException(
-                "Hideable marker (${cellRef(region.markerCell)}) must be contained within " +
-                "bundle range (${rangeRef(region.effectiveRange)})."
+                "hideable 마커(${cellRef(region.markerCell)})가 " +
+                "bundle 범위(${rangeRef(region.effectiveRange)})에 포함되어야 합니다."
             )
         }
     }
@@ -93,9 +93,9 @@ object HideValidator {
             if (region.effectiveRange.firstColumn != baseColFirst ||
                 region.effectiveRange.lastColumn != baseColLast) {
                 throw MarkerValidationException(
-                    "Bundle column range of hideable '${region.fieldPath}'" +
-                    " (${ElementShifter.columnIndexToLetters(region.effectiveRange.firstColumn)}:${ElementShifter.columnIndexToLetters(region.effectiveRange.lastColumn)})" +
-                    " does not match the hideable cell column range (${ElementShifter.columnIndexToLetters(baseColFirst)}:${ElementShifter.columnIndexToLetters(baseColLast)})."
+                    "hideable '${region.fieldPath}'의 bundle 열 범위" +
+                    "(${ElementShifter.columnIndexToLetters(region.effectiveRange.firstColumn)}:${ElementShifter.columnIndexToLetters(region.effectiveRange.lastColumn)})가 " +
+                    "hideable 셀의 열 범위(${ElementShifter.columnIndexToLetters(baseColFirst)}:${ElementShifter.columnIndexToLetters(baseColLast)})와 일치하지 않습니다."
                 )
             }
         } else {
@@ -103,9 +103,9 @@ object HideValidator {
             if (region.effectiveRange.firstRow != baseRowFirst ||
                 region.effectiveRange.lastRow != baseRowLast) {
                 throw MarkerValidationException(
-                    "Bundle row range of hideable '${region.fieldPath}'" +
-                    " (${region.effectiveRange.firstRow + 1}:${region.effectiveRange.lastRow + 1})" +
-                    " does not match the hideable cell row range (${baseRowFirst + 1}:${baseRowLast + 1})."
+                    "hideable '${region.fieldPath}'의 bundle 행 범위" +
+                    "(${region.effectiveRange.firstRow + 1}:${region.effectiveRange.lastRow + 1})가 " +
+                    "hideable 셀의 행 범위(${baseRowFirst + 1}:${baseRowLast + 1})와 일치하지 않습니다."
                 )
             }
         }
@@ -120,9 +120,9 @@ object HideValidator {
                 !rangeContains(region.effectiveRange, merged) &&
                 !rangeContains(merged, region.effectiveRange)) {
                 throw MarkerValidationException(
-                    "Bundle range (${rangeRef(region.effectiveRange)}) of hideable '${region.fieldPath}'" +
-                    " partially contains merged cell (${rangeRef(merged)})." +
-                    " Please expand the bundle to fully contain the merged cell, or adjust the merge."
+                    "hideable '${region.fieldPath}'의 bundle 범위(${rangeRef(region.effectiveRange)})가 " +
+                    "병합 셀(${rangeRef(merged)})을 부분적으로 포함합니다. " +
+                    "bundle을 병합 셀 전체를 포함하도록 확장하거나, 병합을 조정해 주세요."
                 )
             }
         }
@@ -137,8 +137,8 @@ object HideValidator {
                 !rangeContains(bundleRange, region.effectiveRange) &&
                 !rangeContains(region.effectiveRange, bundleRange)) {
                 throw MarkerValidationException(
-                    "Bundle range (${rangeRef(region.effectiveRange)}) of hideable '${region.fieldPath}'" +
-                    " partially overlaps with bundle marker range (${rangeRef(bundleRange)})."
+                    "hideable '${region.fieldPath}'의 bundle 범위(${rangeRef(region.effectiveRange)})가 " +
+                    "bundle 마커 범위(${rangeRef(bundleRange)})와 부분적으로 겹칩니다."
                 )
             }
         }
@@ -159,8 +159,8 @@ object HideValidator {
 
                 if (rangesOverlap(a.effectiveRange, b.effectiveRange)) {
                     throw MarkerValidationException(
-                        "Bundle range (${rangeRef(a.effectiveRange)}) of hideable '${a.fieldPath}'" +
-                        " overlaps with bundle range (${rangeRef(b.effectiveRange)}) of hideable '${b.fieldPath}'."
+                        "hideable '${a.fieldPath}'의 bundle 범위(${rangeRef(a.effectiveRange)})가 " +
+                        "hideable '${b.fieldPath}'의 bundle 범위(${rangeRef(b.effectiveRange)})와 겹칩니다."
                     )
                 }
             }
@@ -183,8 +183,8 @@ object HideValidator {
 
                 if (rangeContains(a.effectiveRange, b.markerCell)) {
                     throw MarkerValidationException(
-                        "Bundle range (${rangeRef(a.effectiveRange)}) of hideable '${a.fieldPath}'" +
-                        " contains another hideable marker '${b.fieldPath}' (${cellRef(b.markerCell)})."
+                        "hideable '${a.fieldPath}'의 bundle 범위(${rangeRef(a.effectiveRange)})에 " +
+                        "다른 hideable 마커 '${b.fieldPath}'(${cellRef(b.markerCell)})가 포함되어 있습니다."
                     )
                 }
             }

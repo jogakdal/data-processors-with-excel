@@ -1,7 +1,5 @@
 # TBEG 설정 옵션 레퍼런스
 
-> 한국어 | **[English](../../en/reference/configuration.md)**
-
 ## 목차
 1. [TbegConfig](#1-tbegconfig)
 2. [Spring Boot 프로퍼티](#2-spring-boot-프로퍼티)
@@ -152,7 +150,7 @@ TbegConfig(imageUrlCacheTtlSeconds = 60)  // 60초간 캐싱
 
 #### unmarkedHidePolicy
 
-`hideFields`에 지정된 필드가 템플릿에 hideable 마커 없이 일반 필드(`${object.field}`)로만 존재할 때의 처리 정책입니다.
+`hideFields`에 지정된 필드가 템플릿에 hideable 마커 없이 일반 필드(`${item.field}`)로만 존재할 때의 처리 정책입니다.
 
 | 값               | 동작                                              |
 |-----------------|---------------------------------------------------|
@@ -201,54 +199,55 @@ io.github.jogakdal.tbeg.spring.TbegProperties
 ### application.yml 예시
 
 ```yaml
-tbeg:
-  # streaming-mode: deprecated (1.2.0부터 값이 무시됩니다)
-  # streaming-mode: enabled
+hunet:
+  tbeg:
+    # streaming-mode: deprecated (1.2.0부터 값이 무시됩니다)
+    # streaming-mode: enabled
 
-  # 파일명 생성 모드: none, timestamp
-  file-naming-mode: timestamp
+    # 파일명 생성 모드: none, timestamp
+    file-naming-mode: timestamp
 
-  # 파일명 타임스탬프 형식
-  timestamp-format: yyyyMMdd_HHmmss
+    # 파일명 타임스탬프 형식
+    timestamp-format: yyyyMMdd_HHmmss
 
-  # 파일명 충돌 정책: error, sequence
-  file-conflict-policy: sequence
+    # 파일명 충돌 정책: error, sequence
+    file-conflict-policy: sequence
 
-  # 진행률 콜백 호출 간격
-  progress-report-interval: 100
+    # 진행률 콜백 호출 간격
+    progress-report-interval: 100
 
-  # 템플릿 레이아웃 보존
-  preserve-template-layout: true
+    # 템플릿 레이아웃 보존
+    preserve-template-layout: true
 
-  # 정수 숫자 서식 인덱스 (기본: 3, #,##0)
-  pivot-integer-format-index: 3
+    # 정수 숫자 서식 인덱스 (기본: 3, #,##0)
+    pivot-integer-format-index: 3
 
-  # 소수 숫자 서식 인덱스 (기본: 4, #,##0.00)
-  pivot-decimal-format-index: 4
+    # 소수 숫자 서식 인덱스 (기본: 4, #,##0.00)
+    pivot-decimal-format-index: 4
 
-  # 데이터 누락 시 동작: warn, throw
-  missing-data-behavior: warn
+    # 데이터 누락 시 동작: warn, throw
+    missing-data-behavior: warn
 
-  # 이미지 URL 캐시 TTL (초, 0=캐싱 안 함)
-  image-url-cache-ttl-seconds: 0
+    # 이미지 URL 캐시 TTL (초, 0=캐싱 안 함)
+    image-url-cache-ttl-seconds: 0
 
-  # hideable 마커 없는 필드의 숨김 요청 시 처리 정책: warn-and-hide, error
-  unmarked-hide-policy: warn-and-hide
+    # hideable 마커 없는 필드의 숨김 요청 시 처리 정책: warn-and-hide, error
+    unmarked-hide-policy: warn-and-hide
 ```
 
 ### application.properties 예시
 
 ```properties
-tbeg.file-naming-mode=timestamp
-tbeg.timestamp-format=yyyyMMdd_HHmmss
-tbeg.file-conflict-policy=sequence
-tbeg.progress-report-interval=100
-tbeg.preserve-template-layout=true
-tbeg.pivot-integer-format-index=3
-tbeg.pivot-decimal-format-index=4
-tbeg.missing-data-behavior=warn
-tbeg.image-url-cache-ttl-seconds=0
-tbeg.unmarked-hide-policy=warn-and-hide
+hunet.tbeg.file-naming-mode=timestamp
+hunet.tbeg.timestamp-format=yyyyMMdd_HHmmss
+hunet.tbeg.file-conflict-policy=sequence
+hunet.tbeg.progress-report-interval=100
+hunet.tbeg.preserve-template-layout=true
+hunet.tbeg.pivot-integer-format-index=3
+hunet.tbeg.pivot-decimal-format-index=4
+hunet.tbeg.missing-data-behavior=warn
+hunet.tbeg.image-url-cache-ttl-seconds=0
+hunet.tbeg.unmarked-hide-policy=warn-and-hide
 ```
 
 ### 프로퍼티 매핑

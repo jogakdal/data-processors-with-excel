@@ -1,7 +1,5 @@
 # TBEG 용어집
 
-> 한국어 | **[English](../en/glossary.md)**
-
 TBEG 문서에서 사용하는 주요 용어를 정리합니다.
 
 ---

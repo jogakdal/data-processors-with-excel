@@ -1,7 +1,5 @@
 # TBEG 고급 예제 (Kotlin)
 
-> 한국어 | **[English](../../en/examples/advanced-examples-kotlin.md)**
-
 ## 목차
 1. [DataProvider 활용](#1-dataprovider-활용)
    - [1.1 simpleDataProvider DSL 사용법](#11-simpledataprovider-dsl-사용법)
@@ -510,20 +508,19 @@ fun generateReport(departmentId: Long): ByteArray {
 
 마이크로서비스 아키텍처에서 다른 서비스의 API를 호출하여 데이터를 **분할**하여 가져온 후 Excel로 변환하는 경우입니다.
 
-#### Page 기반 Iterator
+#### PageableList 기반 Iterator
 
-Spring Data의 `Page` 인터페이스를 활용하여 페이지 단위로 API를 호출하는 Iterator입니다.
+휴넷의 `standard-api-response` 라이브러리에서 제공하는 `PageableList` 타입을 활용합니다.
 
 ```kotlin
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.PageRequest
+import com.hunet.common.stdapi.response.PageableList
 
-class PagedApiIterator<T>(
+class PageableListIterator<T>(
     private val pageSize: Int = 100,
-    private val fetcher: (page: Int, size: Int) -> Page<T>
+    private val fetcher: (page: Int, size: Int) -> PageableList<T>
 ) : Iterator<T> {
 
-    private var currentPage = 0
+    private var currentPage = 1
     private var currentIterator: Iterator<T> = emptyList<T>().iterator()
     private var hasMorePages = true
 
@@ -533,8 +530,8 @@ class PagedApiIterator<T>(
 
         // 다음 페이지 로드 (API 호출)
         val result = fetcher(currentPage++, pageSize)
-        currentIterator = result.content.iterator()
-        hasMorePages = result.hasNext()
+        currentIterator = result.items.list.iterator()
+        hasMorePages = result.page.current < result.page.total
 
         return currentIterator.hasNext()
     }
@@ -548,9 +545,7 @@ class PagedApiIterator<T>(
 ```kotlin
 import io.github.jogakdal.tbeg.ExcelGenerator
 import io.github.jogakdal.tbeg.simpleDataProvider
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.PageImpl
-import org.springframework.data.domain.PageRequest
+import com.hunet.common.stdapi.response.PageableList
 import java.io.File
 
 data class EmployeeDto(val name: String, val salary: Int)
@@ -562,44 +557,49 @@ data class EmployeeDto(val name: String, val salary: Int)
 //     fun getEmployees(
 //         @RequestParam("page") page: Int,
 //         @RequestParam("size") size: Int
-//     ): Page<EmployeeDto>
+//     ): StandardResponse<PageableList<EmployeeDto>>
 // }
 
 // 다른 마이크로서비스의 API를 호출하여 데이터를 가져옴
-fun fetchEmployeesFromApi(page: Int, size: Int): Page<EmployeeDto> {
+fun fetchEmployeesFromApi(page: Int, size: Int): PageableList<EmployeeDto> {
     // Feign Client 사용 시:
-    // return employeeApiClient.getEmployees(page, size)
+    // return employeeApiClient.getEmployees(page, size).payload
+    //     ?: throw Exception("API 호출 실패")
 
     // RestTemplate 사용 시:
     // return restTemplate.exchange(
     //     "/api/employees?page=$page&size=$size",
     //     HttpMethod.GET,
     //     null,
-    //     object : ParameterizedTypeReference<RestPageImpl<EmployeeDto>>() {}
-    // ).body ?: throw Exception("API 호출 실패")
+    //     object : ParameterizedTypeReference<StandardResponse<PageableList<EmployeeDto>>>() {}
+    // ).body?.payload ?: throw Exception("API 호출 실패")
 
     // WebClient 사용 시:
     // return webClient.get()
     //     .uri("/api/employees?page=$page&size=$size")
     //     .retrieve()
-    //     .bodyToMono<RestPageImpl<EmployeeDto>>()
-    //     .block() ?: throw Exception("API 호출 실패")
+    //     .bodyToMono<StandardResponse<PageableList<EmployeeDto>>>()
+    //     .block()?.payload ?: throw Exception("API 호출 실패")
 
     // 예시용 더미 응답
-    val content = listOf(EmployeeDto("황용호", 8000), EmployeeDto("한용호", 6500))
-    return PageImpl(content, PageRequest.of(page, size), 100)
+    return PageableList.build(
+        items = listOf(EmployeeDto("황용호", 8000), EmployeeDto("한용호", 6500)),
+        totalItems = 100,
+        pageSize = size.toLong(),
+        currentPage = page.toLong()
+    )
 }
 
 fun main() {
-    // 먼저 totalElements 조회 (첫 페이지 호출 또는 별도 count API)
-    val firstPage = fetchEmployeesFromApi(0, 1)
-    val totalCount = firstPage.totalElements.toInt()
+    // 먼저 totalItems 조회 (첫 페이지 호출 또는 별도 count API)
+    val firstPage = fetchEmployeesFromApi(1, 1)
+    val totalCount = firstPage.items.total.toInt()
 
     val provider = simpleDataProvider {
         value("title", "API 데이터 보고서")
 
         items("employees", totalCount) {
-            PagedApiIterator(pageSize = 50) { page, size ->
+            PageableListIterator(pageSize = 50) { page, size ->
                 fetchEmployeesFromApi(page, size)
             }
         }
@@ -616,7 +616,7 @@ fun main() {
 ```
 
 > [!NOTE]
-> `Page`와 `PageImpl`은 Spring Data(`org.springframework.data.domain`)에서 제공하는 타입입니다. 마이크로서비스 간 페이징 API 응답 형식을 사용하는 경우 이 패턴을 활용할 수 있습니다.
+> `PageableList`와 `StandardResponse`는 `standard-api-response` 라이브러리에서 제공하는 타입입니다. 마이크로서비스 간 표준 API 응답 형식을 사용하는 경우 이 패턴을 활용할 수 있습니다.
 
 ---
 
@@ -782,8 +782,8 @@ import io.github.jogakdal.tbeg.ExcelGenerator
 
 fun main() {
     val data = mapOf(
-        "text" to "홈페이지 바로가기",
-        "url" to "https://example.com"
+        "text" to "휴넷 홈페이지 바로가기",
+        "url" to "https://www.hunet.co.kr"
     )
 
     ExcelGenerator().use { generator ->
@@ -1255,7 +1255,7 @@ fun buildI18nProvider(messageSource: MessageSource, locale: Locale) = simpleData
 > [!TIP]
 > [템플릿 다운로드 (rich_sample_template.xlsx)](../../src/test/resources/templates/rich_sample_template.xlsx)
 
-![템플릿](../../src/main/resources/sample/screenshot_template.png)
+![템플릿](../../images/rich_sample_template.png)
 
 템플릿 구성:
 - **변수 마커**: `${reportTitle}`, `${period}`, `${author}`, `${reportDate}`, `${subtitle_emp}`
@@ -1290,8 +1290,8 @@ fun main() {
         value("author", "Yongho Hwang")
         value("reportDate", LocalDate.now().toString())
         value("subtitle_emp", "Employee Performance Details")
-        image("logo", File("company_logo.png").readBytes())
-        image("ci", File("company_ci.png").readBytes())
+        image("logo", File("hunet_logo.png").readBytes())
+        image("ci", File("hunet_ci.png").readBytes())
 
         items("depts") {
             listOf(
@@ -1338,7 +1338,7 @@ fun main() {
 
 ### 결과
 
-![결과](../../src/main/resources/sample/screenshot_result.png)
+![결과](../../images/rich_sample_result_ko.png)
 
 TBEG이 자동으로 처리한 항목:
 - **변수 치환** -- 제목, 기간, 작성자, 날짜, 직원 실적 소제목
@@ -1474,11 +1474,11 @@ fun main() {
 
 **bundle이 없을 때**: employees가 4행 확장되면 A-B 열은 4행 밀려나고, departments가 1행 확장되면 D-E 열은 1행 밀려납니다. 하지만 C열, F열은 밀어내는 요소가 없으므로 원래 위치를 유지합니다. 결과적으로 제품 표의 각 열이 제각기 다른 행에 위치하게 되어 레이아웃이 깨집니다.
 
-![bundle이 없을 때 결과](../images/bundle_result_without_ko.png)
+![bundle이 없을 때 결과](../../images/bundle_result_without_ko.png)
 
 **bundle이 있을 때**: bundle로 지정된 영역이 하나의 셀처럼 취급되어, 가장 많이 밀리는 만큼(4행) 모든 요소가 함께 이동합니다. 제품 표가 온전한 형태를 유지합니다.
 
-![bundle이 있을 때 결과](../images/bundle_result_with_ko.png)
+![bundle이 있을 때 결과](../../images/bundle_result_with_ko.png)
 
 > [!NOTE]
 > bundle 범위는 다른 범위형 요소(병합된 셀, repeat 마커, 다른 bundle 마커 등)의 범위와 경계에 걸치면 안 됩니다. bundle 안에 해당 요소의 전체 범위가 포함되어야 합니다.

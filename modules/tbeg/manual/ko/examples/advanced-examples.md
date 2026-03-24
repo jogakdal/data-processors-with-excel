@@ -1,7 +1,5 @@
 # TBEG 고급 예제
 
-> 한국어 | **[English](../../en/examples/advanced-examples.md)**
-
 언어별 고급 예제 문서를 선택하세요.
 
 - [Kotlin 고급 예제](./advanced-examples-kotlin.md)

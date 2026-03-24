@@ -288,8 +288,8 @@ class HidePreprocessor(
             when (config.unmarkedHidePolicy) {
                 UnmarkedHidePolicy.WARN_AND_HIDE -> {
                     LOG.warn(
-                        "Field '{}.{}' is specified in hideFields but has no hideable marker. " +
-                        "Hiding the cell in DIM mode. Use a hideable marker to specify bundle range and hide mode.",
+                        "필드 '{}.{}'가 hideFields에 지정되었지만 hideable 마커가 없습니다. " +
+                        "해당 셀을 DIM 모드로 숨깁니다. hideable 마커를 사용하면 bundle 범위와 숨김 모드를 지정할 수 있습니다.",
                         itemField.content.itemVariable, itemField.content.fieldPath
                     )
                     val mergedRegions = scanResult.mergedRegions[itemField.sheetIndex] ?: emptyList()
@@ -305,9 +305,9 @@ class HidePreprocessor(
                 }
                 UnmarkedHidePolicy.ERROR -> {
                     throw MarkerValidationException(
-                        "Field '${itemField.content.itemVariable}.${itemField.content.fieldPath}' is specified in hideFields" +
-                        " but has no hideable marker." +
-                        " Please add a hideable marker or change unmarkedHidePolicy to WARN_AND_HIDE."
+                        "필드 '${itemField.content.itemVariable}.${itemField.content.fieldPath}'가 " +
+                        "hideFields에 지정되었지만 hideable 마커가 없습니다. " +
+                        "hideable 마커를 추가하거나 unmarkedHidePolicy를 WARN_AND_HIDE로 변경해 주세요."
                     )
                 }
             }
@@ -469,8 +469,8 @@ class HidePreprocessor(
                 "${it.content.itemVariable}.${it.content.fieldPath}"
             }
             LOG.warn(
-                "Template contains hideable marker(s) ({}) but no hideFields specified for the collection. " +
-                "Processing as regular fields.",
+                "템플릿에 hideable 마커({})가 있지만 해당 컬렉션에 hideFields가 지정되지 않았습니다. " +
+                "일반 필드로 처리합니다.",
                 fields
             )
         }

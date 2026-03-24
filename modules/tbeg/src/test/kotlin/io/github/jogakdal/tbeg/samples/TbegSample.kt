@@ -52,6 +52,7 @@ import java.util.concurrent.TimeUnit
  *
  * ### application.yml 설정 예시
  * ```yaml
+  
  * tbeg:
  *     streaming-mode: auto
  *     streaming-row-threshold: 1000

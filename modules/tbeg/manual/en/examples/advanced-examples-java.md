@@ -1413,7 +1413,7 @@ This example demonstrates variable substitution, image insertion, repeat data ex
 > [!TIP]
 > [Download template (rich_sample_template.xlsx)](../../src/test/resources/templates/rich_sample_template.xlsx)
 
-![Template](../../src/main/resources/sample/screenshot_template.png)
+![Template](../../images/rich_sample_template.png)
 
 Template structure:
 - **Variable markers**: `${reportTitle}`, `${period}`, `${author}`, `${reportDate}`, `${subtitle_emp}`
@@ -1489,7 +1489,7 @@ public class ComprehensiveExample {
 
 ### Result
 
-![Result](../../src/main/resources/sample/screenshot_result.png)
+![Result](../../images/rich_sample_result_en.png)
 
 What TBEG handled automatically:
 - **Variable substitution** -- title, period, author, date, employee performance subtitle
@@ -1643,11 +1643,11 @@ public class BundleExample {
 
 **Without bundle**: When employees expand by 4 rows, columns A-B are pushed down by 4 rows, and when departments expand by 1 row, columns D-E are pushed down by 1 row. However, columns C and F have no pushing elements, so they stay in their original positions. As a result, each column of the product table ends up on a different row, breaking the layout.
 
-![Result without bundle](../images/bundle_result_without_en.png)
+![Result without bundle](../../images/bundle_result_without_en.png)
 
 **With bundle**: The bundled area is treated as a single cell, so all elements move together by the maximum displacement (4 rows). The product table retains its intact form.
 
-![Result with bundle](../images/bundle_result_with_en.png)
+![Result with bundle](../../images/bundle_result_with_en.png)
 
 > [!NOTE]
 > The bundle range must not partially overlap with other range-based elements (merged cells, repeat markers, other bundle markers, etc.). The entire range of such elements must be contained within the bundle.

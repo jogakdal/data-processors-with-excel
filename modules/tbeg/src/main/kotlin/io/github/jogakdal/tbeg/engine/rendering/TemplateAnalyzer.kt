@@ -340,9 +340,9 @@ class TemplateAnalyzer {
                 if (duplicates.size > 1) {
                     val first = duplicates.first()
                     LOG.warn(
-                        "Found ${duplicates.size} repeat markers with the same collection ('${first.region.collection}') " +
-                            "and range ('${first.targetSheetName}'!" +
-                            "${first.region.area.start.toCellRefString()}:${first.region.area.end.toCellRefString()}). Using the last marker only."
+                        "같은 컬렉션('${first.region.collection}')과 같은 범위('${first.targetSheetName}'!" +
+                            "${first.region.area.start.toCellRefString()}:${first.region.area.end.toCellRefString()})를 가진 " +
+                            "repeat 마커가 ${duplicates.size}개 있습니다. 마지막 마커만 사용합니다."
                     )
                 }
                 duplicates.last()
@@ -577,7 +577,7 @@ class TemplateAnalyzer {
             .filterValues { it.size > 1 }
             .forEach { (_, duplicates) ->
                 LOG.warn(
-                    "Found ${duplicates.size} instances of ${duplicates.first().description}. Using the last marker only."
+                    "${duplicates.first().description}가 ${duplicates.size}개 있습니다. 마지막 마커만 사용합니다."
                 )
                 duplicates.dropLast(1).forEach {
                     toRemove.add(Triple(it.sheetIndex, it.templateRowIndex, it.columnIndex))
@@ -607,7 +607,7 @@ class TemplateAnalyzer {
                 val (sheetRef, posWithoutSheet) = extractSheetReference(pos)
                 val targetSheet = sheetRef ?: sheetName
                 val key = "image:${content.imageName}:$targetSheet!$posWithoutSheet:${content.sizeSpec}"
-                val desc = "image marker with name '${content.imageName}', position '$targetSheet'!$posWithoutSheet, and same size"
+                val desc = "같은 이름('${content.imageName}')과 같은 위치('$targetSheet'!$posWithoutSheet)와 같은 크기를 가진 image 마커"
                 key to desc
             }
             // 향후 다른 범위 기반 마커 추가 가능

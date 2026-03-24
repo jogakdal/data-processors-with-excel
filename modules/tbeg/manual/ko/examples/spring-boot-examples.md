@@ -1,7 +1,5 @@
 # TBEG Spring Boot 예제
 
-> 한국어 | **[English](../../en/examples/spring-boot-examples.md)**
-
 ## 목차
 1. [설정](#1-설정)
 2. [기본 Service 패턴](#2-기본-service-패턴)
@@ -22,6 +20,7 @@
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://nexus.hunet.tech/repository/maven-public/") }
 }
 
 dependencies {
@@ -35,13 +34,14 @@ dependencies {
 ### application.yml
 
 ```yaml
-tbeg:
-  # streaming-mode: deprecated (1.2.0부터 값이 무시됩니다)
-  file-naming-mode: timestamp       # none, timestamp
-  timestamp-format: yyyyMMdd_HHmmss
-  file-conflict-policy: sequence    # error, sequence
-  preserve-template-layout: true
-  missing-data-behavior: warn       # warn, throw
+hunet:
+  tbeg:
+    # streaming-mode: deprecated (1.2.0부터 값이 무시됩니다)
+    file-naming-mode: timestamp       # none, timestamp
+    timestamp-format: yyyyMMdd_HHmmss
+    file-conflict-policy: sequence    # error, sequence
+    preserve-template-layout: true
+    missing-data-behavior: warn       # warn, throw
 ```
 
 ### 자동 설정

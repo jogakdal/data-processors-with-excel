@@ -1,7 +1,5 @@
 # TBEG 개발 가이드
 
-> 한국어 | **[English](./DEVELOPMENT.md)**
-
 이 문서는 Template-Based Excel Generator(TBEG) 모듈의 아키텍처, 구현 원칙, 개발 가이드라인을 정의합니다.
 **코드 수정 시 이 문서도 함께 갱신해야 합니다.**
 
@@ -83,7 +81,7 @@
 ## 프로젝트 구조
 
 ```
-src/main/kotlin/io/github/jogakdal/tbeg/
+src/main/kotlin/com/hunet/common/tbeg/
 ├── ExcelGenerator.kt                       # 메인 진입점 (Public API)
 ├── ExcelDataProvider.kt                    # 데이터 제공 인터페이스
 ├── SimpleDataProvider.kt                   # Map 기반 간단한 DataProvider 구현
@@ -348,19 +346,19 @@ ${size(컬렉션)}
 
 **텍스트 마커:**
 ```
-${merge(object.field)}
+${merge(item.field)}
 ```
 
 **수식 마커:**
 ```
-=TBEG_MERGE(object.field)
+=TBEG_MERGE(item.field)
 ```
 
 **파라미터:**
 
 | 파라미터 | 설명             | 예시         |
 |------|----------------|------------|
-| field | object.field 형태 | `emp.dept` |
+| field | item.field 형태 | `emp.dept` |
 
 repeat 확장 시 연속된 같은 값의 셀을 자동으로 병합한다.
 DOWN repeat에서는 세로 병합, RIGHT repeat에서는 가로 병합이 적용된다.
@@ -392,7 +390,7 @@ ${hideable(emp.salary)}
 
 | 파라미터   | 설명                          | 필수 | 기본값    | 별칭           |
 |--------|-----------------------------|----|---------|--------------|
-| value  | object.field 형태의 필드 참조        | O  |         | field, val   |
+| value  | item.field 형태의 필드 참조        | O  |         | field, val   |
 | bundle | 함께 숨길 셀 범위                  |    |         | range        |
 | mode   | 숨김 모드 (DELETE / DIM)        |    | delete  |              |
 
@@ -408,7 +406,7 @@ ${hideable(emp.salary)}
 1. `HidePreprocessor`가 렌더링 파이프라인 전에 실행 (1st pass 전처리)
 2. 2-pass 스캔: 1st phase에서 repeat 변수명 파악, 2nd phase에서 ItemField/HideableField 식별
 3. `getHideFields()`에 지정된 필드에 대해 DELETE 또는 DIM 처리
-4. 숨기지 않는 hideable 마커는 `${object.field}` 형태로 변환되어 일반 ItemField로 처리
+4. 숨기지 않는 hideable 마커는 `${item.field}` 형태로 변환되어 일반 ItemField로 처리
 
 **DIM 모드 처리:**
 - repeat 데이터 영역만 DIM 처리 (bundle 범위와 repeat 범위의 교집합)
@@ -987,13 +985,14 @@ TbegConfig.forSmallData()
 ### Spring Boot 설정 (application.yml)
 
 ```yaml
-tbeg:
-  file-naming-mode: timestamp
-  timestamp-format: yyyyMMdd_HHmmss
-  file-conflict-policy: sequence
-  progress-report-interval: 100
-  preserve-template-layout: true
-  missing-data-behavior: warn
+hunet:
+  tbeg:
+    file-naming-mode: timestamp
+    timestamp-format: yyyyMMdd_HHmmss
+    file-conflict-policy: sequence
+    progress-report-interval: 100
+    preserve-template-layout: true
+    missing-data-behavior: warn
 ```
 
 ---
@@ -1111,7 +1110,7 @@ val NEW_MARKER = MarkerDefinition("newmarker", listOf(
 
 ```
 src/test/
-├── kotlin/io/github/jogakdal/tbeg/
+├── kotlin/com/hunet/common/tbeg/
 │   ├── TbegTest.kt                     # 통합 테스트
 │   ├── ThreadSafetyTest.kt             # 스레드 안전성 테스트
 │   ├── EmptyCollectionTest.kt          # 빈 컬렉션 처리 테스트
@@ -1193,7 +1192,7 @@ JMH(Java Microbenchmark Harness)를 사용하여 소요 시간, 힙 할당량, G
 ### 소스 구조
 
 ```
-src/jmh/kotlin/io/github/jogakdal/tbeg/benchmark/
+src/jmh/kotlin/com/hunet/common/tbeg/benchmark/
 ├── BenchmarkSupport.kt          # 공통: 템플릿 생성, 데이터 생성, 결과 출력
 ├── DataModeBenchmark.kt         # 벤치마크 1: Map vs DataProvider
 ├── OutputModeBenchmark.kt       # 벤치마크 2: generate vs toStream vs toFile
@@ -1216,4 +1215,4 @@ src/jmh/kotlin/io/github/jogakdal/tbeg/benchmark/
 | 1,000,000행 | 8,952ms | 8.8% | 5,230.7MB |
 
 > DataProvider + generateToFile 기준. CPU/코어는 시스템 전체 CPU 용량 대비 프로세스 사용률(코어 수로 나눈 값)입니다.
-> 벤치마크 3종(데이터 방식 비교, 출력 방식 비교, 대용량 스케일)의 전체 결과와 분석은 [성능 벤치마크 상세](./manual/ko/appendix/benchmark-results.md)를 참조하세요.
+> 벤치마크 3종(데이터 방식 비교, 출력 방식 비교, 대용량 스케일)의 전체 결과와 분석은 [성능 벤치마크 상세](./manual/appendix/benchmark-results.md)를 참조하세요.

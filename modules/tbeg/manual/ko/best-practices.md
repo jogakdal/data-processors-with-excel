@@ -1,7 +1,5 @@
 # TBEG 모범 사례
 
-> 한국어 | **[English](../en/best-practices.md)**
-
 ## 목차
 1. [템플릿 설계](#1-템플릿-설계)
 2. [성능 최적화](#2-성능-최적화)
@@ -242,7 +240,7 @@ class TbegConfig {
 
 ### merge 마커 사용 시 데이터를 정렬하세요
 
-`${merge(object.field)}` 마커는 연속된 같은 값의 셀을 자동으로 병합합니다. 따라서 병합 기준 필드로 데이터를 미리 정렬해야 의도한 결과를 얻을 수 있습니다.
+`${merge(item.field)}` 마커는 연속된 같은 값의 셀을 자동으로 병합합니다. 따라서 병합 기준 필드로 데이터를 미리 정렬해야 의도한 결과를 얻을 수 있습니다.
 
 ```
 데이터: [영업1팀, 영업2팀, 영업1팀]  -> 영업1팀이 떨어져 있으므로 별도 셀로 남음
@@ -294,12 +292,14 @@ Spring Boot에서는 프로파일별로 설정할 수 있습니다:
 
 ```yaml
 # application-dev.yml
-tbeg:
-  missing-data-behavior: throw
+hunet:
+  tbeg:
+    missing-data-behavior: throw
 
 # application-prod.yml
-tbeg:
-  missing-data-behavior: warn
+hunet:
+  tbeg:
+    missing-data-behavior: warn
 ```
 
 ---

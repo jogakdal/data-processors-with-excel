@@ -1,7 +1,5 @@
 # TBEG 사용자 가이드
 
-> 한국어 | **[English](../en/user-guide.md)**
-
 ## 목차
 1. [빠른 시작](#1-빠른-시작)
 2. [핵심 개념](#2-핵심-개념)
@@ -20,7 +18,16 @@
 ```kotlin
 // build.gradle.kts
 
-// Maven Central에 배포되어 있으므로 별도의 저장소 설정이 필요하지 않습니다.
+// 1. 리포지토리 설정
+repositories {
+    mavenCentral()
+    // 사내 Nexus 리포지토리
+    maven {
+        url = uri("https://nexus.hunet.tech/repository/maven-public/")
+    }
+}
+
+// 2. 의존성 추가
 dependencies {
     implementation("io.github.jogakdal:tbeg:1.2.3")
 }
@@ -31,7 +38,16 @@ dependencies {
 ```groovy
 // build.gradle
 
-// Maven Central에 배포되어 있으므로 별도의 저장소 설정이 필요하지 않습니다.
+// 1. 리포지토리 설정
+repositories {
+    mavenCentral()
+    // 사내 Nexus 리포지토리
+    maven {
+        url 'https://nexus.hunet.tech/repository/maven-public/'
+    }
+}
+
+// 2. 의존성 추가
 dependencies {
     implementation 'io.github.jogakdal:tbeg:1.2.3'
 }
@@ -42,12 +58,21 @@ dependencies {
 ```xml
 <!-- pom.xml -->
 
-<!-- Maven Central에 배포되어 있으므로 별도의 저장소 설정이 필요하지 않습니다. -->
+<!-- 1. 리포지토리 설정 -->
+<repositories>
+    <repository>
+        <id>hunet-nexus</id>
+        <name>Hunet Nexus Repository</name>
+        <url>https://nexus.hunet.tech/repository/maven-public/</url>
+    </repository>
+</repositories>
+
+<!-- 2. 의존성 추가 -->
 <dependencies>
     <dependency>
-        <groupId>io.github.jogakdal</groupId>
+        <groupId>com.hunet.common</groupId>
         <artifactId>tbeg</artifactId>
-        <version>1.2.3</version>
+        <version>1.1.3</version>
     </dependency>
 </dependencies>
 ```

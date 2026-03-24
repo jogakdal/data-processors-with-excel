@@ -84,13 +84,13 @@ internal class TemplateRenderProcessor : ExcelProcessor {
         when (context.config.missingDataBehavior) {
             MissingDataBehavior.WARN -> {
                 if (missingVariables.isNotEmpty()) {
-                    LOG.warn("Required variables are missing from the template data: {}", missingVariables)
+                    LOG.warn("템플릿에 필요한 변수가 누락되었습니다: {}", missingVariables)
                 }
                 if (missingCollections.isNotEmpty()) {
-                    LOG.warn("Required collections are missing from the template data: {}", missingCollections)
+                    LOG.warn("템플릿에 필요한 컬렉션이 누락되었습니다: {}", missingCollections)
                 }
                 if (missingImages.isNotEmpty()) {
-                    LOG.warn("Required images are missing from the template data: {}", missingImages)
+                    LOG.warn("템플릿에 필요한 이미지가 누락되었습니다: {}", missingImages)
                 }
             }
             MissingDataBehavior.THROW -> {

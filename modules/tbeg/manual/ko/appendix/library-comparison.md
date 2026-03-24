@@ -1,7 +1,5 @@
 # 별첨: 타 라이브러리 비교
 
-> 한국어 | **[English](../../en/appendix/library-comparison.md)**
-
 Excel 보고서 생성 라이브러리를 선택할 때 참고할 수 있도록, TBEG과 유사한 템플릿 기반 라이브러리인 JXLS, JETT, ExcelReportGenerator(ERG)를 비교합니다.
 
 ---
