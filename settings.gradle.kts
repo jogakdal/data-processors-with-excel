@@ -9,3 +9,6 @@ dependencyResolutionManagement {
 rootProject.name = "data-processors-with-excel"
 include(":tbeg")
 project(":tbeg").projectDir = file("modules/tbeg")
+
+include(":excel-art")
+project(":excel-art").projectDir = file("modules/excel-art")
