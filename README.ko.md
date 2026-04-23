@@ -127,14 +127,14 @@ ExcelGenerator().use { generator ->
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.2.3")
+    implementation("io.github.jogakdal:tbeg:1.2.4")
 }
 ```
 
 ```groovy
 // Gradle (Groovy DSL)
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.2.3'
+    implementation 'io.github.jogakdal:tbeg:1.2.4'
 }
 ```
 
@@ -143,7 +143,7 @@ dependencies {
 <dependency>
     <groupId>io.github.jogakdal</groupId>
     <artifactId>tbeg</artifactId>
-    <version>1.2.3</version>
+    <version>1.2.4</version>
 </dependency>
 ```
 
@@ -344,7 +344,8 @@ TBEG은 대용량 데이터를 최대한의 성능과 최소한의 리소스로 
 - [API 레퍼런스](modules/tbeg/manual/ko/reference/api-reference.md)
 - [설정 옵션 레퍼런스](modules/tbeg/manual/ko/reference/configuration.md)
 - [기본 예제](modules/tbeg/manual/ko/examples/basic-examples.md)
-- [고급 예제](modules/tbeg/manual/ko/examples/advanced-examples.md)
+- [고급 예제 (Kotlin)](modules/tbeg/manual/ko/examples/advanced-examples-kotlin.md)
+- [고급 예제 (Java)](modules/tbeg/manual/ko/examples/advanced-examples-java.md)
 - [Spring Boot 예제](modules/tbeg/manual/ko/examples/spring-boot-examples.md)
 - [모범 사례](modules/tbeg/manual/ko/best-practices.md)
 - [문제 해결](modules/tbeg/manual/ko/troubleshooting.md)

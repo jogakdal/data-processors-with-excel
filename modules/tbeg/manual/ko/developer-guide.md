@@ -1,5 +1,7 @@
 # TBEG 개발자 가이드
 
+> 한국어 | **[English](../en/developer-guide.md)**
+
 이 문서는 TBEG 라이브러리의 내부 아키텍처와 확장 방법을 설명합니다.
 
 ## 목차
@@ -91,11 +93,11 @@ io.github.jogakdal.tbeg/
    1. ChartExtractProcessor       - 차트 추출 (스트리밍 처리 시 손실 방지)
    2. PivotExtractProcessor       - 피벗 테이블 정보 추출
    3. TemplateRenderProcessor     - 템플릿 렌더링 (데이터 바인딩)
-   4. NumberFormatProcessor       - 숫자/수식 셀 서식 적용
-   5. XmlVariableReplaceProcessor - XML 내 변수 치환
-   6. PivotRecreateProcessor      - 피벗 테이블 재생성
-   7. ChartRestoreProcessor       - 차트 복원
-   8. MetadataProcessor           - 문서 메타데이터 적용
+   4. ZipStreamPostProcessor      - ZIP 단일 패스 후처리
+                                    (NUMERIC 셀 자동 숫자 서식, 변수 치환,
+                                     메타데이터, absPath 제거)
+   5. PivotRecreateProcessor      - 피벗 테이블 재생성
+   6. ChartRestoreProcessor       - 차트 복원
 ───────────────────────────────────────────────────────────────
        │
        ▼
@@ -546,7 +548,7 @@ PositionCalculator가 repeat 확장에 의한 **렌더링 시점** 위치 계산
 
 ## 6. 테스트 및 샘플
 
-테스트 코드는 `src/test/kotlin/com/hunet/common/tbeg/`에 위치한다.
+테스트 코드는 `src/test/kotlin/io/github/jogakdal/tbeg/`에 위치한다.
 테스트용 템플릿은 `src/test/resources/templates/`에 위치한다.
 
 ### 6.1 테스트 예시
@@ -619,7 +621,7 @@ class ExcelGeneratorIntegrationTest {
 
 ```
 src/test/
-├── kotlin/com/hunet/common/tbeg/
+├── kotlin/io/github/jogakdal/tbeg/
 │   ├── samples/                            # 샘플 코드 (Kotlin)
 │   │   ├── TbegSample.kt
 │   │   ├── EmptyCollectionSample.kt
@@ -632,7 +634,7 @@ src/test/
 │   │   ├── PerformanceBenchmark.kt         # 대용량 벤치마크
 │   │   └── PerformanceBenchmarkTest.kt     # 처리 속도 벤치마크
 │   └── ...                                 # 테스트 코드
-├── java/com/hunet/common/tbeg/samples/     # 샘플 코드 (Java)
+├── java/io/github/jogakdal/tbeg/samples/     # 샘플 코드 (Java)
 │   ├── TbegJavaSample.java
 │   └── TbegSpringBootJavaSample.java
 ```

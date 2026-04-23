@@ -1,5 +1,28 @@
 # TBEG Changelog
 
+> 한국어 | **[English](./CHANGELOG.md)**
+
+## 1.2.4
+
+### 동작 변경
+
+- **수식 셀 자동 숫자 서식 제거**: 1.2.1에서 도입된 "수식 셀의 자동 숫자 서식 적용"을 제거합니다. 수식 결과 타입은 Excel이 런타임에 결정하므로 TBEG이 사전에 서식을 결정하지 않으며, 사용자가 템플릿에 명시한 서식을 그대로 보존합니다.
+  - 수식 결과가 문자열인 경우(`IFERROR(VLOOKUP(...), "")` 등)에도 정수 서식이 강제 적용되어 사용자 의도가 훼손되던 문제를 해소합니다.
+  - 수식 셀에 숫자 서식이 필요하면 템플릿 셀에 직접 서식을 지정합니다.
+
+### 버그 수정
+
+- **`.xlsm` 양식의 `styles.xml` 거부 문제 해결**: `StylesXmlHandler.createVariantXf`가 `<protection>`만 가진 `cellXf`에 `<alignment>`를 추가할 때 OOXML CT_Xf 스키마(`alignment` → `protection` → `extLst`)를 위반하던 문제를 수정합니다. `protection`이 있는 경우 `insertBefore`로 `alignment`를 앞에 삽입하며, `applyAlignment="1"` 속성도 명시합니다.
+  - 이 문제로 인해 보호된 `.xlsm` 양식에서 Excel이 `styles.xml`을 거부하여 모든 셀이 잠금 상태로 처리되던 현상이 해소됩니다.
+
+<details>
+<summary>내부 개선</summary>
+
+- `StylesXmlHandler`: `StyleVariants`에서 `formulaIndex` 필드 제거, FORMULA 변형 추가 로직 제거.
+- `SheetXmlHandler`: `processCellElement`의 `hasFormula` 분기 제거, FORMULA 셀은 원본 스타일 유지.
+
+</details>
+
 ## 1.2.3
 
 ### 새 기능
@@ -30,7 +53,7 @@
   - **HideMode**: `DELETE`(물리적 삭제 + 시프트, 기본값) 또는 `DIM`(비활성화 스타일 + 값 제거) 중 선택할 수 있습니다.
   - **UnmarkedHidePolicy**: hideable 마커가 없는 필드를 숨기려 할 때의 동작을 설정합니다. `WARN_AND_HIDE`(경고 후 숨김, 기본값) 또는 `ERROR`(예외 발생)를 지원합니다.
   - **API**: `ExcelDataProvider.getHiddenFields()`로 숨길 필드 목록을 지정하고, `SimpleDataProvider.Builder.hideFields()`로 간편하게 설정할 수 있습니다.
-  - **Spring Boot 설정**: `hunet.tbeg.unmarked-hide-policy` 프로퍼티로 정책을 설정할 수 있습니다.
+  - **Spring Boot 설정**: `tbeg.unmarked-hide-policy` 프로퍼티로 정책을 설정할 수 있습니다.
 
 <details>
 <summary>내부 개선</summary>

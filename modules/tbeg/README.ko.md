@@ -1,5 +1,7 @@
 # TBEG (Template Based Excel Generator)
 
+> 한국어 | **[English](./README.md)**
+
 Excel 템플릿에 데이터를 바인딩하여 보고서를 생성하는 라이브러리입니다.
 
 ## 주요 기능
@@ -122,8 +124,24 @@ ExcelGenerator().use { generator ->
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.2.3")
+    implementation("io.github.jogakdal:tbeg:1.2.4")
 }
+```
+
+```groovy
+// Gradle (Groovy DSL)
+dependencies {
+    implementation 'io.github.jogakdal:tbeg:1.2.4'
+}
+```
+
+```xml
+<!-- Maven -->
+<dependency>
+    <groupId>io.github.jogakdal</groupId>
+    <artifactId>tbeg</artifactId>
+    <version>1.2.4</version>
+</dependency>
 ```
 
 ## 빠른 시작
@@ -219,19 +237,20 @@ TBEG은 대용량 데이터를 최대한의 성능과 최소한의 리소스로 
 
 ## 문서
 
-**상세 문서는 [TBEG 매뉴얼](./manual/index.md)을 참조하세요.**
+**상세 문서는 [TBEG 매뉴얼](./manual/ko/index.md)을 참조하세요.**
 
-- [사용자 가이드](./manual/user-guide.md)
-- [템플릿 문법 레퍼런스](./manual/reference/template-syntax.md)
-- [API 레퍼런스](./manual/reference/api-reference.md)
-- [설정 옵션 레퍼런스](./manual/reference/configuration.md)
-- [기본 예제](./manual/examples/basic-examples.md)
-- [고급 예제](./manual/examples/advanced-examples.md)
-- [Spring Boot 예제](./manual/examples/spring-boot-examples.md)
-- [모범 사례](./manual/best-practices.md)
-- [문제 해결](./manual/troubleshooting.md)
-- [타 라이브러리 비교](./manual/appendix/library-comparison.md)
-- [유지보수 개발자 가이드](./manual/developer-guide.md)
+- [사용자 가이드](./manual/ko/user-guide.md)
+- [템플릿 문법 레퍼런스](./manual/ko/reference/template-syntax.md)
+- [API 레퍼런스](./manual/ko/reference/api-reference.md)
+- [설정 옵션 레퍼런스](./manual/ko/reference/configuration.md)
+- [기본 예제](./manual/ko/examples/basic-examples.md)
+- [고급 예제 (Kotlin)](./manual/ko/examples/advanced-examples-kotlin.md)
+- [고급 예제 (Java)](./manual/ko/examples/advanced-examples-java.md)
+- [Spring Boot 예제](./manual/ko/examples/spring-boot-examples.md)
+- [모범 사례](./manual/ko/best-practices.md)
+- [문제 해결](./manual/ko/troubleshooting.md)
+- [유지보수 개발자 가이드](./manual/ko/developer-guide.md)
+- [개발자 상세 가이드](./DEVELOPMENT.ko.md)
 
 ## 샘플 실행
 
@@ -250,3 +269,7 @@ TBEG은 대용량 데이터를 최대한의 성능과 최소한의 리소스로 
 ./gradlew :tbeg:runSpringBootSample
 # 결과: build/samples-spring/
 ```
+
+## 작성자
+
+[황용호 (Yongho Hwang)](https://github.com/jogakdal) (jogakdal@gmail.com)

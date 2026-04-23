@@ -93,11 +93,12 @@ Template + Data
    1. ChartExtractProcessor       - Extract charts (prevent streaming loss)
    2. PivotExtractProcessor       - Extract pivot table info
    3. TemplateRenderProcessor     - Render templates (data binding)
-   4. NumberFormatProcessor       - Apply number/formula cell formatting
-   5. XmlVariableReplaceProcessor - Replace variables in XML
-   6. PivotRecreateProcessor      - Recreate pivot tables
-   7. ChartRestoreProcessor       - Restore charts
-   8. MetadataProcessor           - Apply document metadata
+   4. ZipStreamPostProcessor      - Single-pass ZIP post-processing
+                                    (automatic number formatting for NUMERIC
+                                     cells, variable substitution, metadata,
+                                     absPath removal)
+   5. PivotRecreateProcessor      - Recreate pivot tables
+   6. ChartRestoreProcessor       - Restore charts
 ───────────────────────────────────────────────────────────────
        │
        ▼

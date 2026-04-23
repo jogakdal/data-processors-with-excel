@@ -2,6 +2,27 @@
 
 # TBEG Changelog
 
+## 1.2.4
+
+### Behavior Changes
+
+- **Removed automatic number formatting for formula cells**: Removed the "automatic number formatting for formula cells" feature introduced in 1.2.1. Since Excel determines formula result types at runtime, TBEG no longer pre-applies formatting, and the formatting specified by the user in the template is preserved as-is.
+  - Resolves an issue where integer formatting was forcibly applied even when formula results were strings (e.g., `IFERROR(VLOOKUP(...), "")`), corrupting the user's intent.
+  - If number formatting is needed for a formula cell, specify the formatting directly on the template cell.
+
+### Bug Fixes
+
+- **Fixed `.xlsm` template `styles.xml` rejection issue**: Fixed an issue where `StylesXmlHandler.createVariantXf` violated the OOXML CT_Xf schema (`alignment` → `protection` → `extLst`) when adding `<alignment>` to a `cellXf` containing only `<protection>`. When `protection` is present, `alignment` is now inserted before it via `insertBefore`, and the `applyAlignment="1"` attribute is also explicitly set.
+  - Resolves a symptom where Excel rejected `styles.xml` in protected `.xlsm` templates, causing all cells to be treated as locked.
+
+<details>
+<summary>Internal Improvements</summary>
+
+- `StylesXmlHandler`: Removed the `formulaIndex` field from `StyleVariants` and removed the FORMULA variant generation logic.
+- `SheetXmlHandler`: Removed the `hasFormula` branch from `processCellElement`; FORMULA cells now retain their original styles.
+
+</details>
+
 ## 1.2.3
 
 ### New Features

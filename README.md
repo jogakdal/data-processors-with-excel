@@ -127,14 +127,14 @@ Variable substitution, image insertion, repeat data expansion, automatic cell me
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.2.3")
+    implementation("io.github.jogakdal:tbeg:1.2.4")
 }
 ```
 
 ```groovy
 // Gradle (Groovy DSL)
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.2.3'
+    implementation 'io.github.jogakdal:tbeg:1.2.4'
 }
 ```
 
@@ -143,7 +143,7 @@ dependencies {
 <dependency>
     <groupId>io.github.jogakdal</groupId>
     <artifactId>tbeg</artifactId>
-    <version>1.2.3</version>
+    <version>1.2.4</version>
 </dependency>
 ```
 
@@ -344,7 +344,8 @@ TBEG reliably processes large data with maximum performance and minimal resource
 - [API Reference](modules/tbeg/manual/en/reference/api-reference.md)
 - [Configuration Options Reference](modules/tbeg/manual/en/reference/configuration.md)
 - [Basic Examples](modules/tbeg/manual/en/examples/basic-examples.md)
-- [Advanced Examples](modules/tbeg/manual/en/examples/advanced-examples.md)
+- [Advanced Examples (Kotlin)](modules/tbeg/manual/en/examples/advanced-examples-kotlin.md)
+- [Advanced Examples (Java)](modules/tbeg/manual/en/examples/advanced-examples-java.md)
 - [Spring Boot Examples](modules/tbeg/manual/en/examples/spring-boot-examples.md)
 - [Best Practices](modules/tbeg/manual/en/best-practices.md)
 - [Troubleshooting](modules/tbeg/manual/en/troubleshooting.md)

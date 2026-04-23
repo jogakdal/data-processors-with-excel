@@ -1,5 +1,7 @@
 # TBEG (Template-Based Excel Generator)
 
+> 한국어 | **[English](../en/index.md)**
+
 템플릿 기반 Excel 파일 생성 라이브러리
 
 ## 개요
@@ -208,11 +210,10 @@ TBEG은 대용량 데이터를 최대한의 성능과 최소한의 리소스로 
 
 repositories {
     mavenCentral()
-    maven { url = uri("https://nexus.hunet.tech/repository/maven-public/") }
 }
 
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.2.3")
+    implementation("io.github.jogakdal:tbeg:1.2.4")
 }
 ```
 
@@ -293,10 +294,11 @@ fun main() {
 
 |      항목      |            값             |
 |:------------:|:------------------------:|
-|   Group ID   |    `com.hunet.common`    |
+|   Group ID   |    `io.github.jogakdal`    |
 | Artifact ID  |          `tbeg`          |
 |     패키지      | `io.github.jogakdal.tbeg`  |
 |     Java     |          21 이상           |
 |    Kotlin    |          2.0 이상          |
 |  Apache POI  |      5.2.5 (전이 의존성)      |
 | Spring Boot  |       3.x (선택 사항)        |
+|     작성자      | [황용호 (Yongho Hwang)](https://github.com/jogakdal) (jogakdal@gmail.com) |

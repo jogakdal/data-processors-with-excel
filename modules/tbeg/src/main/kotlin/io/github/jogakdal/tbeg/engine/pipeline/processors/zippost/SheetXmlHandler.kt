@@ -11,8 +11,8 @@ import javax.xml.stream.XMLStreamWriter
 /**
  * sheet*.xml을 StAX로 스트리밍 처리하여 셀의 스타일 인덱스를 교체한다.
  *
- * NUMERIC 또는 FORMULA 셀 중 styleMapping에 해당하는 스타일이 있으면
- * 적절한 변형 인덱스로 교체한다.
+ * NUMERIC 셀 중 styleMapping에 해당하는 스타일이 있으면 적절한 변형 인덱스로 교체한다.
+ * FORMULA 셀은 원본 스타일을 유지한다 (수식 결과 타입은 Excel이 런타임에 결정).
  */
 internal object SheetXmlHandler {
 
@@ -81,6 +81,8 @@ internal object SheetXmlHandler {
 
     /**
      * `<c>` 요소를 버퍼링하여 분석 후 스타일을 교체한다.
+     *
+     * FORMULA 셀은 원본 스타일을 유지하고 NUMERIC 셀만 styleMapping의 변형으로 교체한다.
      */
     private fun processCellElement(
         reader: XMLStreamReader,
@@ -91,9 +93,9 @@ internal object SheetXmlHandler {
         val styleIdx = attrs["s"]?.toIntOrNull()
         val cellType = attrs["t"]
 
-        // 매핑 대상이 아니면 빠르게 통과
+        // 매핑 대상이 아니면 빠르게 통과 (styleIdx 비교를 함께 두어 smart-cast 확보)
         val variants = styleIdx?.let { styleMapping[it] }
-        if (variants == null) {
+        if (styleIdx == null || variants == null) {
             copyStartElementWithAttrs(writer, reader, attrs)
             return
         }
@@ -108,9 +110,9 @@ internal object SheetXmlHandler {
             .firstOrNull { it.name == "v" }
             ?.let { extractText(it) }
 
-        // 새 스타일 인덱스 결정
+        // 새 스타일 인덱스 결정 (FORMULA는 원본 유지, NUMERIC만 변형 적용)
         val newStyleIdx = when {
-            hasFormula -> variants.formulaIndex
+            hasFormula -> styleIdx
             (cellType == "n" || cellType == null) && valueText != null ->
                 if (isIntegerValue(valueText)) variants.integerIndex else variants.decimalIndex
             else -> styleIdx
