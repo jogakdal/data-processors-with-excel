@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.4] - 2026-04-23
+
+### Behavior Changes
+- **Removed automatic number formatting for formula cells**: Reverted the feature introduced in 1.2.1. FORMULA cells now preserve the formatting specified in the template, resolving issues where integer formatting was forcibly applied to formula results of string type (e.g., `IFERROR(VLOOKUP(...), "")`).
+
+### Bug Fixes
+- **Fixed `.xlsm` template `styles.xml` rejection**: `StylesXmlHandler` now inserts `<alignment>` before `<protection>` in `cellXf`, complying with the OOXML CT_Xf schema order (`alignment` → `protection` → `extLst`). Protected `.xlsm` templates are no longer rejected by Excel as locked.
+
+### Internal Improvements
+- `StylesXmlHandler`: Removed `formulaIndex` from `StyleVariants` and eliminated FORMULA variant generation
+- `SheetXmlHandler`: FORMULA cells retain their original style index instead of applying `styleMapping`
+
 ## [1.2.3] - 2026-03-19
 
 ### New Features

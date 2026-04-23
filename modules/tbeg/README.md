@@ -124,14 +124,14 @@ Variable substitution, image insertion, repeat data expansion, automatic cell me
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("io.github.jogakdal:tbeg:1.2.3")
+    implementation("io.github.jogakdal:tbeg:1.2.4")
 }
 ```
 
 ```groovy
 // Gradle (Groovy DSL)
 dependencies {
-    implementation 'io.github.jogakdal:tbeg:1.2.3'
+    implementation 'io.github.jogakdal:tbeg:1.2.4'
 }
 ```
 
@@ -140,7 +140,7 @@ dependencies {
 <dependency>
     <groupId>io.github.jogakdal</groupId>
     <artifactId>tbeg</artifactId>
-    <version>1.2.3</version>
+    <version>1.2.4</version>
 </dependency>
 ```
 
